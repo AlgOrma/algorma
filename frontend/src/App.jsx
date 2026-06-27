@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
+import * as api from './api';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import ProblemBank from './pages/ProblemBank';
@@ -7,6 +8,7 @@ import Templates from './pages/Templates';
 import ProblemDetail from './pages/ProblemDetail';
 import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
+import ProfileSetup from './pages/ProfileSetup';
 import NewProblemModal from './components/NewProblemModal';
 
 import {
@@ -25,9 +27,11 @@ function App() {
   const [topics, setTopics] = useLocalStorage('dsa_topics', INITIAL_TOPICS);
   const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 12);
   const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
+  const [user, setUser] = useLocalStorage('dsa_user', null);
 
   // Temporary UI state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
   // Theme settings mapping
@@ -48,6 +52,31 @@ function App() {
   const handleOpenProblem = (id) => {
     setSelectedId(id);
     setScreen('detail');
+  };
+
+  // On load, reconcile a locally-stored profile with the backend: refresh its
+  // fields, or — if the stored id is unknown to the server (e.g. an old
+  // client-only profile) — clear it so first-run setup runs again. Network/other
+  // errors are ignored so the app still works offline for the localStorage data.
+  useEffect(() => {
+    if (!user?.id) return;
+    api.getMe()
+      .then((fresh) => setUser(fresh))
+      .catch((err) => {
+        if (err?.status === 404) setUser(null);
+      });
+    // Runs once on mount; setUser is stable and user is only the initial value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save profile from first-run setup or the edit-profile screen. Persists to the
+  // backend; throws to the caller (ProfileSetup) on failure so it can surface it.
+  const handleSaveProfile = async (formPayload) => {
+    const saved = user?.id
+      ? await api.updateUser(formPayload)
+      : await api.createUser(formPayload);
+    setUser(saved);
+    setIsEditingProfile(false);
   };
 
   // Update a single problem in local state
@@ -111,6 +140,7 @@ function App() {
           <Dashboard
             problems={problems}
             topics={topics}
+            userName={user?.name}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
             onOpenNewProblemModal={() => setIsModalOpen(true)}
@@ -171,12 +201,33 @@ function App() {
 
   const dueReviseCount = problems.filter(p => p.due).length;
 
+  // First-run setup: no profile yet, or the user chose to edit their profile.
+  // Rendered full-screen without the sidebar, matching the design.
+  if (!user || isEditingProfile) {
+    return (
+      <div
+        className="h-screen bg-bg-main text-text-main overflow-hidden"
+        style={{
+          '--theme-accent': themeAccent,
+          '--theme-secondary': themeSecondary
+        }}
+      >
+        <ProfileSetup
+          user={user}
+          isEditing={isEditingProfile && !!user}
+          onSubmit={handleSaveProfile}
+          onCancel={() => setIsEditingProfile(false)}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div 
+    <div
       className="flex h-screen bg-bg-main text-text-main overflow-hidden relative"
-      style={{ 
-        '--theme-accent': themeAccent, 
-        '--theme-secondary': themeSecondary 
+      style={{
+        '--theme-accent': themeAccent,
+        '--theme-secondary': themeSecondary
       }}
     >
       {/* Sidebar Navigation */}
@@ -188,6 +239,8 @@ function App() {
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}
         streakDays={streakDays}
+        user={user}
+        onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
         themeColorSecondary={themeSecondary}
       />

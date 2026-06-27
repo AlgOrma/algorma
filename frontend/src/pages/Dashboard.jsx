@@ -4,9 +4,16 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import { getStats } from '../api';
 
+// Time-of-day greeting word
+function greetingWord() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening';
+}
+
 export default function Dashboard({
   problems = [],
   topics = [],
+  userName,
   onNavigate,
   onOpenProblem,
   onOpenNewProblemModal
@@ -41,7 +48,7 @@ export default function Dashboard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-fs-23 font-bold text-text-main tracking-[-0.015em] text-left">
-            Evening, Sam
+            {greetingWord()}, {userName || 'there'}
           </div>
           <div className="font-mono text-fs-12-5 text-text-muted mt-sp-5 text-left">
             Tue · Jun 25 &nbsp;·&nbsp; <span className="text-accent">{dueCount} cards</span> due for review

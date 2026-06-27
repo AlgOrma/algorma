@@ -42,3 +42,19 @@ class ProblemUpdate(CamelModel):
 
 class GradeIn(CamelModel):
     grade: str  # "Again" | "Hard" | "Good" | "Easy"
+
+
+class UserCreate(CamelModel):
+    name: str
+    email: str | None = None
+    timezone: str = "UTC"
+    daily_goal: int = 10  # dailyGoal
+    bio: str | None = None
+
+
+class UserUpdate(CamelModel):
+    name: str | None = None
+    email: str | None = None
+    timezone: str | None = None
+    daily_goal: int | None = None
+    bio: str | None = None

@@ -1,20 +1,59 @@
-// Thin client for the AlgOrma FastAPI backend.
-// Base URL comes from VITE_API_URL (see frontend/.env).
+// Tiny fetch client for the AlgOrma API.
+//
+// The backend has no auth: it identifies the current profile from an
+// `X-User-Id` header. We keep the single source of truth in localStorage under
+// `dsa_user` (the full profile object, persisted by App's useLocalStorage), and
+// read the id back out of it for every request.
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const USER_KEY = 'dsa_user';
 
-async function request(path, options = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    throw new Error(`${options.method || 'GET'} ${path} failed: ${res.status}`);
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
   }
-  // 204 No Content (e.g. DELETE) has no body.
+}
+
+// Current profile id, read from the persisted user object (or null on first run).
+export function currentUserId() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY))?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+async function request(path, { method = 'GET', body, auth = true } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  const uid = auth ? currentUserId() : null;
+  if (uid) headers['X-User-Id'] = uid;
+
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError('Cannot reach the server. Is the API running?', 0);
+  }
+
+  if (!res.ok) {
+    let detail;
+    try {
+      detail = (await res.json())?.detail;
+    } catch {
+      // non-JSON error body — fall back to a generic message below
+    }
+    throw new ApiError(detail || `Request failed (${res.status})`, res.status);
+  }
   return res.status === 204 ? null : res.json();
 }
 
+// Append a query string, skipping undefined/null params.
 function withQuery(path, params = {}) {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null);
   if (entries.length === 0) return path;
@@ -22,7 +61,21 @@ function withQuery(path, params = {}) {
   return `${path}?${qs}`;
 }
 
-// --- reads ---
+// --- Users ---
+// Creating a profile is the one call that doesn't carry an X-User-Id yet.
+export function createUser(payload) {
+  return request('/users', { method: 'POST', body: payload, auth: false });
+}
+
+export function getMe() {
+  return request('/users/me');
+}
+
+export function updateUser(payload) {
+  return request('/users/me', { method: 'PATCH', body: payload });
+}
+
+// --- Reads ---
 export const getStats = () => request('/stats');
 export const getTopics = () => request('/topics');
 export const getTemplates = () => request('/templates');
@@ -30,13 +83,12 @@ export const getProblems = (params) => request(withQuery('/problems', params));
 export const getProblem = (id) => request(`/problems/${id}`);
 export const getFlashcards = (params) => request(withQuery('/flashcards', params));
 
-// --- writes ---
-export const createProblem = (body) =>
-  request('/problems', { method: 'POST', body: JSON.stringify(body) });
+// --- Writes ---
+export const createProblem = (body) => request('/problems', { method: 'POST', body });
 export const updateProblem = (id, body) =>
-  request(`/problems/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+  request(`/problems/${id}`, { method: 'PATCH', body });
 export const deleteProblem = (id) => request(`/problems/${id}`, { method: 'DELETE' });
 export const reviewProblem = (id, grade) =>
-  request(`/problems/${id}/review`, { method: 'POST', body: JSON.stringify({ grade }) });
+  request(`/problems/${id}/review`, { method: 'POST', body: { grade } });
 export const reviewFlashcard = (id, grade) =>
-  request(`/flashcards/${id}/review`, { method: 'POST', body: JSON.stringify({ grade }) });
+  request(`/flashcards/${id}/review`, { method: 'POST', body: { grade } });

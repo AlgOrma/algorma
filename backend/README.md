@@ -3,6 +3,15 @@
 REST API for the AlgOrma DSA tracker. **FastAPI + SQLModel + SQLite**, with an
 SM-2 spaced-repetition scheduler shared by problem reviews and flashcards.
 
+Data is **per-user** (no authentication): each request is scoped to the current
+profile, resolved from an `X-User-Id` header. A fresh install has an **empty
+users table** — the first profile is created through onboarding (`POST /users`),
+and user-scoped endpoints require the header (there is no default profile).
+Problems and flashcards belong to a user; topics, patterns, and templates are a
+shared global bank. Spaced-repetition state lives in its own per-user `Revision`
+table (one row per item), kept separate from the content rows and ready to swap
+SM-2 for FSRS later.
+
 ## Layout
 
 ```
@@ -11,12 +20,14 @@ backend/
 │   ├── main.py          # FastAPI app, CORS, router wiring, DB init on startup
 │   ├── config.py        # settings from .env (pydantic-settings)
 │   ├── db.py            # engine + session dependency
-│   ├── models.py        # SQLModel tables: Topic, Pattern, Problem, Template, Flashcard, ReviewLog
+│   ├── deps.py          # get_current_user (requires X-User-Id header → User)
+│   ├── models.py        # tables: User, Topic, Pattern, Problem, Template, Flashcard, Revision, ReviewLog
+│   ├── revisions.py     # get-or-create helpers for per-user SRS state
 │   ├── schemas.py       # request bodies (camelCase, matches the frontend)
-│   ├── srs.py           # SM-2 scheduler
+│   ├── srs.py           # SM-2 scheduler (swappable for FSRS later)
 │   ├── serialize.py     # emits the exact JSON shape the React frontend reads
-│   ├── seed.py          # seeds the frontend's initialData.js content
-│   └── routers/         # problems, topics, templates, flashcards, stats
+│   ├── seed.py          # seeds global reference data only (topics + templates)
+│   └── routers/         # users, problems, topics, templates, flashcards, stats
 ├── requirements.txt
 └── .env.example
 ```
@@ -31,26 +42,35 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# create + seed the SQLite database (also creates tables)
+# create the SQLite DB + seed global reference data (topics + templates)
 python -m app.seed
 
 # run the API with reload (http://localhost:8000, docs at /docs)
 uvicorn app.main:app --reload --port 8000
 ```
 
-Tables are also auto-created on app startup, so the seed step is optional if you
-just want an empty DB.
+Tables are auto-created on app startup, so the seed step is optional — it only
+adds the shared topics + template library. Users, problems, and flashcards are
+always created at runtime through the app.
 
 ## API
 
 Base URL: `http://localhost:8000/api` · Interactive docs at `/docs`.
 
+All routes except `/health` and `/users` (create/list) are scoped to the current
+user and **require** an `X-User-Id: <id>` header (the id returned by
+`POST /users`). Requests without it get `400 Missing X-User-Id header`.
+
 | Method | Path                     | Description                                   |
 | ------ | ------------------------ | --------------------------------------------- |
 | GET    | `/health`                | liveness check                                |
+| GET    | `/users`                 | list profiles (for a future switcher)         |
+| POST   | `/users`                 | create a profile → returns `id`               |
+| GET    | `/users/me`              | the current profile (from `X-User-Id`)        |
+| PATCH  | `/users/me`              | update name / email / timezone / dailyGoal / bio |
 | GET    | `/stats`                 | dashboard summary (solved, due, streak, …)    |
-| GET    | `/topics`                | topics with `pct` / `frac` mastery            |
-| GET    | `/templates`             | pattern library                               |
+| GET    | `/topics`                | topics with `pct` / `frac` mastery (per-user) |
+| GET    | `/templates`             | pattern library (global)                      |
 | GET    | `/problems`              | list; filters: `topic,difficulty,status,due`  |
 | POST   | `/problems`              | create                                        |
 | GET    | `/problems/{id}`         | one problem                                   |
@@ -60,7 +80,8 @@ Base URL: `http://localhost:8000/api` · Interactive docs at `/docs`.
 | GET    | `/flashcards`            | list; filter: `due`                           |
 | POST   | `/flashcards/{id}/review`| body `{ "grade": "Good" }` → reschedule (SM-2)|
 
-`grade` ∈ `Again | Hard | Good | Easy`.
+`grade` ∈ `Again | Hard | Good | Easy`. Creating a problem auto-creates its
+`Revision` (SRS) row; grading reads/updates that row and appends a `ReviewLog`.
 
 ## Frontend contract
 
