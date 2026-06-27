@@ -4,31 +4,47 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from ..db import get_session
-from ..models import Problem, ReviewLog
+from ..deps import get_current_user
+from ..models import Problem, ReviewLog, Revision, User
 from ..utils import utcnow
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
 @router.get("")
-def get_stats(session: Session = Depends(get_session)):
-    """Dashboard summary cards: solved, due, streak, retention."""
+def get_stats(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Dashboard summary cards: solved, due, streak, retention — for one user."""
     now = utcnow()
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_today = start_of_today + timedelta(days=1)
     week_ago = now - timedelta(days=7)
 
-    problems = session.exec(select(Problem)).all()
+    problems = session.exec(
+        select(Problem).where(Problem.user_id == user.id)
+    ).all()
     total_solved = sum(1 for p in problems if p.status == "Done")
     solved_this_week = sum(
         1 for p in problems if p.status == "Done" and p.updated_at >= week_ago
     )
-    due_today = sum(
-        1 for p in problems if p.due_at and start_of_today <= p.due_at < end_of_today
-    )
-    overdue = sum(1 for p in problems if p.due_at and p.due_at < start_of_today)
 
-    logs = session.exec(select(ReviewLog).order_by(ReviewLog.reviewed_at.desc())).all()
+    # Due/overdue mirror the dashboard's "cards due" — problem schedules only.
+    revisions = session.exec(
+        select(Revision).where(Revision.user_id == user.id)
+    ).all()
+    problem_revs = [r for r in revisions if r.problem_id is not None]
+    due_today = sum(
+        1 for r in problem_revs if r.due_at and start_of_today <= r.due_at < end_of_today
+    )
+    overdue = sum(1 for r in problem_revs if r.due_at and r.due_at < start_of_today)
+
+    logs = session.exec(
+        select(ReviewLog)
+        .where(ReviewLog.user_id == user.id)
+        .order_by(ReviewLog.reviewed_at.desc())
+    ).all()
     review_days = {log.reviewed_at.date() for log in logs}
 
     # Current streak: consecutive days ending today (or yesterday if today is empty).

@@ -8,7 +8,17 @@ from datetime import timedelta
 from sqlmodel import Session, SQLModel, select
 
 from .db import engine
-from .models import Flashcard, Pattern, Problem, ReviewLog, Template, Topic
+from .deps import DEFAULT_USER_EMAIL
+from .models import (
+    Flashcard,
+    Pattern,
+    Problem,
+    ReviewLog,
+    Revision,
+    Template,
+    Topic,
+    User,
+)
 from .utils import slugify, utcnow
 
 TOPICS = [
@@ -298,6 +308,13 @@ def run() -> None:
 
     now = utcnow()
     with Session(engine) as session:
+        # Default profile: every seeded item belongs to this user, and it's the
+        # fallback for requests that don't send an X-User-Id header.
+        default_user = User(name="Sam", email=DEFAULT_USER_EMAIL)
+        session.add(default_user)
+        session.commit()
+        session.refresh(default_user)
+
         topic_by_name: dict[str, Topic] = {}
         for name in TOPICS:
             topic = Topic(name=name, slug=slugify(name))
@@ -326,6 +343,7 @@ def run() -> None:
             next_offset = pd["next_offset_days"]
             problem = Problem(
                 id=pd["id"],
+                user_id=default_user.id,
                 title=pd["title"],
                 topic_id=topic_by_name[pd["topic"]].id,
                 difficulty=pd["difficulty"],
@@ -336,24 +354,39 @@ def run() -> None:
                 approach=pd["approach"],
                 notes=pd["notes"] or None,
                 solution=pd["solution"],
-                repetitions=pd["revisions"],
-                review_count=pd["revisions"],
-                interval_days=max(0, (last_revised or 0) + (next_offset or 0)),
-                last_reviewed_at=now - timedelta(days=last_revised)
-                if last_revised is not None
-                else None,
-                due_at=now + timedelta(days=next_offset)
-                if next_offset is not None
-                else None,
                 created_at=now - timedelta(days=pd["created_days_ago"]),
                 updated_at=now,
                 patterns=[get_pattern(n) for n in pd["patterns"]],
             )
             session.add(problem)
+            # SRS state now lives in its own per-user Revision row.
+            session.add(
+                Revision(
+                    user_id=default_user.id,
+                    problem_id=problem.id,
+                    repetitions=pd["revisions"],
+                    review_count=pd["revisions"],
+                    interval_days=max(0, (last_revised or 0) + (next_offset or 0)),
+                    last_reviewed_at=now - timedelta(days=last_revised)
+                    if last_revised is not None
+                    else None,
+                    due_at=now + timedelta(days=next_offset)
+                    if next_offset is not None
+                    else None,
+                )
+            )
         session.commit()
 
         for card in CARDS:
-            session.add(Flashcard(due_at=now, **card))
+            flashcard = Flashcard(user_id=default_user.id, **card)
+            session.add(flashcard)
+            session.add(
+                Revision(
+                    user_id=default_user.id,
+                    flashcard_id=flashcard.id,
+                    due_at=now,
+                )
+            )
         session.commit()
 
         # Review history for streak + retention (~last 12 days, one per day).
@@ -362,6 +395,7 @@ def run() -> None:
             for i in range(12):
                 session.add(
                     ReviewLog(
+                        user_id=default_user.id,
                         problem_id=first.id,
                         grade="Hard" if i == 5 else "Good",
                         interval_days=6,
@@ -372,10 +406,12 @@ def run() -> None:
         session.commit()
 
         counts = {
+            "users": len(session.exec(select(User)).all()),
             "topics": len(session.exec(select(Topic)).all()),
             "problems": len(session.exec(select(Problem)).all()),
             "templates": len(session.exec(select(Template)).all()),
             "flashcards": len(session.exec(select(Flashcard)).all()),
+            "revisions": len(session.exec(select(Revision)).all()),
             "reviewLogs": len(session.exec(select(ReviewLog)).all()),
         }
     print("Seed complete:", counts)
