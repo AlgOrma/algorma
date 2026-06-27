@@ -5,25 +5,11 @@ const GOAL_OPTIONS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 25, 30];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Generates a hex id, preferring crypto.randomUUID when available
-function uuidHex() {
-  try {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID().replace(/-/g, '');
-    }
-  } catch {
-    // fall through to manual generation
-  }
-  let s = '';
-  for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);
-  return s;
-}
-
 function formFromUser(user) {
   return {
     name: user?.name || '',
     email: user?.email || '',
-    dailyGoal: user?.daily_goal || 10,
+    dailyGoal: user?.dailyGoal || 10,
     bio: user?.bio || ''
   };
 }
@@ -36,6 +22,8 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
   const [form, setForm] = useState(() => formFromUser(user));
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [serverError, setServerError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const setField = (key, val) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -43,7 +31,7 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
     if (key === 'email') setEmailError('');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const name = (form.name || '').trim();
     if (!name) {
       setNameError('Please enter a name to continue.');
@@ -55,17 +43,21 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
       return;
     }
 
-    const now = new Date().toISOString();
-    onSubmit({
-      id: user?.id || uuidHex(),
-      name,
-      email: email || null,
-      timezone: user?.timezone || 'UTC',
-      daily_goal: form.dailyGoal || 10,
-      bio: (form.bio || '').trim() || null,
-      created_at: user?.created_at || now,
-      updated_at: now
-    });
+    setServerError('');
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        name,
+        email: email || null,
+        timezone: user?.timezone || 'UTC',
+        dailyGoal: form.dailyGoal || 10,
+        bio: (form.bio || '').trim() || null
+      });
+      // On success the setup screen unmounts, so there's no state to reset here.
+    } catch (err) {
+      setServerError(err?.message || 'Something went wrong. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   const title = isEditing ? 'Edit your profile' : 'Set up your profile';
@@ -178,11 +170,16 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
           </div>
         </div>
 
+        {serverError && (
+          <div className="mt-sp-20 text-fs-12 text-accent-red-hover">{serverError}</div>
+        )}
+
         <button
           onClick={handleSubmit}
-          className="w-full mt-sp-22 text-fs-14 font-semibold text-text-dark-alt bg-accent py-sp-12 rounded-card-md cursor-pointer hover:brightness-115 transition-all"
+          disabled={submitting}
+          className="w-full mt-sp-22 text-fs-14 font-semibold text-text-dark-alt bg-accent py-sp-12 rounded-card-md cursor-pointer hover:brightness-115 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {submitLabel}
+          {submitting ? 'Saving…' : submitLabel}
         </button>
 
         {isEditing && (
