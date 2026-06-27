@@ -1,0 +1,66 @@
+#!/usr/bin/env sh
+#
+# Pre-push checks for AlgOrma: frontend lint + build, backend ruff.
+# Enable once with:  git config core.hooksPath .githooks
+# Skip in a pinch with:  git push --no-verify
+#
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+# Skip everything when the push only deletes refs (e.g. `git push --delete`):
+# there is no new code to lint or build. Git feeds one line per ref on stdin;
+# a deletion carries an all-zero local OID (works for SHA-1 and SHA-256).
+has_updates=""
+while read -r _local_ref local_oid _remote_ref _remote_oid; do
+  case "$local_oid" in
+    *[!0]*) has_updates="yes" ;;
+  esac
+done
+if [ -z "$has_updates" ]; then
+  echo "▶ Pre-push: deletions only, nothing to check."
+  exit 0
+fi
+
+echo "▶ Running pre-push checks…"
+
+ran=""
+skipped=""
+
+# --- Frontend: lint + production build ---
+if [ -d "$ROOT/frontend/node_modules" ]; then
+  echo "→ frontend: oxlint"
+  ( cd "$ROOT/frontend" && npm run --silent lint )
+  echo "→ frontend: build"
+  ( cd "$ROOT/frontend" && npm run --silent build )
+  ran="$ran frontend"
+else
+  echo "⚠ frontend/node_modules missing — run 'npm install' in frontend/. Skipping frontend checks."
+  skipped="$skipped frontend"
+fi
+
+# --- Backend: ruff lint ---
+if [ -x "$ROOT/backend/.venv/bin/ruff" ]; then
+  RUFF="$ROOT/backend/.venv/bin/ruff"
+elif command -v ruff >/dev/null 2>&1; then
+  RUFF="ruff"
+else
+  RUFF=""
+  echo "⚠ ruff not found — run 'pip install -r backend/requirements-dev.txt'. Skipping backend checks."
+  skipped="$skipped backend"
+fi
+if [ -n "$RUFF" ]; then
+  echo "→ backend: ruff"
+  ( cd "$ROOT/backend" && "$RUFF" check . )
+  ran="$ran backend"
+fi
+
+# Honest summary: never claim success for checks that were skipped.
+ran="${ran# }"
+skipped="${skipped# }"
+if [ -n "$skipped" ]; then
+  echo "⚠ Pre-push finished. Verified: ${ran:-none}. Skipped (NOT verified): $skipped."
+  echo "  Install the missing tooling shown above for full coverage."
+else
+  echo "✓ All pre-push checks passed ($ran)."
+fi
