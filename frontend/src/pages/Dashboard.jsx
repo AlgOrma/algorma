@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Heatmap from '../components/common/Heatmap';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import { getStats } from '../api';
 
 // Time-of-day greeting word
 function greetingWord() {
@@ -19,10 +20,20 @@ export default function Dashboard({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Derived statistics
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    getStats()
+      .then(setStats)
+      .catch((err) => console.warn('Could not load stats:', err.message));
+  }, []);
+
+  // Derived (fallback) statistics
   const totalSolved = problems.filter(p => p.status === 'Done').length;
   const dueList = problems.filter(p => p.due);
   const dueCount = dueList.length;
+
+  const solvedDisplay = stats ? stats.totalSolved : totalSolved;
+  const dueDisplay = stats ? stats.dueToday + stats.overdue : dueCount;
 
   const handleSearchSubmit = (e) => {
     if (e.key === 'Enter' || e.type === 'click') {
@@ -75,10 +86,10 @@ export default function Dashboard({
             TOTAL SOLVED
           </div>
           <div className="font-mono text-fs-31 font-semibold text-text-main mt-sp-9 leading-none">
-            {totalSolved}
+            {solvedDisplay}
           </div>
           <div className="text-fs-12 text-accent-green-hover mt-sp-9">
-            ▲ 9 this week
+            ▲ {stats ? stats.solvedThisWeek : 9} this week
           </div>
         </div>
 
@@ -90,10 +101,10 @@ export default function Dashboard({
             DUE TODAY
           </div>
           <div className="font-mono text-fs-31 font-semibold text-accent-blue mt-sp-9 leading-none">
-            {dueCount}
+            {dueDisplay}
           </div>
           <div className="text-fs-12 text-text-muted mt-sp-9">
-            2 overdue
+            {stats ? stats.overdue : 2} overdue
           </div>
         </div>
 
@@ -102,10 +113,10 @@ export default function Dashboard({
             STREAK
           </div>
           <div className="font-mono text-fs-31 font-semibold text-text-main mt-sp-9 leading-none">
-            12<span className="text-fs-15 text-text-muted">d</span>
+            {stats ? stats.streakDays : 12}<span className="text-fs-15 text-text-muted">d</span>
           </div>
           <div className="text-fs-12 text-text-muted mt-sp-9">
-            best · 21d
+            best · {stats ? stats.bestStreakDays : 21}d
           </div>
         </div>
 
@@ -114,7 +125,7 @@ export default function Dashboard({
             RETENTION
           </div>
           <div className="font-mono text-fs-31 font-semibold text-text-main mt-sp-9 leading-none">
-            91<span className="text-fs-15 text-text-muted">%</span>
+            {stats ? stats.retentionPct : 91}<span className="text-fs-15 text-text-muted">%</span>
           </div>
           <div className="text-fs-12 text-accent-green-hover mt-sp-9">
             ▲ 2pts

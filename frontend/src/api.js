@@ -53,6 +53,14 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+// Append a query string, skipping undefined/null params.
+function withQuery(path, params = {}) {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null);
+  if (entries.length === 0) return path;
+  const qs = new URLSearchParams(entries.map(([k, v]) => [k, String(v)]));
+  return `${path}?${qs}`;
+}
+
 // --- Users ---
 // Creating a profile is the one call that doesn't carry an X-User-Id yet.
 export function createUser(payload) {
@@ -66,3 +74,21 @@ export function getMe() {
 export function updateUser(payload) {
   return request('/users/me', { method: 'PATCH', body: payload });
 }
+
+// --- Reads ---
+export const getStats = () => request('/stats');
+export const getTopics = () => request('/topics');
+export const getTemplates = () => request('/templates');
+export const getProblems = (params) => request(withQuery('/problems', params));
+export const getProblem = (id) => request(`/problems/${id}`);
+export const getFlashcards = (params) => request(withQuery('/flashcards', params));
+
+// --- Writes ---
+export const createProblem = (body) => request('/problems', { method: 'POST', body });
+export const updateProblem = (id, body) =>
+  request(`/problems/${id}`, { method: 'PATCH', body });
+export const deleteProblem = (id) => request(`/problems/${id}`, { method: 'DELETE' });
+export const reviewProblem = (id, grade) =>
+  request(`/problems/${id}/review`, { method: 'POST', body: { grade } });
+export const reviewFlashcard = (id, grade) =>
+  request(`/flashcards/${id}/review`, { method: 'POST', body: { grade } });
