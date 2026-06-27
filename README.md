@@ -31,23 +31,6 @@ npm run dev
 
 See [`backend/README.md`](backend/README.md) for the full API reference.
 
-## Pre-push checks
-
-A version-controlled git hook in [`.githooks/pre-push`](.githooks/pre-push) runs
-on every `git push` and blocks the push if anything fails:
-
-1. **frontend** — `oxlint` (warnings don't block; errors do) + a Vite production build
-2. **backend** — `ruff check` (config in `backend/ruff.toml`)
-
-Enable it once per clone, and install the backend dev tool:
-
-```bash
-git config core.hooksPath .githooks
-pip install -r backend/requirements-dev.txt   # adds ruff (use the backend venv)
-```
-
-Bypass in an emergency with `git push --no-verify`.
-
 ## Connecting the frontend to the API
 
 The UI currently keeps its data in `localStorage` (see `frontend/src/App.jsx` +
