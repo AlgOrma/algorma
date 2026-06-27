@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import init_db
-from .routers import flashcards, problems, stats, templates, topics
+from .routers import flashcards, problems, stats, templates, topics, users
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ def health():
     return {"ok": True}
 
 
+app.include_router(users.router)
 app.include_router(problems.router)
 app.include_router(topics.router)
 app.include_router(templates.router)
