@@ -134,7 +134,7 @@ export default function Sidebar({
             {user?.name || 'Your profile'}
           </div>
           <div className="font-mono text-fs-10 text-text-muted mt-sp-1">
-            goal · {user?.daily_goal ?? 10}/day
+            goal · {user?.dailyGoal ?? 10}/day
           </div>
         </div>
         <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--color-border-accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

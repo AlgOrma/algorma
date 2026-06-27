@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
+import * as api from './api';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import ProblemBank from './pages/ProblemBank';
@@ -53,9 +54,28 @@ function App() {
     setScreen('detail');
   };
 
-  // Save profile from first-run setup or the edit-profile screen
-  const handleSaveProfile = (nextUser) => {
-    setUser(nextUser);
+  // On load, reconcile a locally-stored profile with the backend: refresh its
+  // fields, or — if the stored id is unknown to the server (e.g. an old
+  // client-only profile) — clear it so first-run setup runs again. Network/other
+  // errors are ignored so the app still works offline for the localStorage data.
+  useEffect(() => {
+    if (!user?.id) return;
+    api.getMe()
+      .then((fresh) => setUser(fresh))
+      .catch((err) => {
+        if (err?.status === 404) setUser(null);
+      });
+    // Runs once on mount; setUser is stable and user is only the initial value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save profile from first-run setup or the edit-profile screen. Persists to the
+  // backend; throws to the caller (ProfileSetup) on failure so it can surface it.
+  const handleSaveProfile = async (formPayload) => {
+    const saved = user?.id
+      ? await api.updateUser(formPayload)
+      : await api.createUser(formPayload);
+    setUser(saved);
     setIsEditingProfile(false);
   };
 
