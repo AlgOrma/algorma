@@ -1,14 +1,18 @@
 import React from 'react';
 
-export default function Sidebar({ 
-  activeScreen, 
-  onNavigate, 
-  problemsCount = 142, 
-  templatesCount = 24, 
-  reviseCount = 5, 
+export default function Sidebar({
+  activeScreen,
+  onNavigate,
+  problemsCount = 142,
+  templatesCount = 24,
+  reviseCount = 5,
   flashcardsCount = 6,
-  streakDays = 12
+  streakDays = 12,
+  user = null,
+  onEditProfile
 }) {
+
+  const userInitial = (user?.name || '?').trim().charAt(0).toUpperCase() || '?';
   
   const navItems = [
     {
@@ -83,7 +87,7 @@ export default function Sidebar({
           ›_
         </div>
         <span className="font-bold text-fs-15 text-text-main tracking-[-0.015em]">
-          DSA Cockpit
+          AlgOrma
         </span>
       </div>
 
@@ -113,8 +117,34 @@ export default function Sidebar({
         );
       })}
 
+      {/* Bottom group: profile card + streak widget */}
+      <div className="mt-auto flex flex-col gap-sp-10">
+
+      {/* Profile card — opens the edit-profile screen */}
+      <div
+        onClick={onEditProfile}
+        title="Edit profile"
+        className="flex items-center gap-sp-10 px-2.5 py-sp-9 rounded-card-sm bg-bg-card border border-border-card cursor-pointer transition-colors hover:border-border-btn-hover"
+      >
+        <div className="w-[30px] h-[30px] flex-none rounded-[9px] bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-bold text-fs-13 text-text-dark">
+          {userInitial}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-fs-13 font-semibold text-text-main whitespace-nowrap overflow-hidden text-ellipsis">
+            {user?.name || 'Your profile'}
+          </div>
+          <div className="font-mono text-fs-10 text-text-muted mt-sp-1">
+            goal · {user?.daily_goal ?? 10}/day
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--color-border-accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12.5 4.5l3 3" />
+          <path d="M4 16.5l-.7.2.2-.7L13 6.5l.5-.5 3 3-.5.5-8.5 8.5z" />
+        </svg>
+      </div>
+
       {/* Current Streak Widget */}
-      <div className="mt-auto p-3.5 rounded-card-sm bg-bg-card border border-border-card">
+      <div className="p-3.5 rounded-card-sm bg-bg-card border border-border-card">
         <div className="font-mono text-fs-10-5 text-text-muted tracking-[0.05em]">
           CURRENT STREAK
         </div>
@@ -134,6 +164,8 @@ export default function Sidebar({
           <div className="w-sp-7 h-sp-14 rounded-sm bg-accent" />
           <div className="w-sp-7 h-sp-14 rounded-sm bg-accent" />
         </div>
+      </div>
+
       </div>
     </div>
   );

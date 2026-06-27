@@ -7,6 +7,7 @@ import Templates from './pages/Templates';
 import ProblemDetail from './pages/ProblemDetail';
 import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
+import ProfileSetup from './pages/ProfileSetup';
 import NewProblemModal from './components/NewProblemModal';
 
 import {
@@ -25,9 +26,11 @@ function App() {
   const [topics, setTopics] = useLocalStorage('dsa_topics', INITIAL_TOPICS);
   const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 12);
   const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
+  const [user, setUser] = useLocalStorage('dsa_user', null);
 
   // Temporary UI state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
   // Theme settings mapping
@@ -48,6 +51,12 @@ function App() {
   const handleOpenProblem = (id) => {
     setSelectedId(id);
     setScreen('detail');
+  };
+
+  // Save profile from first-run setup or the edit-profile screen
+  const handleSaveProfile = (nextUser) => {
+    setUser(nextUser);
+    setIsEditingProfile(false);
   };
 
   // Update a single problem in local state
@@ -111,6 +120,7 @@ function App() {
           <Dashboard
             problems={problems}
             topics={topics}
+            userName={user?.name}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
             onOpenNewProblemModal={() => setIsModalOpen(true)}
@@ -171,12 +181,33 @@ function App() {
 
   const dueReviseCount = problems.filter(p => p.due).length;
 
+  // First-run setup: no profile yet, or the user chose to edit their profile.
+  // Rendered full-screen without the sidebar, matching the design.
+  if (!user || isEditingProfile) {
+    return (
+      <div
+        className="h-screen bg-bg-main text-text-main overflow-hidden"
+        style={{
+          '--theme-accent': themeAccent,
+          '--theme-secondary': themeSecondary
+        }}
+      >
+        <ProfileSetup
+          user={user}
+          isEditing={isEditingProfile && !!user}
+          onSubmit={handleSaveProfile}
+          onCancel={() => setIsEditingProfile(false)}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div 
+    <div
       className="flex h-screen bg-bg-main text-text-main overflow-hidden relative"
-      style={{ 
-        '--theme-accent': themeAccent, 
-        '--theme-secondary': themeSecondary 
+      style={{
+        '--theme-accent': themeAccent,
+        '--theme-secondary': themeSecondary
       }}
     >
       {/* Sidebar Navigation */}
@@ -188,6 +219,8 @@ function App() {
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}
         streakDays={streakDays}
+        user={user}
+        onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
         themeColorSecondary={themeSecondary}
       />
