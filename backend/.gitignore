@@ -1,0 +1,17 @@
+# Virtualenv
+.venv/
+venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# SQLite database
+*.db
+*.db-journal
+
+# Env
+.env
