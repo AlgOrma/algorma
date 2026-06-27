@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  
+  /* Dynamic accent colors from state */
+  --color-accent: var(--theme-accent, #3E72D9);
+  --color-accent-secondary: var(--theme-secondary, #2B52AE);
+
+  /* Background Colors */
+  --color-bg-overlay: #100e0c;
+  --color-bg-sidebar: #181613;
+  --color-bg-main: #1c1a17;
+  --color-bg-card: #221f1a;
+  --color-bg-code: #1a1714;
+  --color-bg-btn-sec: #2a2823;
+  --color-bg-btn-sec-hover: #2d2b26;
+  --color-bg-card-grad-start: #20211e;
+  --color-bg-card-grad-end: #201d1a;
+  --color-bg-element-hover: #262320;
+  --color-bg-element-dark: #29251f;
+  --color-bg-dot-empty: #2f2c26;
+  --color-bg-dot-fill: #3a352c;
+  --color-bg-track: #2a2722;
+  --color-bg-panel-dark: #161311;
+  
+  /* Border Colors */
+  --color-border-main: #322f29;
+  --color-border-subtle: #292621;
+  --color-border-muted: #2a2722;
+  --color-border-card: #2c2924;
+  --color-border-btn: #34312b;
+  --color-border-btn-hover: #4a463f;
+  --color-border-accent: #5f5b53;
+
+  /* Text Colors */
+  --color-text-main: #ECE8E1;
+  --color-text-muted: #847F76;
+  --color-text-hover: #B3ADA3;
+  --color-text-code: #C9C4BA;
+  --color-text-dark: #16130f;
+  --color-text-dark-alt: #181511;
+  --color-text-light: #D6D1C7;
+  --color-text-mid: #9d978c;
+  
+  /* Semantic Colors */
+  --color-accent-green: #6BAA82;
+  --color-accent-green-hover: #6FBF92;
+  --color-accent-red: #E5483A;
+  --color-accent-red-hover: #D8705E;
+  --color-accent-blue: #8CABF4;
+  --color-accent-orange: #D6A24E;
+
+  /* Badge-specific Colors */
+  --color-badge-easy-bg: rgba(111,191,146,0.14);
+  --color-badge-easy-border: rgba(111,191,146,0.26);
+  --color-badge-medium-bg: rgba(214,162,78,0.14);
+  --color-badge-medium-border: rgba(214,162,78,0.26);
+  --color-badge-hard-bg: rgba(216,112,94,0.14);
+  --color-badge-hard-border: rgba(216,112,94,0.26);
+
+  /* Dimensions, Shadows, Radii */
+  --spacing-sidebar-w: 226px;
+  --shadow-modal: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
+  --shadow-card: 0 18px 44px -22px rgba(0, 0, 0, 0.6);
+  --radius-card-sm: 11px;
+  --radius-card-btn: 9px;
+  --radius-card-md: 10px;
+  --radius-card-xs: 7px;
+  --radius-card-xxs: 5px;
+  --radius-progress: 3px;
+
+  /* Custom Spacings */
+  --spacing-sp-1: 1px;
+  --spacing-sp-2: 2px;
+  --spacing-sp-3: 3px;
+  --spacing-sp-4: 4px;
+  --spacing-sp-5: 5px;
+  --spacing-sp-6: 6px;
+  --spacing-sp-7: 7px;
+  --spacing-sp-8: 8px;
+  --spacing-sp-9: 9px;
+  --spacing-sp-10: 10px;
+  --spacing-sp-11: 11px;
+  --spacing-sp-12: 12px;
+  --spacing-sp-13: 13px;
+  --spacing-sp-14: 14px;
+  --spacing-sp-15: 15px;
+  --spacing-sp-16: 16px;
+  --spacing-sp-17: 17px;
+  --spacing-sp-18: 18px;
+  --spacing-sp-19: 19px;
+  --spacing-sp-20: 20px;
+  --spacing-sp-22: 22px;
+  --spacing-sp-26: 26px;
+  --spacing-sp-28: 28px;
+  --spacing-sp-30: 30px;
+  --spacing-sp-40: 40px;
+  --spacing-sp-230: 230px;
+  --spacing-sp-210: 210px;
+
+  /* Custom Font Sizes */
+  --text-fs-9-5: 9.5px;
+  --text-fs-10: 10px;
+  --text-fs-10-5: 10.5px;
+  --text-fs-11: 11px;
+  --text-fs-11-5: 11.5px;
+  --text-fs-12: 12px;
+  --text-fs-12-5: 12.5px;
+  --text-fs-13: 13px;
+  --text-fs-13-5: 13.5px;
+  --text-fs-14: 14px;
+  --text-fs-14-5: 14.5px;
+  --text-fs-15: 15px;
+  --text-fs-16: 16px;
+  --text-fs-18: 18px;
+  --text-fs-20: 20px;
+  --text-fs-21: 21px;
+  --text-fs-22: 22px;
+  --text-fs-23: 23px;
+  --text-fs-24: 24px;
+  --text-fs-31: 31px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #1c1a17;
+  color: #ECE8E1;
+  font-family: var(--font-sans);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #38342d;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #44403a;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Utility typography */
+code, pre {
+  font-family: var(--font-mono);
+}
+
+button {
+  font-family: inherit;
+  outline: none;
+  border: none;
+}
+
+/* Custom interactive animation for spoilers */
+.blur-transition {
+  transition: filter 0.3s ease, background 0.3s ease;
+}
+
+/* Scrollable area classes */
+.custom-scrollbar {
+  overflow-y: auto;
+}
+
+/* Smooth transitions */
+.hover-glow {
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
