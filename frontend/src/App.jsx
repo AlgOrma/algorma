@@ -10,6 +10,7 @@ import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
 import ProfileSetup from './pages/ProfileSetup';
 import NewProblemModal from './components/NewProblemModal';
+import LeetCodeLibrary from './pages/LeetCodeLibrary';
 
 import {
   INITIAL_PROBLEMS,
@@ -154,6 +155,17 @@ function App() {
             onOpenProblem={handleOpenProblem}
             onOpenNewProblemModal={() => setIsModalOpen(true)}
             initialSearchQuery={initialSearchQuery}
+            themeColor={themeAccent}
+          />
+        );
+      case 'leetcode':
+        return (
+          <LeetCodeLibrary
+            problems={problems}
+            onImportProblem={(newProblem) => {
+              handleSaveProblem(newProblem);
+              setScreen('problems');
+            }}
             themeColor={themeAccent}
           />
         );

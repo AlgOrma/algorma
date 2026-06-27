@@ -93,9 +93,10 @@ export default function RevisionSession({
         </div>
 
         {/* Problem Statement box */}
-        <div className="mt-5 text-fs-14-5 leading-[1.75] text-text-code">
-          {currentCard.statement}
-        </div>
+        <div 
+          className="mt-5 text-fs-14-5 leading-[1.75] text-text-code"
+          dangerouslySetInnerHTML={{ __html: currentCard.statement }}
+        />
         
         {currentCard.exIn && (
           <div className="font-mono text-fs-12-5 text-text-muted mt-3 leading-[1.7] bg-bg-code border border-border-muted rounded-lg py-sp-11 px-sp-13">

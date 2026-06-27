@@ -45,13 +45,16 @@ pip install -r requirements.txt
 # create the SQLite DB + seed global reference data (topics + templates)
 python -m app.seed
 
+# seed or incrementally reseed LeetCode questions (idempotent, does not wipe user data)
+python -m app.seed_leetcode
+
 # run the API with reload (http://localhost:8000, docs at /docs)
 uvicorn app.main:app --reload --port 8000
 ```
 
-Tables are auto-created on app startup, so the seed step is optional — it only
-adds the shared topics + template library. Users, problems, and flashcards are
-always created at runtime through the app.
+Tables are auto-created on app startup, so the seed steps are optional — they
+cache the shared topics, template library, and LeetCode questions pool. Users,
+problems, and flashcards are created at runtime through the app.
 
 ## API
 

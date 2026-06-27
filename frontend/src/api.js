@@ -92,3 +92,23 @@ export const reviewProblem = (id, grade) =>
   request(`/problems/${id}/review`, { method: 'POST', body: { grade } });
 export const reviewFlashcard = (id, grade) =>
   request(`/flashcards/${id}/review`, { method: 'POST', body: { grade } });
+
+// --- LeetCode Questions ---
+
+export function searchLeetCodeQuestions({ q, difficulty, tag, page = 1, limit = 50 } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.append('q', q);
+  if (difficulty && difficulty !== 'All') params.append('difficulty', difficulty);
+  if (tag && tag !== 'All') params.append('tag', tag);
+  params.append('page', page);
+  params.append('limit', limit);
+  return request(`/leetcode-questions?${params.toString()}`);
+}
+
+export function getLeetCodeQuestion(id) {
+  return request(`/leetcode-questions/${id}`);
+}
+
+export function importLeetCodeQuestion(id) {
+  return request(`/leetcode-questions/${id}/import`, { method: 'POST' });
+}

@@ -141,9 +141,10 @@ export default function ProblemDetail({
             <div className="font-mono text-fs-11 text-text-muted tracking-[0.05em] mb-2.5">
               PROBLEM STATEMENT
             </div>
-            <div className="text-fs-14 leading-[1.7] text-text-code">
-              {problem.statement}
-            </div>
+            <div 
+              className="text-fs-14 leading-[1.7] text-text-code"
+              dangerouslySetInnerHTML={{ __html: problem.statement }}
+            />
             {problem.exIn && (
               <div className="font-mono text-fs-12-5 text-text-muted mt-3 leading-[1.7] bg-bg-code border border-border-muted rounded-lg py-sp-11 px-sp-13">
                 in:  {problem.exIn}<br />

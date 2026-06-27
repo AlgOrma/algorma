@@ -7,7 +7,7 @@ from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 from .config import settings
 from .db import init_db
-from .routers import flashcards, problems, stats, templates, topics, users
+from .routers import flashcards, leetcode_questions, problems, stats, templates, topics, users
 
 # FastAPI 0.115 re-validates each request body field via _compat.ModelField,
 # re-applying the camelCase aliases our CamelModel generates (alias_generator).
@@ -50,3 +50,4 @@ app.include_router(topics.router)
 app.include_router(templates.router)
 app.include_router(flashcards.router)
 app.include_router(stats.router)
+app.include_router(leetcode_questions.router)

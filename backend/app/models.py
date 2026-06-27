@@ -194,3 +194,31 @@ class ReviewLog(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="review_logs")
     problem: Optional[Problem] = Relationship(back_populates="review_logs")
     flashcard: Optional[Flashcard] = Relationship(back_populates="review_logs")
+
+
+class LeetCodeQuestion(SQLModel, table=True):
+    """Global LeetCode question cache for reference and importing."""
+
+    __tablename__ = "leetcode_question"
+
+    id: str = Field(primary_key=True)  # maps to questionFrontendId, e.g. "1"
+    question_id: str  # maps to questionId, e.g. "1"
+    title: str
+    difficulty: str  # "Easy" | "Medium" | "Hard"
+    statement: str = ""  # maps to content (HTML description)
+    leetcode_url: str  # maps to url
+    topic_tags: str = "[]"  # JSON list of tag names
+    is_paid_only: bool = False
+    likes: int = 0
+    dislikes: int = 0
+    category_title: str = "Algorithms"
+    hints: str = "[]"  # JSON list of hints
+    solution_content: Optional[str] = None  # maps to solution.content (Markdown editorial)
+    has_solution: bool = False
+    has_video_solution: bool = False
+    similar_questions: str = "[]"  # JSON list of similar questions
+    stats: str = "{}"  # JSON list of statistics (totalAccepted, totalSubmission, acRate)
+
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
