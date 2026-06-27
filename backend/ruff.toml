@@ -1,0 +1,10 @@
+# Ruff configuration for the FastAPI backend.
+line-length = 100
+target-version = "py312"
+exclude = [".venv"]
+
+[lint]
+# pycodestyle errors, pyflakes, and import sorting.
+select = ["E", "F", "I"]
+# Long strings in seed.py / serialize.py shouldn't fail the push.
+ignore = ["E501"]
