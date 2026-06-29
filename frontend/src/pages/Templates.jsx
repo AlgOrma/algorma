@@ -168,17 +168,16 @@ export default function Templates({
     }));
 
   // --- derived view ---
-  const matches = (p) =>
-    !query ||
-    p.name.toLowerCase().includes(query) ||
-    p.topic.toLowerCase().includes(query) ||
-    (p.description || '').toLowerCase().includes(query) ||
-    p.variations.some((v) => v.name.toLowerCase().includes(query));
-
-  const filtered = useMemo(
-    () => patterns.filter(matches),
-    [patterns, query]
-  );
+  const filtered = useMemo(() => {
+    if (!query) return patterns;
+    return patterns.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.topic.toLowerCase().includes(query) ||
+        (p.description || '').toLowerCase().includes(query) ||
+        p.variations.some((v) => v.name.toLowerCase().includes(query))
+    );
+  }, [patterns, query]);
 
   const totalVariations = patterns.reduce((a, p) => a + p.variations.length, 0);
   const subtitle = `${patterns.length} ${

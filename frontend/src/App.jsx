@@ -93,7 +93,10 @@ function App() {
   // user-scoped). On failure (offline / no server) we fall back to an empty
   // library so the page still renders.
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setTemplatesLoading(false);
+      return;
+    }
     setTemplatesLoading(true);
     api.getTemplates()
       .then((rows) => setTemplatePatterns(rows || []))
@@ -227,7 +230,6 @@ function App() {
             onCreatePattern={handleCreatePattern}
             onUpdatePattern={handleUpdatePattern}
             onDeletePattern={handleDeletePattern}
-            themeColor={themeAccent}
           />
         );
       case 'detail':

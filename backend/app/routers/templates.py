@@ -5,7 +5,6 @@ from ..db import get_session
 from ..deps import get_current_user
 from ..models import TemplatePattern, TemplateVariation, User
 from ..schemas import TemplatePatternCreate, TemplatePatternUpdate, VariationIn
-from ..seed import seed_starter_patterns
 from ..serialize import serialize_template_pattern
 from ..utils import utcnow
 
@@ -47,10 +46,9 @@ def list_patterns(
         .order_by(TemplatePattern.position, TemplatePattern.created_at)
     )
     rows = session.exec(stmt).all()
-    # Lazy backfill: a profile created before the template library existed gets
-    # the starter set on first view, so the page is never unexpectedly empty.
-    if not rows:
-        rows = seed_starter_patterns(session, user.id)
+    # No backfill here: the starter library is seeded once at profile creation
+    # (see routers/users.py). Re-seeding an empty list would resurrect a library
+    # the user deliberately emptied, so we honour the empty state instead.
     return [serialize_template_pattern(p) for p in rows]
 
 
