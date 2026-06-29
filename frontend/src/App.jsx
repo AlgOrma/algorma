@@ -14,7 +14,6 @@ import LeetCodeLibrary from './pages/LeetCodeLibrary';
 
 import {
   INITIAL_PROBLEMS,
-  INITIAL_TEMPLATES,
   INITIAL_CARDS,
   INITIAL_TOPICS
 } from './data/initialData';
@@ -30,8 +29,11 @@ function App() {
   const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
-  // Server-provided reference data (the template library lives in the backend).
-  const [templates, setTemplates] = useState(INITIAL_TEMPLATES);
+  // Template library: a two-level, user-editable set of patterns + code
+  // variations, owned by the backend. Loaded per-user from the API; the server
+  // seeds a starter library for new profiles (and lazily on first fetch).
+  const [templatePatterns, setTemplatePatterns] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
 
   // Temporary UI state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -87,16 +89,39 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load the template library from the backend on mount. It's global reference
-  // data (not user-scoped), so this runs regardless of profile state. On failure
-  // (offline / no server) we keep the empty default so the page still renders.
+  // Load the template library once we know the current profile (templates are
+  // user-scoped). On failure (offline / no server) we fall back to an empty
+  // library so the page still renders.
   useEffect(() => {
+    if (!user?.id) {
+      setTemplatesLoading(false);
+      return;
+    }
+    setTemplatesLoading(true);
     api.getTemplates()
-      .then((rows) => setTemplates(rows || []))
-      .catch(() => {
-        /* offline or no server — leave templates empty */
-      });
-  }, []);
+      .then((rows) => setTemplatePatterns(rows || []))
+      .catch((err) => console.warn('Could not load templates:', err.message))
+      .finally(() => setTemplatesLoading(false));
+  }, [user?.id]);
+
+  // Template mutations go through the API; on success we update local state from
+  // the server's response (which carries the canonical ids and ordering).
+  const handleCreatePattern = async (draft) => {
+    const created = await api.createPattern(draft);
+    setTemplatePatterns((prev) => [created, ...prev]);
+    return created;
+  };
+
+  const handleUpdatePattern = async (id, draft) => {
+    const updated = await api.updatePattern(id, draft);
+    setTemplatePatterns((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
+  };
+
+  const handleDeletePattern = async (id) => {
+    await api.deletePattern(id);
+    setTemplatePatterns((prev) => prev.filter((p) => p.id !== id));
+  };
 
   // Save profile from first-run setup or the edit-profile screen. Persists to the
   // backend; throws to the caller (ProfileSetup) on failure so it can surface it.
@@ -200,8 +225,11 @@ function App() {
       case 'templates':
         return (
           <Templates
-            templates={templates}
-            themeColor={themeAccent}
+            patterns={templatePatterns}
+            loading={templatesLoading}
+            onCreatePattern={handleCreatePattern}
+            onUpdatePattern={handleUpdatePattern}
+            onDeletePattern={handleDeletePattern}
           />
         );
       case 'detail':
@@ -275,7 +303,7 @@ function App() {
         activeScreen={screen}
         onNavigate={handleNavigate}
         problemsCount={problems.length}
-        templatesCount={templates.length}
+        templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}
         streakDays={streakDays}

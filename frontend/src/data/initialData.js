@@ -1,9 +1,9 @@
-// Static seed data has been removed for now — problems, templates, flashcards,
-// and topics all start empty. The maps/lists below (DIFF_MAP, STATUS_MAP,
-// GRADES) are UI config, not seed data, and must stay.
+// Static seed data has been removed for now — problems, flashcards, and topics
+// all start empty. The template library is owned by the backend (seeded per
+// user; see backend/app/seed.py STARTER_PATTERNS), not seeded here. The
+// maps/lists below (DIFF_MAP, STATUS_MAP, GRADES) are UI config, not seed data,
+// and must stay.
 export const INITIAL_PROBLEMS = [];
-
-export const INITIAL_TEMPLATES = [];
 
 export const INITIAL_CARDS = [];
 

@@ -5,6 +5,7 @@ from ..db import get_session
 from ..deps import get_current_user
 from ..models import User
 from ..schemas import UserCreate, UserUpdate
+from ..seed import seed_starter_patterns
 from ..serialize import serialize_user
 from ..utils import utcnow
 
@@ -37,6 +38,10 @@ def create_user(payload: UserCreate, session: Session = Depends(get_session)):
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    # Give the new profile an editable starter template library.
+    seed_starter_patterns(session, user.id)
+
     return serialize_user(user)
 
 

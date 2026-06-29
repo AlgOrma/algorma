@@ -39,6 +39,10 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    template_patterns: list["TemplatePattern"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class ProblemPatternLink(SQLModel, table=True):
@@ -112,6 +116,50 @@ class Template(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
     patterns: list[Pattern] = Relationship(back_populates="template")
+
+
+class TemplatePattern(SQLModel, table=True):
+    """A user's reusable approach: shared guidance plus named code variations.
+
+    The editable template library (parent "pattern" → child "variations"),
+    distinct from the legacy flat ``Template`` and the problem-tagging
+    ``Pattern``. One row per (user, pattern); variations cascade-delete with it.
+    """
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)
+    name: str
+    topic: str = ""
+    description: str = ""  # guidance / "when to use" prose
+    position: int = 0  # ordering on the Templates page
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    user: Optional[User] = Relationship(back_populates="template_patterns")
+    variations: list["TemplateVariation"] = Relationship(
+        back_populates="pattern",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "order_by": "TemplateVariation.position",
+        },
+    )
+
+
+class TemplateVariation(SQLModel, table=True):
+    """One named code template under a TemplatePattern (the FE's ``desc``/``lang``
+    map to ``description``/``language`` here)."""
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    pattern_id: str = Field(foreign_key="templatepattern.id", index=True)
+    name: str
+    description: str = ""  # the FE's per-variation `desc`
+    language: str = "Python"  # the FE's `lang`
+    code: str = ""
+    position: int = 0
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    pattern: Optional[TemplatePattern] = Relationship(back_populates="variations")
 
 
 class Flashcard(SQLModel, table=True):
