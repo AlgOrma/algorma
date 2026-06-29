@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import SyntaxHighlighter from '../components/common/SyntaxHighlighter';
 
 // A two-level, editable template library (mirrors the claude.ai/design screen).
 // A parent "pattern" holds shared guidance (description) plus named code
@@ -418,7 +419,7 @@ export default function Templates({
                                       </span>
                                     </div>
                                     <pre className="m-0 py-3 px-3.5 font-mono text-fs-11-5 leading-[1.6] text-text-code whitespace-pre overflow-x-auto custom-scrollbar">
-                                      {v.code}
+                                      <SyntaxHighlighter code={v.code} />
                                     </pre>
                                   </div>
                                 </>
@@ -483,12 +484,25 @@ export default function Templates({
                                 placeholder="Variation heading"
                                 className="flex-1 min-w-0 bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-text-main text-fs-13-5 font-semibold outline-none focus:border-accent"
                               />
-                              <input
+                              <select
                                 value={v.lang}
                                 onChange={(e) => draftVarSet(i, 'lang', e.target.value)}
-                                placeholder="Lang"
-                                className="w-[96px] flex-none bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-accent-blue font-mono text-fs-11-5 outline-none focus:border-accent"
-                              />
+                                className="w-[105px] flex-none bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-accent-blue font-mono text-fs-11-5 outline-none focus:border-accent cursor-pointer appearance-none"
+                                style={{
+                                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238CABF4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundPosition: 'right 8px center',
+                                  backgroundSize: '12px',
+                                  paddingRight: '22px'
+                                }}
+                              >
+                                {["Python", "C++", "C", "Java", "Go", "Rust"].map(lang => (
+                                  <option key={lang} value={lang}>{lang}</option>
+                                ))}
+                                {v.lang && !["Python", "C++", "C", "Java", "Go", "Rust"].includes(v.lang) && (
+                                  <option value={v.lang}>{v.lang}</option>
+                                )}
+                              </select>
                               <button
                                 onClick={() => draftRemoveVar(i)}
                                 title="Remove variation"

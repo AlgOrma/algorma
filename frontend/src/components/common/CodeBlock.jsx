@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SyntaxHighlighter from './SyntaxHighlighter';
 
 export default function CodeBlock({ 
   code, 
@@ -66,7 +67,7 @@ export default function CodeBlock({
             userSelect: isSpoiler && !revealed ? 'none' : 'text'
           }}
         >
-          {code}
+          <SyntaxHighlighter code={code} />
         </pre>
 
         {/* Spoiler overlay */}
