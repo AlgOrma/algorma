@@ -44,6 +44,29 @@ class GradeIn(CamelModel):
     grade: str  # "Again" | "Hard" | "Good" | "Easy"
 
 
+class VariationIn(CamelModel):
+    name: str = "New variation"
+    desc: str = ""  # -> TemplateVariation.description
+    lang: str = "Python"  # -> TemplateVariation.language
+    code: str = ""
+
+
+class TemplatePatternCreate(CamelModel):
+    name: str = "New pattern"
+    topic: str = ""
+    description: str = ""
+    variations: list[VariationIn] = []
+
+
+class TemplatePatternUpdate(CamelModel):
+    # The frontend saves the whole pattern at once, so all fields are optional and
+    # a provided `variations` list fully replaces the existing variations.
+    name: str | None = None
+    topic: str | None = None
+    description: str | None = None
+    variations: list[VariationIn] | None = None
+
+
 class UserCreate(CamelModel):
     name: str
     email: str | None = None

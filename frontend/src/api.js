@@ -85,7 +85,12 @@ export function updateUser(payload) {
 // --- Reads ---
 export const getStats = () => request('/stats');
 export const getTopics = () => request('/topics');
+// Template library: nested patterns → variations (user-scoped).
 export const getTemplates = () => request('/templates');
+export const createPattern = (body) => request('/templates', { method: 'POST', body });
+export const updatePattern = (id, body) =>
+  request(`/templates/${id}`, { method: 'PATCH', body });
+export const deletePattern = (id) => request(`/templates/${id}`, { method: 'DELETE' });
 export const getProblems = (params) => request(withQuery('/problems', params));
 export const getProblem = (id) => request(`/problems/${id}`);
 export const getFlashcards = (params) => request(withQuery('/flashcards', params));

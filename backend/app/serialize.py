@@ -14,7 +14,7 @@ item the user has never scheduled).
 from datetime import datetime
 from typing import Optional
 
-from .models import Flashcard, Problem, Revision, User
+from .models import Flashcard, Problem, Revision, TemplatePattern, User
 from .utils import utcnow
 
 # CSS custom properties already used by the frontend's data layer.
@@ -126,6 +126,27 @@ def serialize_problem(
         "updatedAt": _iso(p.updated_at),
         "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
+    }
+
+
+def serialize_template_pattern(p: TemplatePattern) -> dict:
+    """Nested pattern → variations shape the Templates page consumes. Re-maps the
+    DB's ``description``/``language`` back to the frontend's ``desc``/``lang``."""
+    return {
+        "id": p.id,
+        "name": p.name,
+        "topic": p.topic,
+        "description": p.description,
+        "variations": [
+            {
+                "id": v.id,
+                "name": v.name,
+                "desc": v.description,
+                "lang": v.language,
+                "code": v.code,
+            }
+            for v in sorted(p.variations, key=lambda v: v.position)
+        ],
     }
 
 
