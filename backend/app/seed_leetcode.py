@@ -4,10 +4,12 @@ Run from the backend/ directory:  python -m app.seed_leetcode
 """
 
 import json
+import ssl
 import time
 import urllib.request
 from typing import Any
 
+import certifi
 from sqlmodel import Session, select
 
 from .db import engine, init_db
@@ -24,7 +26,11 @@ def fetch_leetcode_questions() -> list:
         JSON_URL,
         headers={"User-Agent": "Mozilla/5.0"},
     )
-    with urllib.request.urlopen(req, timeout=30) as response:
+    # Use certifi's CA bundle explicitly. The python.org framework build ships
+    # an empty cert path until "Install Certificates.command" is run, which
+    # otherwise causes CERTIFICATE_VERIFY_FAILED here.
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(req, timeout=30, context=ssl_context) as response:
         content = response.read().decode("utf-8")
         data = json.loads(content)
         elapsed = time.time() - start_time

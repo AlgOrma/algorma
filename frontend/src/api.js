@@ -71,6 +71,13 @@ export function getMe() {
   return request('/users/me');
 }
 
+// All profiles on the server. Used to recover an existing account when the
+// browser has no stored profile (e.g. localStorage was cleared). Not user-scoped,
+// so it carries no X-User-Id header.
+export function getUsers() {
+  return request('/users', { auth: false });
+}
+
 export function updateUser(payload) {
   return request('/users/me', { method: 'PATCH', body: payload });
 }

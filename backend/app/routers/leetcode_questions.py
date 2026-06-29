@@ -2,7 +2,7 @@ import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlmodel import Session, col, or_, select
 
 from ..db import get_session
@@ -48,52 +48,58 @@ def list_leetcode_questions(
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
+    # Build the filter conditions once and reuse them for both the page query
+    # and the total count, so the two can never drift apart.
+    conditions = []
+    q_clean = q.strip() if q else ""
+
+    if q_clean:
+        pattern = f"%{q_clean}%"
+        search_conds = [
+            col(LeetCodeQuestion.title).like(pattern),
+            col(LeetCodeQuestion.statement).like(pattern),
+        ]
+        # A purely numeric query also matches the question number exactly
+        # (e.g. "1" finds question #1, not just titles containing "1").
+        if q_clean.isdigit():
+            search_conds.append(LeetCodeQuestion.id == q_clean)
+        conditions.append(or_(*search_conds))
+
+    if difficulty and difficulty != "All":
+        conditions.append(LeetCodeQuestion.difficulty == difficulty)
+
+    if tag and tag != "All":
+        conditions.append(col(LeetCodeQuestion.topic_tags).like(f'%"{tag}"%'))
+
     stmt = select(LeetCodeQuestion)
+    for cond in conditions:
+        stmt = stmt.where(cond)
 
-    # Search filter (title or description content)
-    if q:
-        search_pattern = f"%{q}%"
-        stmt = stmt.where(
-            or_(
-                col(LeetCodeQuestion.title).like(search_pattern),
-                col(LeetCodeQuestion.statement).like(search_pattern),
-            )
+    if q_clean:
+        # Relevance ranking: exact question number first, then exact title,
+        # title prefix, title substring, and finally statement-only matches.
+        # Ties within a tier fall back to natural question-number order.
+        q_lower = q_clean.lower()
+        title_lower = func.lower(LeetCodeQuestion.title)
+        relevance = case(
+            (LeetCodeQuestion.id == q_clean, 0),
+            (title_lower == q_lower, 1),
+            (title_lower.like(f"{q_lower}%"), 2),
+            (title_lower.like(f"%{q_lower}%"), 3),
+            else_=4,
         )
-
-    # Difficulty filter
-    if difficulty and difficulty != "All":
-        stmt = stmt.where(LeetCodeQuestion.difficulty == difficulty)
-
-    # Topic tags filter
-    if tag and tag != "All":
-        stmt = stmt.where(
-            col(LeetCodeQuestion.topic_tags).like(f"%\"{tag}\"%")
+        stmt = stmt.order_by(
+            relevance, func.length(LeetCodeQuestion.id), LeetCodeQuestion.id
         )
+    else:
+        # Natural sorting by ID string: length first, then value, so 1, 2, … 10
+        # order numerically rather than lexicographically.
+        stmt = stmt.order_by(func.length(LeetCodeQuestion.id), LeetCodeQuestion.id)
 
-    # Natural sorting by ID string (cast to integer using SQLite function if needed,
-    # but order_by string ID length and value works cleanly)
-    stmt = stmt.order_by(func.length(LeetCodeQuestion.id), LeetCodeQuestion.id)
-
-    # Fetch total matching count
-    count_stmt = select(LeetCodeQuestion)
-    if q:
-        search_pattern = f"%{q}%"
-        count_stmt = count_stmt.where(
-            or_(
-                col(LeetCodeQuestion.title).like(search_pattern),
-                col(LeetCodeQuestion.statement).like(search_pattern),
-            )
-        )
-    if difficulty and difficulty != "All":
-        count_stmt = count_stmt.where(LeetCodeQuestion.difficulty == difficulty)
-    if tag and tag != "All":
-        count_stmt = count_stmt.where(
-            col(LeetCodeQuestion.topic_tags).like(f"%\"{tag}\"%")
-        )
-
-    total = session.exec(
-        select(func.count()).select_from(count_stmt.subquery())
-    ).one()
+    count_stmt = select(func.count()).select_from(LeetCodeQuestion)
+    for cond in conditions:
+        count_stmt = count_stmt.where(cond)
+    total = session.exec(count_stmt).one()
 
     # Pagination
     stmt = stmt.offset((page - 1) * limit).limit(limit)

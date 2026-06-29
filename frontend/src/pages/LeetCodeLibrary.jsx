@@ -29,6 +29,7 @@ const POPULAR_TAGS = [
 
 export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedDiff, setSelectedDiff] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
   const [page, setPage] = useState(1);
@@ -46,13 +47,23 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
   const [revealedHints, setRevealedHints] = useState({}); // hint index -> bool
   const [importingId, setImportingId] = useState(null);
 
+  // Debounce the search box so typing fires one request after a pause rather
+  // than one per keystroke, and snap back to page 1 whenever the query changes.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Fetch questions
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await api.searchLeetCodeQuestions({
-        q: search,
+        q: debouncedSearch,
         difficulty: selectedDiff,
         tag: selectedTag,
         page,
@@ -67,7 +78,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
     } finally {
       setLoading(false);
     }
-  }, [search, selectedDiff, selectedTag, page]);
+  }, [debouncedSearch, selectedDiff, selectedTag, page]);
 
   // Trigger fetch when filters or page change
   useEffect(() => {
@@ -77,11 +88,11 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
     setExpandedQuestion(null);
   }, [fetchQuestions]);
 
-  // Handle enter key or button click on search
+  // Enter key / Search button: apply the query immediately, bypassing the debounce.
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
-    fetchQuestions();
+    setDebouncedSearch(search);
   };
 
   // Toggle detail expansion
@@ -183,7 +194,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
         {/* Search bar & filters */}
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-sp-9 flex-wrap">
           {/* Search input */}
-          <div className="flex items-center gap-2 bg-bg-card border border-border-main rounded-card-btn px-3 py-2 w-sp-230">
+          <div className="lc-search flex items-center gap-2 bg-bg-card border border-border-main rounded-card-btn px-3 py-2 w-sp-230">
             <svg
               width="14"
               height="14"
@@ -198,7 +209,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
             </svg>
             <input
               type="text"
-              placeholder="Search library..."
+              placeholder="Search by title or number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent border-none outline-none text-text-main text-fs-13 w-full p-0"
@@ -238,8 +249,6 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
               ))}
             </select>
           </div>
-
-          <Button type="submit">Search</Button>
         </form>
 
         {error && (
@@ -259,12 +268,32 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
             <span className="text-right">ACTION</span>
           </div>
 
-          {/* Rows */}
-          <div className="flex flex-col">
-            {loading ? (
-              <div className="py-16 text-text-muted text-fs-14 text-center font-mono">
-                Searching LeetCode questions database...
-              </div>
+          {/* Rows — keep results on screen and softly dim them while the next
+              query loads, so typing updates smoothly instead of flickering. The
+              skeleton only shows on the very first load (nothing on screen yet). */}
+          <div
+            className={`flex flex-col transition-opacity duration-200 ${
+              loading && questions.length > 0
+                ? 'opacity-50 pointer-events-none'
+                : 'opacity-100'
+            }`}
+          >
+            {loading && questions.length === 0 ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[80px_2.3fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3.5 border-b border-bg-element-dark"
+                >
+                  <div className="lc-skeleton h-3 w-8" />
+                  <div className="lc-skeleton h-3.5 w-3/5" />
+                  <div className="lc-skeleton h-4 w-14 rounded-full" />
+                  <div className="flex gap-1.5">
+                    <div className="lc-skeleton h-3.5 w-12" />
+                    <div className="lc-skeleton h-3.5 w-10" />
+                  </div>
+                  <div className="lc-skeleton h-6 w-[82px] ml-auto rounded-card-btn" />
+                </div>
+              ))
             ) : questions.length === 0 ? (
               <div className="py-16 text-text-muted text-fs-14 text-center">
                 No matching reference questions found.
@@ -275,7 +304,10 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                 const imported = isImported(q.leetcodeUrl);
 
                 return (
-                  <div key={q.id} className="border-b border-bg-element-dark flex flex-col">
+                  <div
+                    key={q.id}
+                    className="border-b border-bg-element-dark flex flex-col"
+                  >
                     {/* Summary row */}
                     <div
                       onClick={() => handleToggleExpand(q.id)}
@@ -331,7 +363,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
 
                     {/* Detailed info panel */}
                     {isExpanded && (
-                      <div className="bg-bg-element-dark/40 border-t border-bg-element-dark/60 p-sp-18 flex flex-col gap-4 text-left">
+                      <div className="lc-expand bg-bg-element-dark/40 border-t border-bg-element-dark/60 p-sp-18 flex flex-col gap-4 text-left">
                         {loadingDetail ? (
                           <div className="py-6 text-center text-text-muted font-mono text-fs-12">
                             Loading detailed problem description...

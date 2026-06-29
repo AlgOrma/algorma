@@ -72,23 +72,37 @@ TEMPLATES = [
 
 
 def run() -> None:
-    # Full reset for an idempotent seed. Only global reference data is seeded;
-    # users and their problems/flashcards are created through the app.
-    SQLModel.metadata.drop_all(engine)
+    # Non-destructive, idempotent seed. NEVER drop tables: this reference data
+    # lives in the same database as per-user rows (users, problems, flashcards)
+    # and the LeetCode catalog, all of which must survive a reseed. We only
+    # create missing tables and insert reference rows that aren't there yet.
     SQLModel.metadata.create_all(engine)
 
+    added_topics = 0
+    added_templates = 0
     with Session(engine) as session:
+        existing_topics = {t.name for t in session.exec(select(Topic)).all()}
         for name in TOPICS:
-            session.add(Topic(name=name, slug=slugify(name)))
+            if name not in existing_topics:
+                session.add(Topic(name=name, slug=slugify(name)))
+                added_topics += 1
+
+        existing_templates = {t.name for t in session.exec(select(Template)).all()}
         for tpl in TEMPLATES:
-            session.add(Template(**tpl))
+            if tpl["name"] not in existing_templates:
+                session.add(Template(**tpl))
+                added_templates += 1
+
         session.commit()
 
         counts = {
             "topics": len(session.exec(select(Topic)).all()),
             "templates": len(session.exec(select(Template)).all()),
         }
-    print("Seed complete:", counts)
+    print(
+        f"Seed complete : +{added_topics} topics, "
+        f"+{added_templates} templates. Totals: {counts}"
+    )
 
 
 if __name__ == "__main__":

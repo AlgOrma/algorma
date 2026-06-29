@@ -22,13 +22,16 @@ import {
 function App() {
   // Persistent client-side state
   const [screen, setScreen] = useLocalStorage('dsa_screen', 'dashboard');
-  const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', 'p2');
+  const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
   const [problems, setProblems] = useLocalStorage('dsa_problems', INITIAL_PROBLEMS);
   const [cards, setCards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
   const [topics, setTopics] = useLocalStorage('dsa_topics', INITIAL_TOPICS);
-  const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 12);
+  const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 0);
   const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
+
+  // Server-provided reference data (the template library lives in the backend).
+  const [templates, setTemplates] = useState(INITIAL_TEMPLATES);
 
   // Temporary UI state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,19 +58,44 @@ function App() {
     setScreen('detail');
   };
 
-  // On load, reconcile a locally-stored profile with the backend: refresh its
-  // fields, or — if the stored id is unknown to the server (e.g. an old
-  // client-only profile) — clear it so first-run setup runs again. Network/other
-  // errors are ignored so the app still works offline for the localStorage data.
+  // On load, reconcile the profile with the backend. Two cases:
+  //  - A profile is stored locally: refresh its fields, or — if the server
+  //    doesn't know that id (e.g. an old client-only profile) — clear it so
+  //    first-run setup runs again.
+  //  - No profile stored (e.g. localStorage was cleared): the backend has no
+  //    auth, so recover an existing account instead of forcing re-onboarding —
+  //    adopt the first profile the server knows about. Onboarding only shows
+  //    when the server genuinely has no users.
+  // Network/other errors are ignored so the app still works offline.
   useEffect(() => {
-    if (!user?.id) return;
-    api.getMe()
-      .then((fresh) => setUser(fresh))
-      .catch((err) => {
-        if (err?.status === 404) setUser(null);
-      });
+    if (user?.id) {
+      api.getMe()
+        .then((fresh) => setUser(fresh))
+        .catch((err) => {
+          if (err?.status === 404) setUser(null);
+        });
+    } else {
+      api.getUsers()
+        .then((users) => {
+          if (users?.length) setUser(users[0]);
+        })
+        .catch(() => {
+          /* offline or no server — fall through to onboarding */
+        });
+    }
     // Runs once on mount; setUser is stable and user is only the initial value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load the template library from the backend on mount. It's global reference
+  // data (not user-scoped), so this runs regardless of profile state. On failure
+  // (offline / no server) we keep the empty default so the page still renders.
+  useEffect(() => {
+    api.getTemplates()
+      .then((rows) => setTemplates(rows || []))
+      .catch(() => {
+        /* offline or no server — leave templates empty */
+      });
   }, []);
 
   // Save profile from first-run setup or the edit-profile screen. Persists to the
@@ -172,7 +200,7 @@ function App() {
       case 'templates':
         return (
           <Templates
-            templates={INITIAL_TEMPLATES}
+            templates={templates}
             themeColor={themeAccent}
           />
         );
@@ -247,7 +275,7 @@ function App() {
         activeScreen={screen}
         onNavigate={handleNavigate}
         problemsCount={problems.length}
-        templatesCount={INITIAL_TEMPLATES.length}
+        templatesCount={templates.length}
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}
         streakDays={streakDays}
