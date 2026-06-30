@@ -43,6 +43,7 @@ export default function Templates({
   onUpdatePattern,
   onDeletePattern,
   onReorderPatterns,
+  onReorderVariations,
 }) {
   const [search, setSearch] = useState('');
   // Land fully collapsed: no pattern auto-expands, and variations stay collapsed
@@ -55,6 +56,9 @@ export default function Templates({
   const [draft, setDraft] = useState(null);
   const [dragId, setDragId] = useState(null); // pattern being dragged, if any
   const [dragOverId, setDragOverId] = useState(null); // current drop target
+  // Variation drag is scoped to its parent pattern (no cross-pattern moves).
+  const [varDrag, setVarDrag] = useState(null); // { patternId, varId } | null
+  const [varDragOverId, setVarDragOverId] = useState(null);
 
   const query = search.trim().toLowerCase();
 
@@ -166,6 +170,23 @@ export default function Templates({
     if (from === -1 || to === -1) return;
     order.splice(to, 0, order.splice(from, 1)[0]);
     onReorderPatterns?.(order);
+  };
+
+  // Drop the dragged variation onto `targetVarId` within the same pattern.
+  const dropOnVariation = (patternId, targetVarId) => {
+    const source = varDrag;
+    setVarDrag(null);
+    setVarDragOverId(null);
+    if (!source || source.patternId !== patternId) return;
+    if (source.varId === targetVarId) return;
+    const pattern = patterns.find((p) => p.id === patternId);
+    if (!pattern) return;
+    const order = pattern.variations.map((v) => v.id);
+    const from = order.indexOf(source.varId);
+    const to = order.indexOf(targetVarId);
+    if (from === -1 || to === -1) return;
+    order.splice(to, 0, order.splice(from, 1)[0]);
+    onReorderVariations?.(patternId, order);
   };
 
   // --- draft (in-edit) mutations ---
@@ -410,7 +431,26 @@ export default function Templates({
                           return (
                             <div
                               key={v.id}
-                              className="border border-border-muted border-l-2 border-l-accent/40 rounded-card-md bg-[#1f1c19] py-sp-13 px-sp-14"
+                              data-variation-row
+                              onDragOver={(e) => {
+                                if (!varDrag || varDrag.patternId !== p.id) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.dataTransfer.dropEffect = 'move';
+                                if (varDragOverId !== v.id) setVarDragOverId(v.id);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                dropOnVariation(p.id, v.id);
+                              }}
+                              className={`border border-l-2 rounded-card-md bg-[#1f1c19] py-sp-13 px-sp-14 transition-[border-color,opacity] duration-150 ${
+                                varDrag?.varId === v.id
+                                  ? 'opacity-40 border-border-muted border-l-accent/40'
+                                  : varDragOverId === v.id && varDrag
+                                  ? 'border-accent border-l-accent'
+                                  : 'border-border-muted border-l-accent/40'
+                              }`}
                             >
                               <div className="flex items-center gap-2.5">
                                 <div
@@ -419,6 +459,19 @@ export default function Templates({
                                 >
                                   <span
                                     title="Drag to reorder"
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation();
+                                      setVarDrag({ patternId: p.id, varId: v.id });
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      e.dataTransfer.setData('text/plain', v.id);
+                                      const row = e.currentTarget.closest('[data-variation-row]');
+                                      if (row) e.dataTransfer.setDragImage(row, 16, 16);
+                                    }}
+                                    onDragEnd={() => {
+                                      setVarDrag(null);
+                                      setVarDragOverId(null);
+                                    }}
                                     className="font-mono text-fs-13 text-border-btn-hover/60 cursor-grab leading-none flex-none select-none"
                                   >
                                     ⠿
