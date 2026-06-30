@@ -4,7 +4,12 @@ from sqlmodel import Session, select
 from ..db import get_session
 from ..deps import get_current_user
 from ..models import TemplatePattern, TemplateVariation, User
-from ..schemas import TemplatePatternCreate, TemplatePatternUpdate, VariationIn
+from ..schemas import (
+    ReorderIn,
+    TemplatePatternCreate,
+    TemplatePatternUpdate,
+    VariationIn,
+)
 from ..serialize import serialize_template_pattern
 from ..utils import utcnow
 
@@ -79,6 +84,48 @@ def create_pattern(
     session.commit()
     session.refresh(pattern)
     return serialize_template_pattern(pattern)
+
+
+@router.post("/reorder")
+def reorder_patterns(
+    payload: ReorderIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Persist a new top-level ordering from the drag-and-drop list.
+
+    The body is this user's pattern ids in display order. Ids that aren't the
+    user's are ignored; any owned pattern the client omits keeps its relative
+    order after the listed ones (defensive against a stale client list).
+    """
+    rows = session.exec(
+        select(TemplatePattern)
+        .where(TemplatePattern.user_id == user.id)
+        .order_by(TemplatePattern.position, TemplatePattern.created_at)
+    ).all()
+    by_id = {p.id: p for p in rows}
+
+    now = utcnow()
+    ordered_ids = [pid for pid in payload.ids if pid in by_id]
+    seen = set(ordered_ids)
+    # Listed patterns first (in the given order), then any unlisted owned ones.
+    final_order = ordered_ids + [p.id for p in rows if p.id not in seen]
+
+    for position, pid in enumerate(final_order):
+        pattern = by_id[pid]
+        if pattern.position != position:
+            pattern.position = position
+            pattern.updated_at = now
+            session.add(pattern)
+
+    session.commit()
+
+    rows = session.exec(
+        select(TemplatePattern)
+        .where(TemplatePattern.user_id == user.id)
+        .order_by(TemplatePattern.position, TemplatePattern.created_at)
+    ).all()
+    return [serialize_template_pattern(p) for p in rows]
 
 
 @router.patch("/{pattern_id}")

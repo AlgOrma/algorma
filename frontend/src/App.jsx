@@ -123,6 +123,20 @@ function App() {
     setTemplatePatterns((prev) => prev.filter((p) => p.id !== id));
   };
 
+  // Reorder optimistically, then persist. On failure we restore the prior order.
+  const handleReorderPatterns = async (orderedIds) => {
+    const prev = templatePatterns;
+    const byId = new Map(prev.map((p) => [p.id, p]));
+    const next = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+    setTemplatePatterns(next);
+    try {
+      await api.reorderPatterns(orderedIds);
+    } catch (err) {
+      console.warn('Could not save new order:', err.message);
+      setTemplatePatterns(prev);
+    }
+  };
+
   // Save profile from first-run setup or the edit-profile screen. Persists to the
   // backend; throws to the caller (ProfileSetup) on failure so it can surface it.
   const handleSaveProfile = async (formPayload) => {
@@ -230,6 +244,7 @@ function App() {
             onCreatePattern={handleCreatePattern}
             onUpdatePattern={handleUpdatePattern}
             onDeletePattern={handleDeletePattern}
+            onReorderPatterns={handleReorderPatterns}
           />
         );
       case 'detail':

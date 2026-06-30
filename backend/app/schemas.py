@@ -67,6 +67,11 @@ class TemplatePatternUpdate(CamelModel):
     variations: list[VariationIn] | None = None
 
 
+class ReorderIn(CamelModel):
+    # Pattern ids in the new top-to-bottom display order.
+    ids: list[str] = []
+
+
 class UserCreate(CamelModel):
     name: str
     email: str | None = None

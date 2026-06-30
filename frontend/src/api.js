@@ -91,6 +91,9 @@ export const createPattern = (body) => request('/templates', { method: 'POST', b
 export const updatePattern = (id, body) =>
   request(`/templates/${id}`, { method: 'PATCH', body });
 export const deletePattern = (id) => request(`/templates/${id}`, { method: 'DELETE' });
+// Persist a new pattern order; `ids` is the full list top-to-bottom.
+export const reorderPatterns = (ids) =>
+  request('/templates/reorder', { method: 'POST', body: { ids } });
 export const getProblems = (params) => request(withQuery('/problems', params));
 export const getProblem = (id) => request(`/problems/${id}`);
 export const getFlashcards = (params) => request(withQuery('/flashcards', params));

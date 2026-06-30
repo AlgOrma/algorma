@@ -42,6 +42,7 @@ export default function Templates({
   onCreatePattern,
   onUpdatePattern,
   onDeletePattern,
+  onReorderPatterns,
 }) {
   const [search, setSearch] = useState('');
   // Land fully collapsed: no pattern auto-expands, and variations stay collapsed
@@ -52,6 +53,8 @@ export default function Templates({
   const [editId, setEditId] = useState(null);
   const [editScope, setEditScope] = useState(null); // 'full' | 'vars'
   const [draft, setDraft] = useState(null);
+  const [dragId, setDragId] = useState(null); // pattern being dragged, if any
+  const [dragOverId, setDragOverId] = useState(null); // current drop target
 
   const query = search.trim().toLowerCase();
 
@@ -148,6 +151,21 @@ export default function Templates({
     setEditScope('vars');
     setMenuId(null);
     setExpanded((s) => ({ ...s, [id]: true }));
+  };
+
+  // --- drag-to-reorder (patterns) ---
+  // Drop the dragged pattern onto `targetId`'s slot, then persist via App.
+  const dropOnPattern = (targetId) => {
+    const sourceId = dragId;
+    setDragId(null);
+    setDragOverId(null);
+    if (!sourceId || sourceId === targetId) return;
+    const order = patterns.map((p) => p.id);
+    const from = order.indexOf(sourceId);
+    const to = order.indexOf(targetId);
+    if (from === -1 || to === -1) return;
+    order.splice(to, 0, order.splice(from, 1)[0]);
+    onReorderPatterns?.(order);
   };
 
   // --- draft (in-edit) mutations ---
@@ -276,12 +294,42 @@ export default function Templates({
             return (
               <div
                 key={p.id}
-                className="bg-bg-card border border-border-card rounded-[14px] text-left"
+                data-pattern-card
+                onDragOver={(e) => {
+                  if (!dragId || query) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverId !== p.id) setDragOverId(p.id);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  dropOnPattern(p.id);
+                }}
+                className={`bg-bg-card border rounded-[14px] text-left transition-[border-color,opacity] duration-150 ${
+                  dragId === p.id
+                    ? 'opacity-40 border-border-card'
+                    : dragOverId === p.id && dragId
+                    ? 'border-accent'
+                    : 'border-border-card'
+                }`}
               >
                 {/* Card header */}
                 <div className="flex items-center gap-2.5 px-4 py-sp-15">
                   <span
                     title="Drag to reorder"
+                    draggable={!query && !editing}
+                    onDragStart={(e) => {
+                      setDragId(p.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      // Firefox requires data to be set for a drag to start.
+                      e.dataTransfer.setData('text/plain', p.id);
+                      const card = e.currentTarget.closest('[data-pattern-card]');
+                      if (card) e.dataTransfer.setDragImage(card, 16, 16);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setDragOverId(null);
+                    }}
                     className="font-mono text-fs-15 text-border-btn-hover/60 cursor-grab leading-none select-none"
                   >
                     ⠿
@@ -327,9 +375,6 @@ export default function Templates({
                             className="flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-text-main cursor-pointer hover:bg-bg-btn-sec-hover transition-colors duration-150"
                           >
                             ✎ Edit
-                          </div>
-                          <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-text-hover cursor-grab hover:bg-bg-btn-sec-hover transition-colors duration-150">
-                            ⠿ Reorder
                           </div>
                           <div
                             onClick={() => deletePattern(p.id)}
