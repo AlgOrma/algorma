@@ -128,6 +128,39 @@ def reorder_patterns(
     return [serialize_template_pattern(p) for p in rows]
 
 
+@router.post("/{pattern_id}/variations/reorder")
+def reorder_variations(
+    pattern_id: str,
+    payload: ReorderIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Reorder one pattern's variations in place (ids preserved, unlike a full
+    update which replaces the set). Body: variation ids in display order; ids
+    not in this pattern are ignored, omitted ones keep their relative order."""
+    pattern = _get_owned_pattern(session, user, pattern_id)
+    by_id = {v.id: v for v in pattern.variations}
+
+    ordered_ids = [vid for vid in payload.ids if vid in by_id]
+    seen = set(ordered_ids)
+    current = sorted(pattern.variations, key=lambda v: v.position)
+    final_order = ordered_ids + [v.id for v in current if v.id not in seen]
+
+    now = utcnow()
+    for position, vid in enumerate(final_order):
+        variation = by_id[vid]
+        if variation.position != position:
+            variation.position = position
+            variation.updated_at = now
+            session.add(variation)
+
+    pattern.updated_at = now
+    session.add(pattern)
+    session.commit()
+    session.refresh(pattern)
+    return serialize_template_pattern(pattern)
+
+
 @router.patch("/{pattern_id}")
 def update_pattern(
     pattern_id: str,

@@ -137,6 +137,26 @@ function App() {
     }
   };
 
+  // Reorder one pattern's variations, optimistically then persisted.
+  const handleReorderVariations = async (patternId, orderedVarIds) => {
+    const prev = templatePatterns;
+    setTemplatePatterns((cur) =>
+      cur.map((p) => {
+        if (p.id !== patternId) return p;
+        const byId = new Map(p.variations.map((v) => [v.id, v]));
+        const variations = orderedVarIds.map((id) => byId.get(id)).filter(Boolean);
+        return { ...p, variations };
+      })
+    );
+    try {
+      const updated = await api.reorderVariations(patternId, orderedVarIds);
+      setTemplatePatterns((cur) => cur.map((p) => (p.id === patternId ? updated : p)));
+    } catch (err) {
+      console.warn('Could not save variation order:', err.message);
+      setTemplatePatterns(prev);
+    }
+  };
+
   // Save profile from first-run setup or the edit-profile screen. Persists to the
   // backend; throws to the caller (ProfileSetup) on failure so it can surface it.
   const handleSaveProfile = async (formPayload) => {
@@ -245,6 +265,7 @@ function App() {
             onUpdatePattern={handleUpdatePattern}
             onDeletePattern={handleDeletePattern}
             onReorderPatterns={handleReorderPatterns}
+            onReorderVariations={handleReorderVariations}
           />
         );
       case 'detail':

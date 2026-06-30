@@ -94,6 +94,9 @@ export const deletePattern = (id) => request(`/templates/${id}`, { method: 'DELE
 // Persist a new pattern order; `ids` is the full list top-to-bottom.
 export const reorderPatterns = (ids) =>
   request('/templates/reorder', { method: 'POST', body: { ids } });
+// Persist a new variation order within one pattern; `ids` top-to-bottom.
+export const reorderVariations = (patternId, ids) =>
+  request(`/templates/${patternId}/variations/reorder`, { method: 'POST', body: { ids } });
 export const getProblems = (params) => request(withQuery('/problems', params));
 export const getProblem = (id) => request(`/problems/${id}`);
 export const getFlashcards = (params) => request(withQuery('/flashcards', params));
