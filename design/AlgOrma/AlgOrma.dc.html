@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #38342d; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #44403a; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  button { font-family: inherit; }
+  input, textarea, select { font-family: inherit; }
+  input::placeholder, textarea::placeholder { color: #5f5b53; }
+  select option { background: #1a1714; color: #ECE8E1; }
+  textarea { resize: none; }
+</style>
+</helmet>
+
+<sc-if value="{{ onboarding }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="First-run setup" style="position:relative; min-height:100vh; width:100%; background:#1c1a17; font-family:'Hanken Grotesk',sans-serif; color:#ECE8E1; display:flex; justify-content:center; overflow-y:auto; padding:40px 32px;">
+  <div style="position:absolute; top:-120px; left:50%; transform:translateX(-50%); width:560px; height:340px; background:radial-gradient(closest-side, rgba(62,114,217,0.16), rgba(62,114,217,0)); pointer-events:none;"></div>
+
+  <div style="position:relative; margin:auto; width:100%; max-width:496px; background:#211e1a; border:1px solid #2f2b25; border-radius:18px; padding:30px 30px 26px; box-shadow:0 30px 70px -30px rgba(0,0,0,0.7);">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(140deg,#3E72D9,#2B52AE);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#10131a;">›_</div>
+      <span style="font-weight:700;font-size:15px;color:#ECE8E1;letter-spacing:-0.01em;">AlgOrma</span>
+    </div>
+
+    <div style="font-size:22px; font-weight:700; color:#ECE8E1; letter-spacing:-0.015em; margin-top:20px;">{{ onboardTitle }}</div>
+    <div style="font-size:13px; line-height:1.6; color:#9d978c; margin-top:7px;">{{ onboardSubtitle }}</div>
+
+    <div style="display:flex; flex-direction:column; gap:15px; margin-top:22px;">
+      <div style="display:flex; flex-direction:column; gap:7px;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;color:#847F76;">YOUR NAME <span style="color:#3E72D9;">*</span></label>
+        <input value="{{ formName }}" onChange="{{ onName }}" placeholder="e.g. Sam Rivera" style="background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 12px;color:#ECE8E1;font-size:14px;outline:none;width:100%;" style-focus="border-color:#3E72D9;" />
+        <sc-if value="{{ nameError }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:11.5px;color:#D8705E;">{{ nameErrorMsg }}</span>
+        </sc-if>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:7px;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;color:#847F76;">EMAIL <span style="color:#5f5b53;">· optional</span></label>
+        <input type="email" value="{{ formEmail }}" onChange="{{ onEmail }}" placeholder="you@domain.com" style="background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 12px;color:#ECE8E1;font-size:14px;outline:none;width:100%;" style-focus="border-color:#3E72D9;" />
+        <sc-if value="{{ emailError }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:11.5px;color:#D8705E;">{{ emailErrorMsg }}</span>
+        </sc-if>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:7px;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;color:#847F76;">HOW MANY PROBLEMS A DAY?</label>
+        <div style="position:relative;">
+          <select value="{{ formGoal }}" onChange="{{ onGoal }}" style="background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 30px 11px 12px;color:#ECE8E1;font-size:14px;outline:none;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;" style-focus="border-color:#3E72D9;">
+            <sc-for list="{{ goalOptions }}" as="g" hint-placeholder-count="6">
+              <option value="{{ g.v }}">{{ g.l }}</option>
+            </sc-for>
+          </select>
+          <svg style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;" width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:7px;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;color:#847F76;">BIO <span style="color:#5f5b53;">· optional</span></label>
+        <textarea value="{{ formBio }}" onChange="{{ onBio }}" rows="2" placeholder="What are you grinding toward?" style="background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 12px;color:#ECE8E1;font-size:14px;line-height:1.5;outline:none;width:100%;font-family:'Hanken Grotesk',sans-serif;" style-focus="border-color:#3E72D9;"></textarea>
+      </div>
+    </div>
+
+    <button onClick="{{ submit }}" style="width:100%;margin-top:22px;font-size:14px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:12px;border-radius:10px;cursor:pointer;" style-hover="background:#5483e0;">{{ submitLabel }}</button>
+    <sc-if value="{{ editingProfile }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ cancelEdit }}" style="width:100%;margin-top:9px;font-size:13px;font-weight:600;color:#B3ADA3;background:transparent;border:1px solid #322f29;padding:11px;border-radius:10px;cursor:pointer;" style-hover="border-color:#44403a;">Cancel</button>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ appReady }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex; height:100vh; background:#1c1a17; font-family:'Hanken Grotesk',sans-serif; color:#ECE8E1; overflow:hidden;">
+
+  <!-- ===================== PERSISTENT SIDEBAR ===================== -->
+  <div style="width:226px; flex:none; background:#181613; border-right:1px solid #292621; padding:20px 14px; display:flex; flex-direction:column; gap:5px;">
+    <div style="display:flex; align-items:center; gap:10px; padding:2px 8px 18px;">
+      <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(140deg,#3E72D9,#2B52AE);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#16130f;">›_</div>
+      <span style="font-weight:700;font-size:15px;color:#ECE8E1;letter-spacing:-0.01em;">AlgOrma</span>
+    </div>
+
+    <div onClick="{{ goDashboard }}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;color:{{ ndColor }};background:{{ ndBg }};border:1px solid {{ ndBd }};">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1.3"/><rect x="11" y="3" width="6" height="6" rx="1.3"/><rect x="3" y="11" width="6" height="6" rx="1.3"/><rect x="11" y="11" width="6" height="6" rx="1.3"/></svg>
+      Dashboard
+    </div>
+    <div onClick="{{ goProblems }}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;color:{{ npColor }};background:{{ npBg }};border:1px solid {{ npBd }};">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="5.5" x2="17" y2="5.5"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14.5" x2="17" y2="14.5"/><circle cx="3.6" cy="5.5" r="1.1"/><circle cx="3.6" cy="10" r="1.1"/><circle cx="3.6" cy="14.5" r="1.1"/></svg>
+      Problems
+      <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:0.7;">142</span>
+    </div>
+    <div onClick="{{ goLeetcode }}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;color:{{ nlColor }};background:{{ nlBg }};border:1px solid {{ nlBd }};">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="1.6"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
+      LeetCode
+    </div>
+    <div onClick="{{ goTemplates }}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;color:{{ ntColor }};background:{{ ntBg }};border:1px solid {{ ntBd }};">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="7.5 6.5 4 10 7.5 13.5"/><polyline points="12.5 6.5 16 10 12.5 13.5"/></svg>
+      Templates
+      <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:0.7;">24</span>
+    </div>
+    <div onClick="{{ goRevise }}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;color:{{ nrColor }};background:{{ nrBg }};border:1px solid {{ nrBd }};">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7.5a6 6 0 1 0 1 5"/><polyline points="16.5 3.5 16.5 7.5 12.5 7.5"/></svg>
+      Revise
+      <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3E72D9;">5</span>
+    </div>
+    <div onClick="{{ goFlashcards }}" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;color:{{ nfColor }};background:{{ nfBg }};border:1px solid {{ nfBd }};">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="11" height="9" rx="1.6"/><path d="M6 5.5V4.2A1.2 1.2 0 0 1 7.2 3H17v8.5"/></svg>
+      Flashcards
+      <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3E72D9;">6</span>
+    </div>
+
+    <div style="margin-top:auto; display:flex; flex-direction:column; gap:10px;">
+    <div onClick="{{ editProfile }}" title="Edit profile" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;background:#221f1a;border:1px solid #2c2924;cursor:pointer;" style-hover="border-color:#3a3630;">
+      <div style="width:30px;height:30px;flex:none;border-radius:9px;background:linear-gradient(140deg,#3E72D9,#2B52AE);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#10131a;">{{ userInitial }}</div>
+      <div style="min-width:0;flex:1;">
+        <div style="font-size:13px;font-weight:600;color:#ECE8E1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ userName }}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;margin-top:1px;">goal · {{ userGoal }}/day</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#5f5b53" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5l3 3"/><path d="M4 16.5l-.7.2.2-.7L13 6.5l.5-.5 3 3-.5.5-8.5 8.5z"/></svg>
+    </div>
+    <div style="padding:13px; border-radius:11px; background:#221f1a; border:1px solid #2c2924;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#847F76;letter-spacing:0.05em;">CURRENT STREAK</div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-top:5px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:23px;font-weight:600;color:#ECE8E1;">12</span>
+        <span style="font-size:12px;color:#847F76;">days</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:10px;align-items:center;">
+        <div style="width:7px;height:14px;border-radius:2px;background:#2f2c26;"></div>
+        <div style="width:7px;height:14px;border-radius:2px;background:#3a352c;"></div>
+        <div style="width:7px;height:14px;border-radius:2px;background:#2C56B2;"></div>
+        <div style="width:7px;height:14px;border-radius:2px;background:#4E7CE0;"></div>
+        <div style="width:7px;height:14px;border-radius:2px;background:#3E72D9;"></div>
+        <div style="width:7px;height:14px;border-radius:2px;background:#3E72D9;"></div>
+        <div style="width:7px;height:14px;border-radius:2px;background:#3E72D9;"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- ===================== MAIN (scrolls) ===================== -->
+  <div style="flex:1; min-width:0; overflow-y:auto;">
+
+    <!-- ============ DASHBOARD ============ -->
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Dashboard" style="max-width:1140px;margin:0 auto;padding:26px 30px 40px;display:flex;flex-direction:column;gap:18px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+        <div>
+          <div style="font-size:23px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">{{ greeting }}, {{ userName }}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#847F76;margin-top:5px;">Tue · Jun 25 &nbsp;·&nbsp; <span style="color:#3E72D9;">5 cards</span> due for review</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div style="display:flex;align-items:center;gap:8px;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:9px 12px;width:210px;">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#5f5b53" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><line x1="13.5" y1="13.5" x2="17" y2="17"/></svg>
+            <span style="color:#5f5b53;font-size:13px;">Search problems</span>
+            <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4a463f;">⌘K</span>
+          </div>
+          <button onClick="{{ newProblem }}" style="font-size:13.5px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:10px 15px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:7px;">
+            <span style="font-size:16px;line-height:0;margin-top:-1px;">+</span> New problem
+          </button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:13px;">
+        <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:15px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#847F76;letter-spacing:0.05em;">TOTAL SOLVED</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:31px;font-weight:600;color:#ECE8E1;margin-top:9px;line-height:1;">147</div>
+          <div style="font-size:12px;color:#6FBF92;margin-top:9px;">▲ 9 this week</div>
+        </div>
+        <div onClick="{{ goRevise }}" style="background:#221f1a;border:1px solid rgba(62,114,217,0.28);border-radius:12px;padding:15px 16px;cursor:pointer;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#3E72D9;letter-spacing:0.05em;">DUE TODAY</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:31px;font-weight:600;color:#8CABF4;margin-top:9px;line-height:1;">{{ stats.due }}</div>
+          <div style="font-size:12px;color:#847F76;margin-top:9px;">2 overdue</div>
+        </div>
+        <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:15px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#847F76;letter-spacing:0.05em;">STREAK</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:31px;font-weight:600;color:#ECE8E1;margin-top:9px;line-height:1;">12<span style="font-size:15px;color:#847F76;">d</span></div>
+          <div style="font-size:12px;color:#847F76;margin-top:9px;">best · 21d</div>
+        </div>
+        <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:15px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#847F76;letter-spacing:0.05em;">RETENTION</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:31px;font-weight:600;color:#ECE8E1;margin-top:9px;line-height:1;">91<span style="font-size:15px;color:#847F76;">%</span></div>
+          <div style="font-size:12px;color:#6FBF92;margin-top:9px;">▲ 2pts</div>
+        </div>
+      </div>
+
+      <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:16px 18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:14px;font-weight:600;color:#ECE8E1;">Review activity <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;font-weight:400;">· last 16 weeks</span></div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;">
+            less
+            <span style="width:10px;height:10px;border-radius:2px;background:rgba(111,191,146,0.1);"></span>
+            <span style="width:10px;height:10px;border-radius:2px;background:rgba(111,191,146,0.34);"></span>
+            <span style="width:10px;height:10px;border-radius:2px;background:rgba(111,191,146,0.58);"></span>
+            <span style="width:10px;height:10px;border-radius:2px;background:rgba(111,191,146,0.88);"></span>
+            more
+          </div>
+        </div>
+        <div style="display:flex;gap:3px;">
+          <sc-for list="{{ heat }}" as="wk" hint-placeholder-count="16">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <sc-for list="{{ wk }}" as="cell" hint-placeholder-count="7">
+                <div style="width:13px;height:13px;border-radius:2px;background:{{ cell.bg }};"></div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="flex:1.55; background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;min-width:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div style="font-size:14.5px;font-weight:600;color:#ECE8E1;">Due for revision today</div>
+            <span onClick="{{ goProblems }}" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3E72D9;cursor:pointer;">View all →</span>
+          </div>
+          <sc-for list="{{ dueList }}" as="row" hint-placeholder-count="5">
+            <div onClick="{{ row.open }}" style="display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid #29251f;cursor:pointer;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:600;color:#ECE8E1;">{{ row.title }}</div>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:5px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B3ADA3;background:#2a2823;border:1px solid #322f29;padding:1px 7px;border-radius:6px;">{{ row.topic }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ row.dueMetaColor }};">{{ row.dueMeta }}</span>
+                </div>
+              </div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:{{ row.diffColor }};background:{{ row.diffBg }};border:1px solid {{ row.diffBd }};padding:2px 8px;border-radius:6px;">{{ row.diffLabel }}</span>
+              <span style="color:#5f5b53;font-size:16px;">→</span>
+            </div>
+          </sc-for>
+          <button onClick="{{ startRevision }}" style="margin-top:16px;font-size:13.5px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:11px;border-radius:10px;cursor:pointer;">Start revision session · {{ stats.due }} cards</button>
+        </div>
+
+        <div style="flex:1; display:flex;flex-direction:column;gap:14px;min-width:0;">
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 18px;">
+            <div style="font-size:14px;font-weight:600;color:#ECE8E1;margin-bottom:14px;">Topic mastery</div>
+            <div style="display:flex;flex-direction:column;gap:13px;">
+              <sc-for list="{{ topics }}" as="t" hint-placeholder-count="5">
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span style="color:#B3ADA3;">{{ t.name }}</span><span style="font-family:'IBM Plex Mono',monospace;color:#847F76;">{{ t.frac }}</span></div>
+                  <div style="height:7px;background:#2a2722;border-radius:4px;overflow:hidden;"><div style="width:{{ t.pct }}%;height:100%;background:#3E72D9;border-radius:4px;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:16px 18px;">
+            <div style="font-size:12.5px;color:#847F76;margin-bottom:11px;">Quick actions</div>
+            <div style="display:flex;flex-direction:column;gap:9px;">
+              <button onClick="{{ goProblems }}" style="font-size:13px;font-weight:600;color:#ECE8E1;background:#2a2823;border:1px solid #34312b;padding:10px;border-radius:9px;cursor:pointer;text-align:left;">+ Start a new problem</button>
+              <button onClick="{{ startFlashcards }}" style="font-size:13px;font-weight:600;color:#ECE8E1;background:#2a2823;border:1px solid #34312b;padding:10px;border-radius:9px;cursor:pointer;text-align:left;">⚡ Run a flashcard session</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ PROBLEMS ============ -->
+    <sc-if value="{{ isProblems }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Problems" style="max-width:1140px;margin:0 auto;padding:26px 30px 40px;display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:21px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">Problem bank</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#847F76;margin-top:4px;">142 problems · replaces the DSA Prep PDF</div>
+        </div>
+        <button onClick="{{ newProblem }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 15px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:7px;"><span style="font-size:16px;line-height:0;margin-top:-1px;">+</span> New problem</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:8px 12px;width:230px;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#5f5b53" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><line x1="13.5" y1="13.5" x2="17" y2="17"/></svg>
+          <span style="color:#5f5b53;font-size:13px;">Search title or topic…</span>
+        </div>
+        <span style="font-size:12.5px;color:#B3ADA3;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:8px 12px;cursor:pointer;" style-hover="border-color:#44403a;">Topic ▾</span>
+        <span style="font-size:12.5px;color:#B3ADA3;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:8px 12px;cursor:pointer;" style-hover="border-color:#44403a;">Difficulty ▾</span>
+        <span style="font-size:12.5px;color:#B3ADA3;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:8px 12px;cursor:pointer;" style-hover="border-color:#44403a;">Status ▾</span>
+        <div onClick="{{ toggleDue }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:#B3ADA3;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:8px 12px;margin-left:auto;">
+          <span style="width:30px;height:17px;border-radius:9px;background:{{ dueToggleBg }};display:flex;align-items:center;justify-content:{{ dueKnobJustify }};padding:2px;transition:background .15s;">
+            <span style="width:13px;height:13px;border-radius:50%;background:#16130f;"></span>
+          </span>
+          Due for revision
+        </div>
+      </div>
+
+      <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2.1fr 0.95fr 62px 116px 96px 78px;gap:12px;padding:11px 18px;border-bottom:1px solid #2a2722;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.06em;">
+          <span>TITLE</span><span>TOPIC</span><span>DIFF</span><span>STATUS</span><span>LAST REV</span><span style="text-align:right;">NEXT</span>
+        </div>
+        <sc-for list="{{ visible }}" as="row" hint-placeholder-count="10">
+          <div onClick="{{ row.open }}" style="display:grid;grid-template-columns:2.1fr 0.95fr 62px 116px 96px 78px;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid #29251f;cursor:pointer;" style-hover="background:#262320;">
+            <span style="font-size:13.5px;color:#ECE8E1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ row.title }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#B3ADA3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ row.topic }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:{{ row.diffColor }};background:{{ row.diffBg }};border:1px solid {{ row.diffBd }};padding:2px 7px;border-radius:5px;justify-self:start;">{{ row.diffLabel }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ row.statusColor }};">{{ row.statusLabel }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;">{{ row.lastRevised }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ row.nextColor }};text-align:right;">{{ row.nextLabel }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ LEETCODE ============ -->
+    <sc-if value="{{ isLeetcode }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="LeetCode" style="max-width:1140px;margin:0 auto;padding:26px 30px 40px;display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <div style="font-size:21px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">LeetCode Library</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#847F76;margin-top:4px;">{{ leetTotal }} reference questions available to search and import</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:9px 12px;width:300px;">
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#5f5b53" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><line x1="13.5" y1="13.5" x2="17" y2="17"/></svg>
+          <input value="{{ leetQuery }}" onChange="{{ onLeetSearch }}" placeholder="Search library…" style="background:transparent;border:none;outline:none;color:#ECE8E1;font-size:13px;width:100%;" />
+        </div>
+        <div style="position:relative;">
+          <select value="{{ leetDiff }}" onChange="{{ onLeetDiff }}" style="background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:9px 30px 9px 12px;color:#B3ADA3;font-size:13px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;" style-focus="border-color:#3E72D9;">
+            <sc-for list="{{ leetDiffOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for>
+          </select>
+          <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+        </div>
+        <div style="position:relative;">
+          <select value="{{ leetTag }}" onChange="{{ onLeetTag }}" style="background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:9px 30px 9px 12px;color:#B3ADA3;font-size:13px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;max-width:200px;" style-focus="border-color:#3E72D9;">
+            <sc-for list="{{ leetTagOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.l }}</option></sc-for>
+          </select>
+          <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+        </div>
+      </div>
+
+      <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:56px 2fr 104px 1.3fr 152px;gap:14px;padding:11px 18px;border-bottom:1px solid #2a2722;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.06em;">
+          <span>ID</span><span>TITLE</span><span>DIFFICULTY</span><span>TAGS</span><span style="text-align:right;">ACTION</span>
+        </div>
+        <sc-for list="{{ leetRows }}" as="row" hint-placeholder-count="12">
+          <div style="display:grid;grid-template-columns:56px 2fr 104px 1.3fr 152px;gap:14px;align-items:center;padding:12px 18px;border-bottom:1px solid #29251f;" style-hover="background:#262320;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#847F76;">{{ row.num }}</span>
+            <span style="font-size:13.5px;color:#ECE8E1;font-weight:500;">{{ row.title }}</span>
+            <span><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:{{ row.diffColor }};background:{{ row.diffBg }};border:1px solid {{ row.diffBd }};padding:2px 8px;border-radius:6px;">{{ row.diffLabel }}</span></span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <sc-for list="{{ row.tags }}" as="tag" hint-placeholder-count="3">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9d978c;background:#2a2823;border:1px solid #322f29;padding:2px 7px;border-radius:5px;white-space:nowrap;">{{ tag }}</span>
+              </sc-for>
+            </div>
+            <div style="justify-self:end;display:flex;align-items:center;gap:9px;">
+              <sc-if value="{{ row.solved }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:#6FBF92;white-space:nowrap;">✓ Solved</span>
+                <button onClick="{{ row.onReview }}" style="font-size:12px;font-weight:600;color:#B3ADA3;background:#2a2823;border:1px solid #34312b;padding:6px 12px;border-radius:7px;cursor:pointer;" style-hover="border-color:#44403a;color:#ECE8E1;">Review</button>
+              </sc-if>
+              <sc-if value="{{ row.notSolved }}" hint-placeholder-val="{{ true }}">
+                <sc-if value="{{ row.imported }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;white-space:nowrap;">in bank</span>
+                </sc-if>
+                <button onClick="{{ row.onPractice }}" style="font-size:12px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:6px 14px;border-radius:7px;cursor:pointer;" style-hover="background:#5483e0;">Practice</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ leetEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:34px 18px;text-align:center;font-size:13px;color:#847F76;">No questions match your filters.</div>
+        </sc-if>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ TEMPLATES ============ -->
+    <sc-if value="{{ isTemplates }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Templates" style="max-width:920px;margin:0 auto;padding:26px 30px 40px;display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        <div>
+          <div style="font-size:21px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">Templates &amp; patterns</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#847F76;margin-top:4px;">{{ tplSubtitle }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;flex:none;">
+          <div style="display:flex;align-items:center;gap:8px;background:#221f1a;border:1px solid #322f29;border-radius:9px;padding:8px 12px;width:210px;">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#5f5b53" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><line x1="13.5" y1="13.5" x2="17" y2="17"/></svg>
+            <input value="{{ tplSearch }}" onChange="{{ onTplSearch }}" placeholder="Search patterns…" style="background:transparent;border:none;outline:none;color:#ECE8E1;font-size:13px;width:100%;" />
+          </div>
+          <button onClick="{{ onNewPattern }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 14px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;" style-hover="background:#5483e0;"><span style="font-size:15px;line-height:0;margin-top:-1px;">+</span> New pattern</button>
+        </div>
+      </div>
+
+      <sc-if value="{{ tplEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#221f1a;border:1px dashed #34312b;border-radius:14px;padding:48px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;">
+          <div style="width:46px;height:46px;border-radius:12px;background:rgba(62,114,217,0.1);border:1px solid rgba(62,114,217,0.22);display:flex;align-items:center;justify-content:center;margin-bottom:6px;">
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#8CABF4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="13" height="13" rx="2.5"/><line x1="10" y1="7" x2="10" y2="13"/><line x1="7" y1="10" x2="13" y2="10"/></svg>
+          </div>
+          <div style="font-size:16px;font-weight:700;color:#ECE8E1;">No patterns yet</div>
+          <div style="font-size:13px;color:#9d978c;max-width:340px;line-height:1.6;">Capture a reusable approach once — its trigger phrases and code variations — and reach for it the moment a problem smells familiar.</div>
+          <button onClick="{{ onNewPattern }}" style="margin-top:12px;font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 16px;border-radius:9px;cursor:pointer;" style-hover="background:#5483e0;">+ New pattern</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tplNoMatches }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:34px 18px;text-align:center;font-size:13px;color:#847F76;">No patterns match “{{ tplQuery }}”.</div>
+      </sc-if>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <sc-for list="{{ templatesView }}" as="p" hint-placeholder-count="2">
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:14px;overflow:hidden;">
+
+            <div style="display:flex;align-items:center;gap:11px;padding:15px 16px;">
+              <span title="Drag to reorder" style="font-family:'IBM Plex Mono',monospace;font-size:15px;color:#4a463f;cursor:grab;line-height:1;">⠿</span>
+              <div onClick="{{ p.onToggle }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;min-width:0;">
+                <span style="font-size:12px;color:#847F76;width:12px;flex:none;">{{ p.caret }}</span>
+                <span style="font-size:16px;font-weight:700;color:#ECE8E1;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8CABF4;background:rgba(62,114,217,0.1);border:1px solid rgba(62,114,217,0.22);padding:2px 9px;border-radius:6px;white-space:nowrap;flex:none;">{{ p.topic }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5f5b53;flex:none;">{{ p.varCount }} var</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex:none;">
+                <button onClick="{{ p.onAddVariation }}" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:500;color:#B3ADA3;background:#2a2823;border:1px solid #34312b;padding:6px 10px;border-radius:8px;cursor:pointer;" style-hover="border-color:#44403a;">+ Variation</button>
+                <div style="position:relative;">
+                  <button onClick="{{ p.onMenu }}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:#847F76;background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:16px;" style-hover="background:#2a2823;">⋯</button>
+                  <sc-if value="{{ p.menuOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;right:0;top:34px;z-index:5;background:#262320;border:1px solid #34312b;border-radius:10px;padding:5px;width:152px;box-shadow:0 14px 34px -12px rgba(0,0,0,0.7);">
+                      <div onClick="{{ p.onEdit }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:13px;color:#ECE8E1;cursor:pointer;" style-hover="background:#312d28;">✎&nbsp; Edit</div>
+                      <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:13px;color:#B3ADA3;cursor:grab;" style-hover="background:#312d28;">⠿&nbsp; Reorder</div>
+                      <div onClick="{{ p.onDelete }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:13px;color:#D8705E;cursor:pointer;" style-hover="background:rgba(216,112,94,0.12);">🗑&nbsp; Delete</div>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+
+            <sc-if value="{{ p.open }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:14px;">
+
+              <sc-if value="{{ p.metaView }}" hint-placeholder-val="{{ true }}">
+                <sc-if value="{{ p.hasDescription }}" hint-placeholder-val="{{ true }}">
+                <div style="background:#1c1a17;border:1px solid #2a2722;border-radius:11px;padding:14px 15px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;letter-spacing:0.06em;margin-bottom:10px;">DESCRIPTION</div>
+                  <div style="font-size:13px;line-height:1.7;color:#C9C4BA;white-space:pre-wrap;">{{ p.descriptionText }}</div>
+                </div>
+                </sc-if>
+                </sc-if>
+
+                <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{ p.variations }}" as="v" hint-placeholder-count="2">
+                  <div style="border:1px solid #2a2722;border-left:2px solid rgba(62,114,217,0.4);border-radius:10px;background:#1f1c19;padding:13px 14px;">
+                    <div onClick="{{ v.onToggle }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;">
+                      <span title="Drag to reorder" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#4a463f;cursor:grab;line-height:1;flex:none;">⠿</span>
+                      <span style="font-size:11px;color:#847F76;width:10px;flex:none;">{{ v.caret }}</span>
+                      <span style="font-size:14px;font-weight:600;color:#ECE8E1;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ v.name }}</span>
+                    </div>
+                    <sc-if value="{{ v.open }}" hint-placeholder-val="{{ true }}">
+                    <sc-if value="{{ v.hasDesc }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:12.5px;color:#9d978c;line-height:1.55;margin:7px 0 0 31px;">{{ v.desc }}</div>
+                    </sc-if>
+                    <div style="margin:11px 0 0 31px;background:#161311;border:1px solid #2a2722;border-radius:9px;overflow:hidden;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid #232019;">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.05em;">TEMPLATE · {{ v.lang }}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;cursor:pointer;" style-hover="color:#B3ADA3;">copy</span>
+                      </div>
+                      <pre style="margin:0;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.6;color:#C9C4BA;white-space:pre;overflow-x:auto;">{{ v.code }}</pre>
+                    </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </sc-if>
+
+              <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+                <sc-if value="{{ p.metaEdit }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#1c1a17;border:1px solid rgba(62,114,217,0.3);border-radius:11px;padding:14px 15px;display:flex;flex-direction:column;gap:13px;">
+                  <div style="display:flex;gap:10px;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#847F76;letter-spacing:0.06em;margin-bottom:5px;">PATTERN NAME</div>
+                      <input value="{{ p.name }}" onChange="{{ p.onName }}" style="width:100%;box-sizing:border-box;background:#161311;border:1px solid #322f29;border-radius:8px;padding:9px 11px;color:#ECE8E1;font-size:14px;font-weight:600;outline:none;" style-focus="border-color:#3E72D9;" />
+                    </div>
+                    <div style="width:150px;flex:none;">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#847F76;letter-spacing:0.06em;margin-bottom:5px;">TOPIC</div>
+                      <input value="{{ p.topic }}" onChange="{{ p.onTopic }}" style="width:100%;box-sizing:border-box;background:#161311;border:1px solid #322f29;border-radius:8px;padding:9px 11px;color:#8CABF4;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;" style-focus="border-color:#3E72D9;" />
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#847F76;letter-spacing:0.06em;margin-bottom:8px;">DESCRIPTION</div>
+                    <textarea value="{{ p.descriptionText }}" onChange="{{ p.onDescription }}" rows="6" placeholder="Describe this pattern…" style="width:100%;box-sizing:border-box;background:#161311;border:1px solid #322f29;border-radius:8px;padding:11px 12px;color:#C9C4BA;font-size:13px;line-height:1.65;outline:none;font-family:'Hanken Grotesk',sans-serif;resize:vertical;"></textarea>
+                  </div>
+                </div>
+                </sc-if>
+
+                <sc-for list="{{ p.variations }}" as="v" hint-placeholder-count="1">
+                  <div style="border:1px solid #2a2722;border-left:2px solid rgba(62,114,217,0.4);border-radius:10px;background:#1f1c19;padding:13px 14px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:9px;">
+                      <input value="{{ v.name }}" onChange="{{ v.onName }}" placeholder="Variation heading" style="flex:1;min-width:0;background:#161311;border:1px solid #322f29;border-radius:8px;padding:8px 10px;color:#ECE8E1;font-size:13.5px;font-weight:600;outline:none;" style-focus="border-color:#3E72D9;" />
+                      <button onClick="{{ v.onDelete }}" title="Remove variation" style="width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;color:#D8705E;background:rgba(216,112,94,0.1);border:1px solid rgba(216,112,94,0.2);border-radius:8px;cursor:pointer;font-size:14px;" style-hover="background:rgba(216,112,94,0.18);">×</button>
+                    </div>
+                    <div style="background:#161311;border:1px solid #2a2722;border-radius:9px;overflow:hidden;">
+                      <div style="display:flex;align-items:center;padding:7px 12px;border-bottom:1px solid #232019;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.05em;">TEMPLATE</div>
+                      <textarea value="{{ v.code }}" onChange="{{ v.onCode }}" rows="7" spellcheck="false" style="display:block;width:100%;box-sizing:border-box;margin:0;padding:12px 14px;background:transparent;border:none;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.6;color:#C9C4BA;outline:none;resize:vertical;"></textarea>
+                    </div>
+                  </div>
+                </sc-for>
+
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <button onClick="{{ p.onAddVar }}" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:#B3ADA3;background:#2a2823;border:1px solid #34312b;padding:8px 12px;border-radius:9px;cursor:pointer;" style-hover="border-color:#44403a;">+ Add variation</button>
+                  <div style="margin-left:auto;display:flex;gap:8px;">
+                    <button onClick="{{ p.onCancel }}" style="font-size:13px;font-weight:600;color:#B3ADA3;background:transparent;border:1px solid #34312b;padding:8px 16px;border-radius:9px;cursor:pointer;" style-hover="border-color:#44403a;">Cancel</button>
+                    <button onClick="{{ p.onSave }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:8px 18px;border-radius:9px;cursor:pointer;" style-hover="background:#5483e0;">Save</button>
+                  </div>
+                </div>
+              </sc-if>
+
+            </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ DETAIL / SOLVE ============ -->
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Problem detail" style="max-width:1140px;margin:0 auto;padding:22px 30px 40px;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- SOLVE MODE -->
+      <sc-if value="{{ solveMode }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+          <div style="min-width:0;flex:1;">
+            <div onClick="{{ back }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;cursor:pointer;" style-hover="color:#B3ADA3;">← Problems / {{ p.topic }}</div>
+            <div style="display:flex;align-items:center;gap:11px;margin-top:9px;flex-wrap:wrap;">
+              <span style="font-size:23px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">{{ p.title }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:{{ p.diffColor }};background:{{ p.diffBg }};border:1px solid {{ p.diffBd }};padding:2px 8px;border-radius:6px;">{{ p.diffLabel }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8CABF4;background:rgba(62,114,217,0.1);border:1px solid rgba(62,114,217,0.22);padding:2px 9px;border-radius:6px;">solve mode · not solved</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:9px;align-items:center;flex:none;">
+            <button style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:#B3ADA3;background:#221f1a;border:1px solid #34312b;padding:9px 13px;border-radius:9px;cursor:pointer;" style-hover="border-color:#44403a;">Open on LeetCode ↗</button>
+            <button onClick="{{ p.onMarkSolved }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 16px;border-radius:9px;cursor:pointer;" style-hover="background:#5483e0;"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#181511" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10.5 8.5 15 16 6"/></svg>Mark solved</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:16px;align-items:flex-start;">
+          <div style="flex:0.92;min-width:0;display:flex;flex-direction:column;gap:14px;">
+            <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 19px;">
+              <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;margin-bottom:10px;"><span style="width:3px;height:11px;border-radius:2px;background:#3E72D9;flex:none;"></span>PROBLEM STATEMENT</div>
+              <div style="font-size:14px;line-height:1.7;color:#C9C4BA;">{{ p.statement }}</div>
+              <div style="margin-top:12px;background:#161311;border:1px solid #2a2722;border-radius:9px;overflow:hidden;"><div style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-bottom:1px solid #221e1b;"><span style="width:9px;height:9px;border-radius:50%;background:#D8705E;"></span><span style="width:9px;height:9px;border-radius:50%;background:#C9A24B;"></span><span style="width:9px;height:9px;border-radius:50%;background:#6FBF92;"></span><span style="margin-left:7px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.07em;">EXAMPLE</span></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.9;padding:11px 14px;"><div style="display:flex;gap:9px;"><span style="color:#7e96c4;width:24px;flex:none;">in</span><span style="color:#C9C4BA;">{{ p.exIn }}</span></div><div style="display:flex;gap:9px;"><span style="color:#6FBF92;width:24px;flex:none;">out</span><span style="color:#ECE8E1;">{{ p.exOut }}</span></div></div></div>
+            </div>
+            <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 19px;">
+              <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;margin-bottom:10px;"><span style="width:3px;height:11px;border-radius:2px;background:#3E72D9;flex:none;"></span>MY APPROACH</div>
+              <textarea value="{{ p.approach }}" onChange="{{ p.onSolveApproach }}" rows="3" placeholder="Jot your plan before / while you code…" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 13px;color:#C9C4BA;font-size:14px;line-height:1.7;outline:none;font-family:'Hanken Grotesk',sans-serif;resize:vertical;" style-focus="border-color:#3E72D9;"></textarea>
+            </div>
+            <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 19px;">
+              <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;margin-bottom:10px;"><span style="width:3px;height:11px;border-radius:2px;background:#3E72D9;flex:none;"></span>NOTES <span style="color:#5f5b53;">· optional</span></div>
+              <textarea value="{{ p.notes }}" onChange="{{ p.onSolveNotes }}" rows="2" placeholder="Edge cases, complexity, things to remember…" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 13px;color:#C9C4BA;font-size:14px;line-height:1.7;outline:none;font-family:'Hanken Grotesk',sans-serif;resize:vertical;" style-focus="border-color:#3E72D9;"></textarea>
+            </div>
+            <sc-if value="{{ p.hasPatterns }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:0 2px;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.06em;">PATTERNS</span>
+              <sc-for list="{{ p.patterns }}" as="pat" hint-placeholder-count="2">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7e96c4;background:rgba(62,114,217,0.07);border:1px solid rgba(62,114,217,0.16);padding:2px 8px;border-radius:6px;">{{ pat }}</span>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+          <div style="flex:1.5;min-width:0;position:sticky;top:16px;">
+            <div style="background:#161311;border:1px solid rgba(62,114,217,0.28);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 16px 40px -22px rgba(0,0,0,0.75);">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #2a2722;background:#1a1714;">
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B3ADA3;letter-spacing:0.05em;">YOUR SOLUTION</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5f5b53;">write while you read</span>
+                </div>
+                <div style="position:relative;">
+                  <select value="{{ p.lang }}" onChange="{{ p.onLang }}" style="appearance:none;-webkit-appearance:none;background:#221f1a;border:1px solid #34312b;border-radius:7px;padding:5px 26px 5px 10px;color:#B3ADA3;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;cursor:pointer;" style-focus="border-color:#3E72D9;">
+                    <sc-for list="{{ p.langOptions }}" as="lg" hint-placeholder-count="6"><option value="{{ lg }}">{{ lg }}</option></sc-for>
+                  </select>
+                  <svg style="position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+                </div>
+              </div>
+              <textarea value="{{ p.solution }}" onChange="{{ p.onSolveSolution }}" spellcheck="false" placeholder="// write your solution here" style="display:block;width:100%;box-sizing:border-box;margin:0;padding:17px 18px;min-height:608px;background:transparent;border:none;font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.78;color:#ECE8E1;outline:none;resize:vertical;"></textarea>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- REVIEW MODE -->
+      <sc-if value="{{ reviewMode }}" hint-placeholder-val="{{ true }}">
+      <div style="position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:16px;border-bottom:1px solid #262320;">
+        <div style="position:absolute;top:-60px;left:-30px;width:420px;height:200px;background:radial-gradient(closest-side, rgba(62,114,217,0.13), rgba(62,114,217,0));pointer-events:none;"></div>
+        <div style="position:relative;min-width:0;flex:1;">
+          <div onClick="{{ back }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;cursor:pointer;" style-hover="color:#B3ADA3;">← Problems / {{ p.topic }}</div>
+          <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:11px;margin-top:9px;flex-wrap:wrap;">
+            <span style="font-size:23px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">{{ p.title }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:{{ p.diffColor }};background:{{ p.diffBg }};border:1px solid {{ p.diffBd }};padding:2px 8px;border-radius:6px;">{{ p.diffLabel }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ p.statusColor }};background:#2a2823;border:1px solid #322f29;padding:2px 9px;border-radius:6px;">{{ p.statusLabel }}</span>
+          </div>
+          </sc-if>
+          <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:9px;margin-top:11px;max-width:580px;">
+            <input value="{{ p.title }}" onChange="{{ p.onTitle }}" placeholder="Problem title" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:10px 12px;color:#ECE8E1;font-size:18px;font-weight:700;outline:none;" style-focus="border-color:#3E72D9;" />
+            <div style="display:flex;align-items:center;gap:9px;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;letter-spacing:0.06em;flex:none;">TOPIC</span>
+              <input value="{{ p.topic }}" onChange="{{ p.onTopic }}" placeholder="Topic" style="flex:1;min-width:0;background:#1a1714;border:1px solid #322f29;border-radius:8px;padding:8px 11px;color:#B3ADA3;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;" style-focus="border-color:#3E72D9;" />
+            </div>
+          </div>
+          </sc-if>
+        </div>
+        <div style="display:flex;gap:9px;align-items:center;flex:none;">
+          <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+            <button style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:#B3ADA3;background:#221f1a;border:1px solid #34312b;padding:9px 13px;border-radius:9px;cursor:pointer;" style-hover="border-color:#44403a;">Open on LeetCode ↗</button>
+            <button onClick="{{ p.onEdit }}" style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#B3ADA3;background:#221f1a;border:1px solid #34312b;padding:9px 14px;border-radius:9px;cursor:pointer;" style-hover="border-color:#44403a;color:#ECE8E1;"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5l3 3"/><path d="M4 16.5l-.7.2.2-.7L13 6.5l.5-.5 3 3-.5.5-8.5 8.5z"/></svg>Edit</button>
+          </sc-if>
+          <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ p.onCancelEdit }}" style="font-size:13px;font-weight:600;color:#B3ADA3;background:transparent;border:1px solid #34312b;padding:9px 16px;border-radius:9px;cursor:pointer;" style-hover="border-color:#44403a;">Cancel</button>
+            <button onClick="{{ p.onSaveEdit }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 18px;border-radius:9px;cursor:pointer;" style-hover="background:#5483e0;">Save</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:18px;align-items:flex-start;">
+        <!-- left -->
+        <div style="flex:1.55;min-width:0;display:flex;flex-direction:column;gap:14px;">
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 19px;">
+            <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;margin-bottom:10px;"><span style="width:3px;height:11px;border-radius:2px;background:#3E72D9;flex:none;"></span>PROBLEM STATEMENT</div>
+            <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:14px;line-height:1.7;color:#C9C4BA;">{{ p.statement }}</div>
+              <div style="margin-top:12px;background:#161311;border:1px solid #2a2722;border-radius:9px;overflow:hidden;"><div style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-bottom:1px solid #221e1b;"><span style="width:9px;height:9px;border-radius:50%;background:#D8705E;"></span><span style="width:9px;height:9px;border-radius:50%;background:#C9A24B;"></span><span style="width:9px;height:9px;border-radius:50%;background:#6FBF92;"></span><span style="margin-left:7px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5f5b53;letter-spacing:0.07em;">EXAMPLE</span></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.9;padding:11px 14px;"><div style="display:flex;gap:9px;"><span style="color:#7e96c4;width:24px;flex:none;">in</span><span style="color:#C9C4BA;">{{ p.exIn }}</span></div><div style="display:flex;gap:9px;"><span style="color:#6FBF92;width:24px;flex:none;">out</span><span style="color:#ECE8E1;">{{ p.exOut }}</span></div></div></div>
+            </sc-if>
+            <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+              <textarea value="{{ p.statement }}" onChange="{{ p.onStatement }}" rows="4" placeholder="Describe the problem…" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 13px;color:#C9C4BA;font-size:14px;line-height:1.7;outline:none;font-family:'Hanken Grotesk',sans-serif;resize:vertical;" style-focus="border-color:#3E72D9;"></textarea>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:11px;background:#1a1714;border:1px solid #2a2722;border-radius:8px;padding:11px 13px;">
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#847F76;width:26px;flex:none;">in</span>
+                  <input value="{{ p.exIn }}" onChange="{{ p.onExIn }}" placeholder="example input" style="flex:1;min-width:0;background:#221f1a;border:1px solid #322f29;border-radius:7px;padding:7px 10px;color:#C9C4BA;font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;" style-focus="border-color:#3E72D9;" />
+                </div>
+                <div style="display:flex;align-items:center;gap:9px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#847F76;width:26px;flex:none;">out</span>
+                  <input value="{{ p.exOut }}" onChange="{{ p.onExOut }}" placeholder="example output" style="flex:1;min-width:0;background:#221f1a;border:1px solid #322f29;border-radius:7px;padding:7px 10px;color:#C9C4BA;font-family:'IBM Plex Mono',monospace;font-size:12.5px;outline:none;" style-focus="border-color:#3E72D9;" />
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 19px;">
+            <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;margin-bottom:10px;"><span style="width:3px;height:11px;border-radius:2px;background:#3E72D9;flex:none;"></span>MY APPROACH</div>
+            <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+              <textarea value="{{ p.approach }}" onChange="{{ p.onApproach }}" data-edit-field="approach" rows="4" placeholder="How do you crack this one?" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 13px;color:#C9C4BA;font-size:14px;line-height:1.7;outline:none;font-family:'Hanken Grotesk',sans-serif;resize:vertical;" style-focus="border-color:#3E72D9;"></textarea>
+            </sc-if>
+            <sc-if value="{{ p.hasApproach }}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:14px;line-height:1.7;color:#C9C4BA;">{{ p.approach }}</div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ p.noApproach }}" hint-placeholder-val="{{ false }}">
+              <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ p.addApproach }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:#8CABF4;background:rgba(62,114,217,0.08);border:1px dashed rgba(62,114,217,0.3);padding:10px 13px;border-radius:9px;cursor:pointer;width:100%;font-family:'Hanken Grotesk',sans-serif;" style-hover="background:rgba(62,114,217,0.14);"><span style="font-size:15px;line-height:0;">+</span> Add approach</button>
+              </sc-if>
+            </sc-if>
+          </div>
+
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 19px;">
+            <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;margin-bottom:10px;"><span style="width:3px;height:11px;border-radius:2px;background:#3E72D9;flex:none;"></span>NOTES &amp; LEARNINGS</div>
+            <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+              <textarea value="{{ p.notes }}" onChange="{{ p.onNotes }}" data-edit-field="notes" rows="3" placeholder="Gotchas, complexity, what tripped you up…" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:9px;padding:11px 13px;color:#C9C4BA;font-size:14px;line-height:1.7;outline:none;font-family:'Hanken Grotesk',sans-serif;resize:vertical;" style-focus="border-color:#3E72D9;"></textarea>
+            </sc-if>
+            <sc-if value="{{ p.hasNotes }}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:14px;line-height:1.7;color:#C9C4BA;">{{ p.notes }}</div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ p.noNotes }}" hint-placeholder-val="{{ false }}">
+              <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ p.addNotes }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:#8CABF4;background:rgba(62,114,217,0.08);border:1px dashed rgba(62,114,217,0.3);padding:10px 13px;border-radius:9px;cursor:pointer;width:100%;font-family:'Hanken Grotesk',sans-serif;" style-hover="background:rgba(62,114,217,0.14);"><span style="font-size:15px;line-height:0;">+</span> Add notes</button>
+              </sc-if>
+            </sc-if>
+          </div>
+
+          <div style="background:#1a1714;border:1px solid #322f29;border-radius:12px;overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #2a2722;">
+              <div style="display:flex;align-items:center;gap:9px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;letter-spacing:0.05em;">YOUR SOLUTION</span>
+                <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#3E72D9;background:rgba(62,114,217,0.1);padding:1px 7px;border-radius:5px;">spoiler-free</span>
+                </sc-if>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#847F76;">{{ p.lang }}</span>
+              </div>
+              <sc-if value="{{ solutionHideBtn }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ toggleReveal }}" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;background:none;border:none;cursor:pointer;">Hide ▲</button>
+              </sc-if>
+            </div>
+            <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+              <textarea value="{{ p.solution }}" onChange="{{ p.onSolution }}" data-edit-field="solution" rows="9" spellcheck="false" placeholder="// your code solution" style="display:block;width:100%;box-sizing:border-box;margin:0;padding:15px 16px;background:transparent;border:none;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;color:#C9C4BA;outline:none;resize:vertical;"></textarea>
+            </sc-if>
+            <sc-if value="{{ solutionViewFilled }}" hint-placeholder-val="{{ true }}">
+            <div style="position:relative;">
+              <pre style="margin:0;padding:15px 16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;color:#C9C4BA;filter:{{ blur }};transition:filter .3s ease;user-select:none;white-space:pre;overflow-x:auto;">{{ p.solution }}</pre>
+              <sc-if value="{{ hidden }}" hint-placeholder-val="{{ true }}">
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;background:rgba(26,23,20,0.55);">
+                  <div style="display:flex;align-items:center;gap:8px;color:#847F76;font-size:12.5px;">
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="9" width="11" height="8" rx="1.6"/><path d="M7 9V6.8a3 3 0 0 1 6 0V9"/></svg>
+                    Hidden so this page doubles as revision later
+                  </div>
+                  <button onClick="{{ toggleReveal }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 17px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#181511" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10Z"/><circle cx="10" cy="10" r="2.4"/></svg>
+                    Reveal solution
+                  </button>
+                </div>
+              </sc-if>
+            </div>
+            </sc-if>
+            <sc-if value="{{ solutionViewEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:15px 16px;">
+                <button onClick="{{ p.addSolution }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:#8CABF4;background:rgba(62,114,217,0.08);border:1px dashed rgba(62,114,217,0.3);padding:10px 13px;border-radius:9px;cursor:pointer;width:100%;font-family:'Hanken Grotesk',sans-serif;" style-hover="background:rgba(62,114,217,0.14);"><span style="font-size:15px;line-height:0;">+</span> Add solution</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- right -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;">
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+              <div style="font-size:14px;font-weight:600;color:#ECE8E1;">Solve checklist</div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8CABF4;background:rgba(62,114,217,0.1);border:1px solid rgba(62,114,217,0.22);padding:2px 8px;border-radius:6px;">{{ p.checklistDone }}/{{ p.checklistTotal }}</span>
+            </div>
+            <div style="height:5px;background:#2a2722;border-radius:3px;overflow:hidden;margin-bottom:14px;">
+              <div style="width:{{ p.checklistPct }}%;height:100%;background:linear-gradient(90deg,#2C56B2,#4E7CE0);border-radius:3px;transition:width .35s ease;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <sc-for list="{{ p.checklist }}" as="step" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 8px;margin:0 -8px;border-radius:7px;background:{{ step.rowBg }};color:{{ step.color }};">
+                  <sc-if value="{{ step.done }}" hint-placeholder-val="{{ false }}">
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" fill="#3E72D9"/><path d="M6.4 10.2l2.3 2.3 4.8-4.9" stroke="#181511" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </sc-if>
+                  <sc-if value="{{ step.notDone }}" hint-placeholder-val="{{ true }}">
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.4" stroke="currentColor" stroke-width="1.5"/></svg>
+                  </sc-if>
+                  <span style="font-size:13px;text-decoration:{{ step.strike }};text-decoration-color:#4a463f;">{{ step.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:#221f1a;border:1px solid #2c2924;border-radius:12px;padding:17px 18px;">
+            <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:10px;margin-bottom:15px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#847F76;letter-spacing:0.06em;margin-bottom:6px;">DIFFICULTY</div>
+                  <div style="position:relative;">
+                    <select value="{{ p.difficulty }}" onChange="{{ p.onDifficulty }}" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:8px;padding:8px 28px 8px 10px;color:#ECE8E1;font-size:13px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;" style-focus="border-color:#3E72D9;">
+                      <sc-for list="{{ p.diffOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
+                    </select>
+                    <svg style="position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;" width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+                  </div>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#847F76;letter-spacing:0.06em;margin-bottom:6px;">STATUS</div>
+                  <div style="position:relative;">
+                    <select value="{{ p.status }}" onChange="{{ p.onStatus }}" style="width:100%;box-sizing:border-box;background:#1a1714;border:1px solid #322f29;border-radius:8px;padding:8px 28px 8px 10px;color:#ECE8E1;font-size:13px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;" style-focus="border-color:#3E72D9;">
+                      <sc-for list="{{ p.statusOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
+                    </select>
+                    <svg style="position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;" width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="#847F76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+            <div style="font-size:13px;font-weight:600;color:#ECE8E1;margin-bottom:11px;">Linked patterns</div>
+            <sc-if value="{{ p.viewMode }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-wrap:wrap;gap:7px;">
+              <sc-for list="{{ p.patterns }}" as="pat" hint-placeholder-count="3">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8CABF4;background:rgba(62,114,217,0.1);border:1px solid rgba(62,114,217,0.22);padding:4px 10px;border-radius:7px;">{{ pat }}</span>
+              </sc-for>
+            </div>
+            </sc-if>
+            <sc-if value="{{ p.editing }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;">
+              <sc-for list="{{ p.patternChips }}" as="pat" hint-placeholder-count="2">
+                <span style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8CABF4;background:rgba(62,114,217,0.1);border:1px solid rgba(62,114,217,0.22);padding:3px 6px 3px 10px;border-radius:7px;">{{ pat.text }}<span onClick="{{ pat.onRemove }}" style="cursor:pointer;color:#6f9be8;font-size:13px;line-height:1;">×</span></span>
+              </sc-for>
+              <input onKeyDown="{{ p.onAddPattern }}" placeholder="add + Enter" style="flex:1;min-width:96px;background:#1a1714;border:1px dashed #34312b;border-radius:7px;padding:5px 9px;color:#ECE8E1;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;" style-focus="border-color:#3E72D9;" />
+            </div>
+            </sc-if>
+            <div style="height:1px;background:#2a2722;margin:14px 0;"></div>
+            <div style="display:flex;flex-direction:column;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;">
+              <div style="display:flex;justify-content:space-between;"><span style="color:#847F76;">created</span><span style="color:#B3ADA3;">{{ p.created }}</span></div>
+              <div style="display:flex;justify-content:space-between;"><span style="color:#847F76;">last revised</span><span style="color:#B3ADA3;">{{ p.lastRevised }}</span></div>
+              <div style="display:flex;justify-content:space-between;"><span style="color:#847F76;">next review</span><span style="color:{{ p.nextColor }};">{{ p.nextLabel }}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ============ REVISE ============ -->
+    <sc-if value="{{ isRevise }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Revision" style="max-width:760px;margin:0 auto;padding:28px 36px 44px;">
+      <sc-if value="{{ revActive }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3E72D9;letter-spacing:0.06em;">REVISION · SPOILER-FREE</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;">{{ revNum }} / {{ revTotal }}</span>
+              <span onClick="{{ goDashboard }}" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;cursor:pointer;" style-hover="color:#B3ADA3;">End session ✕</span>
+            </div>
+          </div>
+          <div style="height:4px;background:#2a2722;border-radius:3px;overflow:hidden;margin-top:12px;"><div style="width:{{ revPctW }};height:100%;background:#3E72D9;border-radius:3px;transition:width .3s;"></div></div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin-top:22px;">
+            <span style="font-size:24px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">{{ rp.title }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:{{ rp.diffColor }};background:{{ rp.diffBg }};border:1px solid {{ rp.diffBd }};padding:2px 8px;border-radius:6px;">{{ rp.diffLabel }}</span>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;margin-top:8px;">{{ rp.topic }} · last revised {{ rp.lastRevised }} · created {{ rp.created }}</div>
+
+          <div style="margin-top:20px;font-size:14.5px;line-height:1.75;color:#C9C4BA;">{{ rp.statement }}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#847F76;margin-top:12px;line-height:1.7;background:#1a1714;border:1px solid #2a2722;border-radius:8px;padding:11px 13px;">in:  {{ rp.exIn }}<br>out: {{ rp.exOut }}</div>
+
+          <div style="margin-top:18px;background:#161311;border:1px dashed #34312b;border-radius:11px;padding:16px 18px;min-height:74px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#5f5b53;">// solve from memory — your saved code stays hidden<span style="opacity:0.6;">▋</span></span>
+          </div>
+
+          <div style="margin-top:16px;position:relative;border:1px solid #322f29;border-radius:11px;overflow:hidden;background:#1a1714;">
+            <pre style="margin:0;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.6;color:#C9C4BA;filter:{{ blur }};transition:filter .3s ease;user-select:none;white-space:pre;overflow-x:auto;">{{ rp.solution }}</pre>
+            <sc-if value="{{ hidden }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:12px;background:rgba(26,23,20,0.5);">
+                <button onClick="{{ toggleReveal }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:9px 17px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#181511" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10Z"/><circle cx="10" cy="10" r="2.4"/></svg>
+                  Reveal solution
+                </button>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;">solution hidden</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ revealed }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleReveal }}" style="position:absolute;top:9px;right:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;background:none;border:none;cursor:pointer;">Hide ▲</button>
+            </sc-if>
+          </div>
+
+          <div style="margin-top:22px;">
+            <div style="font-size:13px;color:#847F76;margin-bottom:10px;">How did it go?</div>
+            <div style="display:flex;gap:10px;">
+              <sc-for list="{{ grades }}" as="g" hint-placeholder-count="4">
+                <button onClick="{{ gradeRevision }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:13px 8px;border-radius:11px;background:#221f1a;border:1px solid #34312b;cursor:pointer;" style-hover="border-color:#4a463f;background:#262320;">
+                  <span style="font-size:13.5px;font-weight:600;color:{{ g.c }};">{{ g.key }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#847F76;">{{ g.iv }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5f5b53;margin-top:9px;">↑ your grade schedules the next review · SM-2 spaced repetition</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ revDone }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 20px;">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(111,191,146,0.12);border:1px solid rgba(111,191,146,0.32);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6FBF92" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+          </div>
+          <div style="font-size:22px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">Revision session complete</div>
+          <div style="font-size:14px;color:#9d978c;margin-top:8px;max-width:380px;line-height:1.6;">You reviewed {{ revTotal }} problems. Each one was rescheduled by how you graded it — the next batch is already on your calendar.</div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onClick="{{ startRevision }}" style="font-size:13px;font-weight:600;color:#8CABF4;background:rgba(62,114,217,0.12);border:1px solid rgba(62,114,217,0.24);padding:10px 18px;border-radius:9px;cursor:pointer;">Revise again</button>
+            <button onClick="{{ goDashboard }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:10px 18px;border-radius:9px;cursor:pointer;">Back to dashboard</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ============ FLASHCARDS ============ -->
+    <sc-if value="{{ isFlashcards }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Flashcards" style="max-width:680px;margin:0 auto;padding:28px 36px 44px;">
+      <sc-if value="{{ fcActive }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3E72D9;letter-spacing:0.06em;">FLASHCARDS · SRS</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;">{{ fcNum }} / {{ fcTotal }}</span>
+              <span onClick="{{ goDashboard }}" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#847F76;cursor:pointer;" style-hover="color:#B3ADA3;">End session ✕</span>
+            </div>
+          </div>
+          <div style="height:4px;background:#2a2722;border-radius:3px;overflow:hidden;margin-top:12px;"><div style="width:{{ fcPctW }};height:100%;background:#3E72D9;border-radius:3px;transition:width .3s;"></div></div>
+
+          <div style="margin-top:20px;background:linear-gradient(155deg,#20211e,#201d1a);border:1px solid #34312b;border-radius:16px;padding:26px 26px 22px;min-height:300px;display:flex;flex-direction:column;box-shadow:0 18px 44px -22px rgba(0,0,0,0.6);">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#3E72D9;letter-spacing:0.06em;text-transform:uppercase;">{{ fc.type }} · {{ fc.tag }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5f5b53;letter-spacing:0.05em;">FLASHCARD</span>
+            </div>
+
+            <sc-if value="{{ front }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:18px 0;">
+                <div style="font-size:21px;font-weight:600;color:#ECE8E1;max-width:480px;line-height:1.4;letter-spacing:-0.01em;">{{ fc.front }}</div>
+                <button onClick="{{ flipCard }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:10px 20px;border-radius:9px;cursor:pointer;">Show answer ↵</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ flipped }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:14px 0;">
+                <div style="font-size:15px;line-height:1.65;color:#D6D1C7;text-align:center;max-width:540px;margin:0 auto;">{{ fc.back }}</div>
+                <div>
+                  <div style="font-size:12px;color:#847F76;text-align:center;margin-bottom:10px;">How well did you recall it?</div>
+                  <div style="display:flex;gap:9px;">
+                    <sc-for list="{{ grades }}" as="g" hint-placeholder-count="4">
+                      <button onClick="{{ gradeCard }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 8px;border-radius:10px;background:#221f1a;border:1px solid #34312b;cursor:pointer;" style-hover="border-color:#4a463f;background:#262320;">
+                        <span style="font-size:13px;font-weight:600;color:{{ g.c }};">{{ g.key }}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#847F76;">{{ g.iv }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:center;margin-top:14px;">
+            <span onClick="{{ flipCard }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#847F76;cursor:pointer;" style-hover="color:#B3ADA3;">↺ flip card</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ fcDone }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 20px;">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(62,114,217,0.12);border:1px solid rgba(62,114,217,0.32);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8CABF4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+          </div>
+          <div style="font-size:22px;font-weight:700;color:#ECE8E1;letter-spacing:-0.015em;">All caught up</div>
+          <div style="font-size:14px;color:#9d978c;margin-top:8px;max-width:380px;line-height:1.6;">You graded {{ fcTotal }} cards. They're rescheduled by ease — come back when the next ones are due.</div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onClick="{{ startFlashcards }}" style="font-size:13px;font-weight:600;color:#8CABF4;background:rgba(62,114,217,0.12);border:1px solid rgba(62,114,217,0.24);padding:10px 18px;border-radius:9px;cursor:pointer;">Run again</button>
+            <button onClick="{{ goDashboard }}" style="font-size:13px;font-weight:600;color:#181511;background:#3E72D9;border:none;padding:10px 18px;border-radius:9px;cursor:pointer;">Back to dashboard</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+  </div>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = (() => {
+    const u = this.readUser();
+    const ps = this.readProblemState();
+    return { screen: 'dashboard', selectedId: 'p2', revealed: false, revIdx: 0, fcIdx: 0, flipped: false, dueOnly: false,
+      pEdits: ps.pEdits, imported: ps.imported, editingProblem: false, pDraft: null, pFocus: null,
+      user: u, onboarding: !u, editingProfile: false, form: this.blankForm(), nameError: '', emailError: '',
+      leetQuery: '', leetDiff: 'All', leetTag: 'All',
+      patterns: this.seedPatterns(), tplExpanded: { 'pat-two-pointers': true }, tplVarCollapsed: {}, tplSearch: '', tplEditId: null, tplDraft: null, tplMenuId: null, tplEditScope: null };
+  })();
+
+  goalOptions() {
+    return [1, 2, 3, 4, 5, 7, 10, 15, 20, 25, 30].map(n => ({ v: n, l: String(n) }));
+  }
+  blankForm() { return { name: '', email: '', dailyGoal: 10, bio: '' }; }
+  formFromUser(u) { return { name: u.name || '', email: u.email || '', dailyGoal: u.daily_goal || 10, bio: u.bio || '' }; }
+  readUser() {
+    if (this._userLoaded) return this._user;
+    this._userLoaded = true;
+    try { const raw = localStorage.getItem('dsa_user'); this._user = raw ? JSON.parse(raw) : null; } catch (e) { this._user = null; }
+    return this._user;
+  }
+  uuidHex() {
+    try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, ''); } catch (e) {}
+    let s = ''; for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16); return s;
+  }
+  setField(k, v) {
+    this.setState(s => {
+      const patch = { form: Object.assign({}, s.form, { [k]: v }) };
+      if (k === 'name') patch.nameError = '';
+      if (k === 'email') patch.emailError = '';
+      return patch;
+    });
+  }
+  bumpGoal(d) { this.setState(s => ({ form: Object.assign({}, s.form, { dailyGoal: Math.max(1, Math.min(100, (s.form.dailyGoal || 0) + d)) }) })); }
+  greetingWord() { const h = new Date().getHours(); return h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening'; }
+  editProfile() {
+    const u = this.state.user;
+    this.setState({ onboarding: true, editingProfile: true, form: u ? this.formFromUser(u) : this.blankForm(), nameError: '', emailError: '' });
+  }
+  cancelEdit() { this.setState({ onboarding: false, editingProfile: false, nameError: '', emailError: '' }); }
+  submitOnboarding() {
+    const f = this.state.form;
+    const name = (f.name || '').trim();
+    if (!name) { this.setState({ nameError: 'Please enter a name to continue.' }); return; }
+    const email = (f.email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.setState({ emailError: 'That email doesn\u2019t look right.' }); return; }
+    const now = new Date().toISOString();
+    const prev = this.state.user;
+    const user = {
+      id: prev ? prev.id : this.uuidHex(),
+      name: name,
+      email: email || null,
+      timezone: (prev && prev.timezone) || 'UTC',
+      daily_goal: f.dailyGoal || 10,
+      bio: (f.bio || '').trim() || null,
+      created_at: prev ? prev.created_at : now,
+      updated_at: now,
+    };
+    try { localStorage.setItem('dsa_user', JSON.stringify(user)); } catch (e) {}
+    this._user = user; this._userLoaded = true;
+    this.setState({ user: user, onboarding: false, editingProfile: false, nameError: '', emailError: '' });
+  }
+
+  PROBLEMS = [
+    { id:'p1', title:'Two-Sum Variant', topic:'Hashing', difficulty:'Easy', status:'Done', due:true,
+      statement:'Given an array of integers and a target, return the indices of the two numbers that add up to the target. Exactly one solution exists, and you may not reuse an element.',
+      exIn:'nums = [2, 7, 11, 15], target = 9', exOut:'[0, 1]',
+      approach:'One pass with a hash map of value → index. For each x, check whether (target − x) has already been seen.',
+      solution:'function twoSum(nums, target) {\n  const seen = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const need = target - nums[i];\n    if (seen.has(need)) return [seen.get(need), i];\n    seen.set(nums[i], i);\n  }\n  return [];\n}',
+      notes:'Hash map trades O(n) space for O(n) time. Store the index, not just presence, so duplicate values still resolve correctly.',
+      patterns:['Hash Map'], created:'21d ago', lastRevised:'4d ago · 5×', nextLabel:'today', nextColor:'#3E72D9', dueMeta:'revised 4d ago · 5×', revisions:5 },
+
+    { id:'p2', title:'Merge Overlapping Ranges', topic:'Arrays', difficulty:'Medium', status:'Done', due:true,
+      statement:'Given a collection of intervals [start, end], merge all overlapping intervals and return the non-overlapping set that covers the same span. Intervals touching at an endpoint count as overlapping.',
+      exIn:'[[1,3], [2,6], [8,10], [15,18]]', exOut:'[[1,6], [8,10], [15,18]]',
+      approach:'Sort by start. Sweep left → right keeping the last merged interval; if the next start ≤ last end, extend the end, otherwise push a new interval.',
+      solution:'function mergeRanges(intervals) {\n  intervals.sort((a, b) => a[0] - b[0]);\n  const out = [intervals[0]];\n  for (const [s, e] of intervals.slice(1)) {\n    const last = out[out.length - 1];\n    if (s <= last[1]) last[1] = Math.max(last[1], e);\n    else out.push([s, e]);\n  }\n  return out;\n}',
+      notes:'O(n log n) from the sort, O(n) sweep. The "touching counts as overlap" rule means use ≤, not <.',
+      patterns:['Interval Merge','Sorting','Sweep Line'], created:'12d ago', lastRevised:'6d ago · 3×', nextLabel:'today', nextColor:'#3E72D9', dueMeta:'revised 6d ago · 3×', revisions:3 },
+
+    { id:'p3', title:'Longest Unique Window', topic:'Two Pointers', difficulty:'Medium', status:'Solving', due:true,
+      statement:'Find the length of the longest substring without repeating characters. Return the length only.',
+      exIn:'"abcabcbb"', exOut:'3   ("abc")',
+      approach:'Sliding window with a map of last-seen index. When a duplicate appears, jump the left edge past it — never letting it move backwards.',
+      solution:'function lengthOfLongest(s) {\n  const seen = new Map();\n  let left = 0, best = 0;\n  for (let r = 0; r < s.length; r++) {\n    if (seen.has(s[r])) left = Math.max(left, seen.get(s[r]) + 1);\n    seen.set(s[r], r);\n    best = Math.max(best, r - left + 1);\n  }\n  return best;\n}',
+      notes:'Use max(left, lastSeen + 1) so the window never shrinks backwards on a far-away repeat.',
+      patterns:['Sliding Window','Hash Map'], created:'18d ago', lastRevised:'5d ago · 3×', nextLabel:'-1d', nextColor:'#D8705E', dueMeta:'overdue 1d', revisions:3 },
+
+    { id:'p4', title:'Course Order (Topo Sort)', topic:'Graphs', difficulty:'Hard', status:'Done', due:true,
+      statement:'Given numCourses and prerequisite pairs [a, b] meaning b must be taken before a, return a valid order of all courses, or an empty array if it is impossible.',
+      exIn:'n = 4, prereqs = [[1,0],[2,0],[3,1],[3,2]]', exOut:'[0, 1, 2, 3]',
+      approach:"Kahn's BFS: compute indegrees, queue every zero-indegree node, then peel nodes off and relax their neighbours.",
+      solution:'function courseOrder(n, prereqs) {\n  const adj = Array.from({ length: n }, () => []);\n  const indeg = Array(n).fill(0);\n  for (const [a, b] of prereqs) { adj[b].push(a); indeg[a]++; }\n  const q = [], order = [];\n  for (let i = 0; i < n; i++) if (!indeg[i]) q.push(i);\n  while (q.length) {\n    const u = q.shift(); order.push(u);\n    for (const v of adj[u]) if (--indeg[v] === 0) q.push(v);\n  }\n  return order.length === n ? order : [];\n}',
+      notes:'If the produced order is shorter than n, a cycle exists → no valid ordering.',
+      patterns:['Topological Sort','BFS','Graphs'], created:'9d ago', lastRevised:'9d ago · 2×', nextLabel:'today', nextColor:'#3E72D9', dueMeta:'revised 9d ago · 2×', revisions:2 },
+
+    { id:'p8', title:'Binary Search Bounds', topic:'Binary Search', difficulty:'Easy', status:'Done', due:true,
+      statement:'Given a sorted array, return the leftmost index where target could be inserted to keep the array sorted (its lower bound).',
+      exIn:'nums = [1, 3, 3, 5, 7], target = 3', exOut:'1',
+      approach:'Binary search on a half-open interval [lo, hi); move hi to mid when nums[mid] ≥ target, otherwise lo to mid + 1.',
+      solution:'function lowerBound(nums, target) {\n  let lo = 0, hi = nums.length;\n  while (lo < hi) {\n    const mid = (lo + hi) >> 1;\n    if (nums[mid] < target) lo = mid + 1;\n    else hi = mid;\n  }\n  return lo;\n}',
+      notes:'The half-open interval [lo, hi) kills almost all off-by-one bugs in bound searches.',
+      patterns:['Binary Search'], created:'15d ago', lastRevised:'7d ago · 2×', nextLabel:'today', nextColor:'#3E72D9', dueMeta:'revised 7d ago · 2×', revisions:2 },
+
+    { id:'p5', title:'Min Path Sum (Grid DP)', topic:'Dynamic Prog.', difficulty:'Hard', status:'Not started', due:false,
+      statement:'Given an m×n grid of non-negative numbers, find a path from top-left to bottom-right that minimises the sum of numbers along it. You may only move right or down.',
+      exIn:'[[1,3,1],[1,5,1],[4,2,1]]', exOut:'7',
+      approach:'DP over the grid: dp[i][j] = grid[i][j] + min(up, left). Can be done in place.',
+      solution:'function minPathSum(grid) {\n  const m = grid.length, n = grid[0].length;\n  for (let i = 0; i < m; i++)\n    for (let j = 0; j < n; j++) {\n      if (i === 0 && j === 0) continue;\n      const up = i ? grid[i-1][j] : Infinity;\n      const left = j ? grid[i][j-1] : Infinity;\n      grid[i][j] += Math.min(up, left);\n    }\n  return grid[m-1][n-1];\n}',
+      notes:'', patterns:['Grid DP','Dynamic Programming'], created:'2d ago', lastRevised:'—', nextLabel:'—', nextColor:'#5f5b53', dueMeta:'not started', revisions:0 },
+
+    { id:'p6', title:'Sliding Window Maximum', topic:'Heaps', difficulty:'Hard', status:'Not started', due:false,
+      statement:'Given an array and a window size k, return the maximum of each window as it slides from left to right.',
+      exIn:'nums = [1,3,-1,-3,5,3,6,7], k = 3', exOut:'[3, 3, 5, 5, 6, 7]',
+      approach:'Monotonic deque of indices with decreasing values; drop indices that fall out of the window from the front.',
+      solution:'function maxWindow(nums, k) {\n  const dq = [], res = [];\n  for (let i = 0; i < nums.length; i++) {\n    while (dq.length && nums[dq[dq.length-1]] < nums[i]) dq.pop();\n    dq.push(i);\n    if (dq[0] <= i - k) dq.shift();\n    if (i >= k - 1) res.push(nums[dq[0]]);\n  }\n  return res;\n}',
+      notes:'', patterns:['Monotonic Deque','Sliding Window'], created:'1d ago', lastRevised:'—', nextLabel:'—', nextColor:'#5f5b53', dueMeta:'not started', revisions:0 },
+
+    { id:'p7', title:'Valid Parentheses', topic:'Stacks', difficulty:'Easy', status:'Done', due:false,
+      statement:'Given a string of brackets ()[]{}, decide whether it is validly nested and closed in the correct order.',
+      exIn:'"([{}])"', exOut:'true',
+      approach:'Push opening brackets; on a closing bracket, the stack top must be its matching open.',
+      solution:'function isValid(s) {\n  const pairs = { ")": "(", "]": "[", "}": "{" };\n  const st = [];\n  for (const c of s) {\n    if (c in pairs) { if (st.pop() !== pairs[c]) return false; }\n    else st.push(c);\n  }\n  return st.length === 0;\n}',
+      notes:'An empty stack at the end is required — leftover opens mean the string is invalid.',
+      patterns:['Stack'], created:'24d ago', lastRevised:'10d ago · 4×', nextLabel:'in 5d', nextColor:'#847F76', dueMeta:'revised 10d ago · 4×', revisions:4 },
+
+    { id:'p9', title:'Number of Islands', topic:'Graphs', difficulty:'Medium', status:'Done', due:false,
+      statement:"Count the connected groups of '1's (land) in a grid of '1' and '0', moving only up/down/left/right.",
+      exIn:'grid 4×5 with two clusters', exOut:'2',
+      approach:'Scan every cell; on unvisited land, flood-fill the whole island (DFS or BFS) and increment the count.',
+      solution:'function numIslands(grid) {\n  let count = 0;\n  const sink = (i, j) => {\n    if (i < 0 || j < 0 || i >= grid.length || j >= grid[0].length || grid[i][j] !== "1") return;\n    grid[i][j] = "0";\n    sink(i+1,j); sink(i-1,j); sink(i,j+1); sink(i,j-1);\n  };\n  for (let i = 0; i < grid.length; i++)\n    for (let j = 0; j < grid[0].length; j++)\n      if (grid[i][j] === "1") { count++; sink(i, j); }\n  return count;\n}',
+      notes:'Sinking visited land to "0" marks it visited with no extra memory.',
+      patterns:['Flood Fill','DFS','Graphs'], created:'20d ago', lastRevised:'13d ago · 1×', nextLabel:'in 3d', nextColor:'#847F76', dueMeta:'revised 13d ago · 1×', revisions:1 },
+
+    { id:'p10', title:'Kth Largest Element', topic:'Heaps', difficulty:'Medium', status:'Solving', due:false,
+      statement:'Return the kth largest element in an unsorted array (kth in sorted order, not the kth distinct value).',
+      exIn:'nums = [3,2,1,5,6,4], k = 2', exOut:'5',
+      approach:'Keep a min-heap of size k; after one pass its root is the answer. O(n log k).',
+      solution:'function kthLargest(nums, k) {\n  const heap = new MinHeap();\n  for (const x of nums) {\n    heap.push(x);\n    if (heap.size() > k) heap.pop();\n  }\n  return heap.peek();\n}',
+      notes:'Heap of size k → O(n log k). Quickselect averages O(n) if you need it faster.',
+      patterns:['Heap','Quickselect'], created:'6d ago', lastRevised:'—', nextLabel:'—', nextColor:'#5f5b53', dueMeta:'in progress', revisions:0 },
+  ];
+
+
+  CARDS = [
+    { type:'concept', tag:'Stacks', front:'When do you reach for a monotonic stack?',
+      back:'When you need the next / previous greater-or-smaller element in O(n). Keep indices in a stack that stays increasing or decreasing, popping as the invariant breaks.' },
+    { type:'concept', tag:'Two Pointers', front:'Sliding window — when do you shrink the window?',
+      back:'While the window violates the constraint (sum too large, a repeated character, more than k distinct). Shrink from the left until it is valid again, updating the aggregate as you remove each element.' },
+    { type:'concept', tag:'Binary Search', front:'How do you binary-search on the answer?',
+      back:'Define a monotonic predicate ok(x) that is false then becomes true. Binary search for the smallest x with ok(x) true — testing feasibility in the loop instead of comparing against an array value.' },
+    { type:'problem', tag:'Arrays', front:'Merge Overlapping Ranges — what is the key idea?',
+      back:'Sort the intervals by start, then sweep: if the next start ≤ the current end, extend the end; otherwise push a new interval. Overall O(n log n).' },
+    { type:'concept', tag:'Graphs', front:"Kahn's topological sort in three steps?",
+      back:'1) Count every node\u2019s indegree. 2) Queue all zero-indegree nodes. 3) Pop a node into the order, decrement its neighbours\u2019 indegrees, and enqueue any that reach zero. Leftover nodes mean a cycle.' },
+    { type:'concept', tag:'Recursion', front:'What is the general backtracking skeleton?',
+      back:'If the path is complete, record it. Otherwise loop over the valid choices: apply a choice, recurse, then undo it (pop) before trying the next one.' },
+  ];
+
+  TOPICS = [
+    { name:'Arrays', pct:82, frac:'28/34' },
+    { name:'Two Pointers', pct:64, frac:'16/25' },
+    { name:'Trees', pct:55, frac:'17/31' },
+    { name:'Graphs', pct:41, frac:'11/27' },
+    { name:'Dynamic Prog.', pct:28, frac:'9/32' },
+  ];
+
+  LEETCODE = [
+    { n:1,  title:'Two Sum', difficulty:'Easy', tags:['Array','Hash Table'],
+      statement:'Given an array of integers nums and an integer target, return the indices of the two numbers that add up to target. Exactly one valid answer exists, and you may not use the same element twice.',
+      exIn:'nums = [2,7,11,15], target = 9', exOut:'[0,1]' },
+    { n:2,  title:'Add Two Numbers', difficulty:'Medium', tags:['Linked List','Math','Recursion'],
+      statement:'You are given two non-empty linked lists representing two non-negative integers stored in reverse order, one digit per node. Add the two numbers and return the sum as a linked list.',
+      exIn:'l1 = [2,4,3], l2 = [5,6,4]', exOut:'[7,0,8]   (342 + 465 = 807)' },
+    { n:3,  title:'Longest Substring Without Repeating Characters', difficulty:'Medium', tags:['Hash Table','String','Sliding Window'],
+      statement:'Given a string s, find the length of the longest substring that contains no repeating characters.',
+      exIn:'s = "abcabcbb"', exOut:'3   ("abc")' },
+    { n:4,  title:'Median of Two Sorted Arrays', difficulty:'Hard', tags:['Array','Binary Search','Divide and Conquer'],
+      statement:'Given two sorted arrays nums1 and nums2, return the median of the combined sorted array. Aim for O(log(m+n)) time.',
+      exIn:'nums1 = [1,3], nums2 = [2]', exOut:'2.0' },
+    { n:5,  title:'Longest Palindromic Substring', difficulty:'Medium', tags:['Two Pointers','String','Dynamic Programming'],
+      statement:'Given a string s, return the longest contiguous substring of s that reads the same forwards and backwards.',
+      exIn:'s = "babad"', exOut:'"bab"   ("aba" also valid)' },
+    { n:6,  title:'Zigzag Conversion', difficulty:'Medium', tags:['String'],
+      statement:'Write the characters of a string in a zigzag pattern across a given number of rows, then read them off row by row to produce the converted string.',
+      exIn:'s = "PAYPALISHIRING", numRows = 3', exOut:'"PAHNAPLSIIGYIR"' },
+    { n:7,  title:'Reverse Integer', difficulty:'Medium', tags:['Math'],
+      statement:'Given a signed 32-bit integer x, return x with its digits reversed. If reversing causes the value to fall outside the 32-bit signed range, return 0.',
+      exIn:'x = -123', exOut:'-321' },
+    { n:8,  title:'String to Integer (atoi)', difficulty:'Medium', tags:['String'],
+      statement:'Implement atoi: skip leading whitespace, read an optional sign and the leading digits, convert to a 32-bit signed integer, and clamp the result to the int range.',
+      exIn:'s = "   -42 is the answer"', exOut:'-42' },
+    { n:9,  title:'Palindrome Number', difficulty:'Easy', tags:['Math'],
+      statement:'Given an integer x, return true if x reads the same backward as forward. Negative numbers are never palindromes.',
+      exIn:'x = 121', exOut:'true' },
+    { n:10, title:'Regular Expression Matching', difficulty:'Hard', tags:['String','Dynamic Programming','Recursion'],
+      statement:"Given a string s and a pattern p supporting '.' (any single character) and '*' (zero or more of the preceding element), return true if the pattern matches the entire string.",
+      exIn:'s = "aa", p = "a*"', exOut:'true' },
+    { n:11, title:'Container With Most Water', difficulty:'Medium', tags:['Array','Two Pointers','Greedy'],
+      statement:'Given heights of vertical lines, choose two lines that together with the x-axis hold the most water. Return that maximum area.',
+      exIn:'height = [1,8,6,2,5,4,8,3,7]', exOut:'49' },
+    { n:12, title:'Integer to Roman', difficulty:'Medium', tags:['Hash Table','Math','String'],
+      statement:'Convert an integer in the range 1–3999 to its Roman numeral representation using the standard subtractive forms (IV, IX, XL, …).',
+      exIn:'num = 1994', exOut:'"MCMXCIV"' },
+    { n:13, title:'Roman to Integer', difficulty:'Easy', tags:['Hash Table','Math','String'],
+      statement:'Given a Roman numeral, convert it to an integer. When a smaller value precedes a larger one it is subtracted rather than added.',
+      exIn:'s = "MCMXCIV"', exOut:'1994' },
+    { n:14, title:'Longest Common Prefix', difficulty:'Easy', tags:['Array','String','Trie'],
+      statement:'Find the longest common prefix shared by every string in an array. Return an empty string if there is none.',
+      exIn:'strs = ["flower","flow","flight"]', exOut:'"fl"' },
+    { n:15, title:'3Sum', difficulty:'Medium', tags:['Array','Two Pointers','Sorting'],
+      statement:'Return all unique triplets in nums that sum to zero. The solution set must not contain duplicate triplets.',
+      exIn:'nums = [-1,0,1,2,-1,-4]', exOut:'[[-1,-1,2],[-1,0,1]]' },
+    { n:16, title:'3Sum Closest', difficulty:'Medium', tags:['Array','Two Pointers','Sorting'],
+      statement:'Given nums and a target, return the sum of the triplet whose total is closest to target. Each input has exactly one closest sum.',
+      exIn:'nums = [-1,2,1,-4], target = 1', exOut:'2   (-1 + 2 + 1)' },
+    { n:17, title:'Letter Combinations of a Phone Number', difficulty:'Medium', tags:['Hash Table','String','Backtracking'],
+      statement:'Given digits 2–9, return every letter combination the number could spell on a classic phone keypad, in any order.',
+      exIn:'digits = "23"', exOut:'["ad","ae","af","bd","be","bf","cd","ce","cf"]' },
+    { n:18, title:'4Sum', difficulty:'Medium', tags:['Array','Two Pointers','Sorting'],
+      statement:'Return all unique quadruplets in nums that sum to target, with no duplicate quadruplets in the result.',
+      exIn:'nums = [1,0,-1,0,-2,2], target = 0', exOut:'[[-2,-1,1,2],[-2,0,0,2],[-1,0,0,1]]' },
+    { n:19, title:'Remove Nth Node From End of List', difficulty:'Medium', tags:['Linked List','Two Pointers'],
+      statement:'Given the head of a linked list, remove the nth node counting from the end and return the head of the modified list.',
+      exIn:'head = [1,2,3,4,5], n = 2', exOut:'[1,2,3,5]' },
+    { n:20, title:'Valid Parentheses', difficulty:'Easy', tags:['String','Stack'],
+      statement:'Given a string of brackets ()[]{}, determine whether every bracket is closed by the matching type in the correct order.',
+      exIn:'s = "([{}])"', exOut:'true' },
+    { n:21, title:'Merge Two Sorted Lists', difficulty:'Easy', tags:['Linked List','Recursion'],
+      statement:'Merge two sorted linked lists into one sorted list by splicing their nodes together, and return the head of the merged list.',
+      exIn:'l1 = [1,2,4], l2 = [1,3,4]', exOut:'[1,1,2,3,4,4]' },
+    { n:22, title:'Generate Parentheses', difficulty:'Medium', tags:['String','Dynamic Programming','Backtracking'],
+      statement:'Given n pairs of parentheses, generate all combinations of well-formed (balanced) parentheses.',
+      exIn:'n = 3', exOut:'["((()))","(()())","(())()","()(())","()()()"]' },
+    { n:23, title:'Merge k Sorted Lists', difficulty:'Hard', tags:['Linked List','Heap','Divide and Conquer'],
+      statement:'You are given k sorted linked lists. Merge them into a single sorted list and return its head.',
+      exIn:'lists = [[1,4,5],[1,3,4],[2,6]]', exOut:'[1,1,2,3,4,4,5,6]' },
+    { n:24, title:'Swap Nodes in Pairs', difficulty:'Medium', tags:['Linked List','Recursion'],
+      statement:'Given a linked list, swap every two adjacent nodes and return its head. You may only relink nodes, not change their values.',
+      exIn:'head = [1,2,3,4]', exOut:'[2,1,4,3]' },
+    { n:25, title:'Reverse Nodes in k-Group', difficulty:'Hard', tags:['Linked List','Recursion'],
+      statement:'Reverse the nodes of a linked list k at a time and return the modified list. Any leftover nodes (fewer than k) keep their original order.',
+      exIn:'head = [1,2,3,4,5], k = 2', exOut:'[2,1,4,3,5]' },
+    { n:26, title:'Remove Duplicates from Sorted Array', difficulty:'Easy', tags:['Array','Two Pointers'],
+      statement:'Given a sorted array, remove the duplicates in place so each unique element appears once, and return the count k of unique elements.',
+      exIn:'nums = [0,0,1,1,1,2,2,3,3,4]', exOut:'5   (nums → 0,1,2,3,4)' },
+  ];
+
+  leetView() {
+    const q = (this.state.leetQuery || '').trim().toLowerCase();
+    const ld = this.state.leetDiff || 'All';
+    const lt = this.state.leetTag || 'All';
+    const byId = {};
+    this.getProblems().forEach(pp => { byId[pp.id] = pp; });
+    const rows = this.LEETCODE.filter(x => {
+      if (q && x.title.toLowerCase().indexOf(q) === -1 && ('#' + x.n).indexOf(q) === -1) return false;
+      if (ld !== 'All' && x.difficulty !== ld) return false;
+      if (lt !== 'All' && x.tags.indexOf(lt) === -1) return false;
+      return true;
+    }).map(x => {
+      const d = this.DIFF[x.difficulty];
+      const imp = byId['lc-' + x.n];
+      const solved = !!(imp && imp.status === 'Done');
+      return Object.assign({}, x, { num: '#' + x.n, diffColor: d.c, diffBg: d.bg, diffBd: d.bd, diffLabel: d.l,
+        imported: !!imp, solved: solved, notSolved: !solved,
+        onPractice: () => this.practiceLeet(x), onReview: () => this.startRevision() });
+    });
+    const tagSet = {};
+    this.LEETCODE.forEach(x => x.tags.forEach(t => { tagSet[t] = 1; }));
+    const tags = Object.keys(tagSet).sort();
+    return {
+      rows,
+      empty: rows.length === 0,
+      diffOpts: [{ v:'All', l:'Difficulty: All' }, { v:'Easy', l:'Easy' }, { v:'Medium', l:'Medium' }, { v:'Hard', l:'Hard' }],
+      tagOpts: [{ v:'All', l:'Tag: All' }].concat(tags.map(t => ({ v:t, l:t }))),
+    };
+  }
+
+  DIFF = {
+    Easy:   { c:'#6FBF92', bg:'rgba(111,191,146,0.14)', bd:'rgba(111,191,146,0.26)', l:'EASY' },
+    Medium: { c:'#D6A24E', bg:'rgba(214,162,78,0.14)',  bd:'rgba(214,162,78,0.26)',  l:'MED' },
+    Hard:   { c:'#D8705E', bg:'rgba(216,112,94,0.14)',  bd:'rgba(216,112,94,0.26)',  l:'HARD' },
+  };
+  STATUS = {
+    'Done':        { c:'#6FBF92', l:'● Done' },
+    'Solving':     { c:'#8CABF4', l:'◐ Solving' },
+    'Not started': { c:'#847F76', l:'○ Not started' },
+  };
+  GRADES = [
+    { key:'Again', c:'#D8705E', iv:'<10 min' },
+    { key:'Hard',  c:'#D6A24E', iv:'2 days' },
+    { key:'Good',  c:'#6FBF92', iv:'6 days' },
+    { key:'Easy',  c:'#3E72D9', iv:'12 days' },
+  ];
+
+  decorate(p) {
+    const d = this.DIFF[p.difficulty], s = this.STATUS[p.status];
+    return Object.assign({}, p, {
+      diffColor:d.c, diffBg:d.bg, diffBd:d.bd, diffLabel:d.l,
+      statusColor:s.c, statusLabel:s.l,
+      dueMetaColor: (p.dueMeta && p.dueMeta.indexOf('overdue') !== -1) ? '#E5483A' : '#6BAA82',
+      open: () => this.openProblem(p.id),
+    });
+  }
+
+  buildChecklist(p) {
+    const labels = ['Pick a pattern','Read the statement','Write your approach','Code the solution','Add notes / learnings','Mark complete'];
+    const done = p.status === 'Done' ? 6 : p.status === 'Solving' ? 4 : 0;
+    return labels.map((label, i) => ({
+      label,
+      done: i < done,
+      current: i === done,
+      color: i < done ? '#B3ADA3' : (i === done ? '#ECE8E1' : '#847F76'),
+      strike: i < done ? 'line-through' : 'none',
+      notDone: !(i < done),
+      rowBg: i === done ? 'rgba(62,114,217,0.08)' : 'transparent',
+    }));
+  }
+
+  buildHeat() {
+    if (this._heat) return this._heat;
+    const buckets = [0.06,0.06,0.1,0.18,0.18,0.32,0.32,0.48,0.62,0.85];
+    let seed = 7;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const weeks = [];
+    for (let w = 0; w < 16; w++) {
+      const days = [];
+      for (let d = 0; d < 7; d++) {
+        let r = rnd();
+        if (d >= 5) r *= 0.5;
+        r = Math.min(0.999, r + w / 60);
+        days.push({ bg: 'rgba(111,191,146,' + buckets[Math.floor(r * buckets.length)] + ')' });
+      }
+      weeks.push(days);
+    }
+    this._heat = weeks;
+    return weeks;
+  }
+
+  navParts(name) {
+    const on = this.state.screen === name;
+    return {
+      color: on ? '#ECE8E1' : '#847F76',
+      bg: on ? 'rgba(62,114,217,0.13)' : 'transparent',
+      bd: on ? 'rgba(62,114,217,0.22)' : 'transparent',
+    };
+  }
+
+  persist(screen) { try { localStorage.setItem('dsa_screen', screen); } catch (e) {} }
+  go(screen) { this.setState({ screen }); this.persist(screen); }
+  goDashboard() { this.go('dashboard'); }
+  goProblems() { this.go('problems'); }
+  goTemplates() { this.go('templates'); }
+  goLeetcode() { this.go('leetcode'); }
+
+  seedPatterns() {
+    return [
+      { id:'pat-two-pointers', name:'Two Pointers', topic:'Arrays',
+        description:'Walk two indices through the array \u2014 either converging from both ends or both moving forward from the left.\nIdeal on sorted input: pair sums, palindrome checks, and partitioning or de-duplicating in place.\nThe slow pointer marks where the next kept element gets written; the fast pointer scans ahead.\nStrong signal whenever the prompt says "continuous", "subarray", or asks you to work in-place \u2014 it keeps you at O(n).',
+        variations:[
+          { id:'v-tp-1', name:'Same Direction \u2013 Single Input', desc:'A slow write-pointer keeps every element that passes a condition.', lang:'Python',
+            code:'def fn(arr):\n    slow = 0\n    for fast in range(len(arr)):\n        if CONDITION(arr[fast]):\n            arr[slow] = arr[fast]\n            slow += 1\n    return slow  # arr[:slow]' },
+          { id:'v-tp-2', name:'Same Direction \u2013 Backward Traversal', desc:'Write from the end when inserting would shift elements right.', lang:'Python',
+            code:'def fn(arr):\n    n = len(arr)\n    zeros = arr.count(0)\n    i = n - 1\n    j = n + zeros - 1\n    while i < j:\n        # write current element if it\'s within bounds\n        ...' },
+        ] },
+      { id:'pat-sliding-window', name:'Sliding Window', topic:'Two Pointers',
+        description:'Maintain a contiguous window [l, r] and slide it across the input instead of re-scanning from scratch.\nGrow the window on the right, and shrink it from the left only while it breaks the constraint.\nFits "longest / shortest substring", "at most k distinct", and fixed-size window questions.\nEach index enters and leaves the window once, so the whole pass stays O(n).',
+        variations:[
+          { id:'v-sw-1', name:'Dynamic Window \u2013 Longest', desc:'Grow right, shrink left while the window is invalid; track the best length.', lang:'Python',
+            code:'def fn(s):\n    l = 0\n    best = 0\n    for r in range(len(s)):\n        add(s[r])              # expand right\n        while invalid():\n            remove(s[l])       # shrink left\n            l += 1\n        best = max(best, r - l + 1)\n    return best' },
+        ] },
+    ];
+  }
+
+  genId(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 8); }
+  tplToggle(id) { this.setState(s => ({ tplExpanded: Object.assign({}, s.tplExpanded, { [id]: !s.tplExpanded[id] }) })); }
+  tplVarToggle(id) { this.setState(s => ({ tplVarCollapsed: Object.assign({}, s.tplVarCollapsed, { [id]: !s.tplVarCollapsed[id] }) })); }
+  tplSetSearch(v) { this.setState({ tplSearch: v }); }
+  tplMenu(id) { this.setState(s => ({ tplMenuId: s.tplMenuId === id ? null : id })); }
+  tplStartEdit(id) {
+    const p = this.state.patterns.find(x => x.id === id);
+    this.setState(s => ({ tplEditId: id, tplEditScope: 'full', tplMenuId: null, tplDraft: JSON.parse(JSON.stringify(p)), tplExpanded: Object.assign({}, s.tplExpanded, { [id]: true }) }));
+  }
+  tplCancel() { this.setState({ tplEditId: null, tplDraft: null, tplEditScope: null }); }
+  tplSave() {
+    const d = this.state.tplDraft; if (!d) return;
+    this.setState(s => ({ patterns: s.patterns.map(p => p.id === d.id ? d : p), tplEditId: null, tplDraft: null, tplEditScope: null }));
+  }
+  tplDraftSet(field, v) { this.setState(s => ({ tplDraft: Object.assign({}, s.tplDraft, { [field]: v }) })); }
+  tplDraftVarSet(i, field, v) { this.setState(s => ({ tplDraft: Object.assign({}, s.tplDraft, { variations: s.tplDraft.variations.map((vv, idx) => idx === i ? Object.assign({}, vv, { [field]: v }) : vv) }) })); }
+  tplDraftAddVar() { this.setState(s => ({ tplDraft: Object.assign({}, s.tplDraft, { variations: s.tplDraft.variations.concat([{ id: this.genId('v'), name: 'New variation', desc: '', lang: 'Python', code: '' }]) }) })); }
+  tplDraftRemoveVar(i) { this.setState(s => ({ tplDraft: Object.assign({}, s.tplDraft, { variations: s.tplDraft.variations.filter((_, idx) => idx !== i) }) })); }
+  tplAddPattern() {
+    const id = this.genId('pat');
+    const blank = { id, name: 'New pattern', topic: 'Topic', description: '', variations: [{ id: this.genId('v'), name: 'Variation 1', desc: '', lang: 'Python', code: '' }] };
+    this.setState(s => ({ patterns: [blank].concat(s.patterns), tplEditId: id, tplEditScope: 'full', tplDraft: JSON.parse(JSON.stringify(blank)), tplExpanded: Object.assign({}, s.tplExpanded, { [id]: true }), tplMenuId: null }));
+  }
+  tplDeletePattern(id) { this.setState(s => ({ patterns: s.patterns.filter(p => p.id !== id), tplMenuId: null, tplEditId: s.tplEditId === id ? null : s.tplEditId, tplDraft: s.tplEditId === id ? null : s.tplDraft })); }
+  tplAddVariation(id) {
+    if (this.state.tplEditId === id) { this.tplDraftAddVar(); return; }
+    const p = this.state.patterns.find(x => x.id === id);
+    const draft = JSON.parse(JSON.stringify(p));
+    draft.variations.push({ id: this.genId('v'), name: 'New variation', desc: '', lang: 'Python', code: '' });
+    this.setState(s => ({ tplEditId: id, tplDraft: draft, tplEditScope: 'vars', tplExpanded: Object.assign({}, s.tplExpanded, { [id]: true }), tplMenuId: null }));
+  }
+
+  tplView() {
+    const q = (this.state.tplSearch || '').trim().toLowerCase();
+    const editId = this.state.tplEditId;
+    const draft = this.state.tplDraft;
+    const scope = this.state.tplEditScope;
+    const all = this.state.patterns;
+    const hit = (p) => !q || p.name.toLowerCase().indexOf(q) !== -1 || p.topic.toLowerCase().indexOf(q) !== -1
+      || (p.description || '').toLowerCase().indexOf(q) !== -1 || p.variations.some(v => v.name.toLowerCase().indexOf(q) !== -1);
+    const filtered = all.filter(hit);
+    const varCount = all.reduce((a, p) => a + p.variations.length, 0);
+    const patterns = filtered.map(p => {
+      const editing = editId === p.id;
+      const src = editing ? draft : p;
+      const open = editing || !!q || !!this.state.tplExpanded[p.id];
+      const descriptionText = src.description || '';
+      const variations = src.variations.map((v, i) => ({
+        id: v.id, name: v.name, desc: v.desc, lang: v.lang, code: v.code, hasDesc: !!(v.desc && v.desc.length),
+        open: !!q || !this.state.tplVarCollapsed[v.id],
+        caret: (!!q || !this.state.tplVarCollapsed[v.id]) ? '\u25be' : '\u25b8',
+        onToggle: () => this.tplVarToggle(v.id),
+        onName: e => this.tplDraftVarSet(i, 'name', e.target.value),
+        onDesc: e => this.tplDraftVarSet(i, 'desc', e.target.value),
+        onLang: e => this.tplDraftVarSet(i, 'lang', e.target.value),
+        onCode: e => this.tplDraftVarSet(i, 'code', e.target.value),
+        onDelete: () => this.tplDraftRemoveVar(i),
+      }));
+      return {
+        id: p.id, name: src.name, topic: src.topic,
+        descriptionText, hasDescription: !!(descriptionText && descriptionText.trim().length),
+        open, editing, viewMode: !editing, menuOpen: this.state.tplMenuId === p.id,
+        metaEdit: editing && scope === 'full', metaView: !(editing && scope === 'full'),
+        caret: open ? '\u25be' : '\u25b8', varCount: variations.length, variations,
+        onToggle: () => this.tplToggle(p.id), onMenu: () => this.tplMenu(p.id),
+        onEdit: () => this.tplStartEdit(p.id), onDelete: () => this.tplDeletePattern(p.id),
+        onAddVariation: () => this.tplAddVariation(p.id), onAddVar: () => this.tplDraftAddVar(),
+        onName: e => this.tplDraftSet('name', e.target.value),
+        onTopic: e => this.tplDraftSet('topic', e.target.value),
+        onDescription: e => this.tplDraftSet('description', e.target.value),
+        onSave: () => this.tplSave(), onCancel: () => this.tplCancel(),
+      };
+    });
+    return {
+      patterns, empty: all.length === 0, noMatches: all.length > 0 && filtered.length === 0,
+      subtitle: all.length + (all.length === 1 ? ' pattern \u00b7 ' : ' patterns \u00b7 ') + varCount + (varCount === 1 ? ' variation' : ' variations'),
+    };
+  }
+  openProblem(id) { this.setState({ screen:'detail', selectedId:id, revealed:false, editingProblem:false, pDraft:null, pFocus:null }); this.persist('detail'); }
+  back() { this.go('problems'); }
+  toggleReveal() { this.setState(s => ({ revealed: !s.revealed })); }
+
+  getBaseProblems() { return (this.state.imported || []).concat(this.PROBLEMS); }
+  getProblems() {
+    const e = this.state.pEdits || {};
+    return this.getBaseProblems().map(p => e[p.id] ? Object.assign({}, p, e[p.id]) : p);
+  }
+  getSelected() {
+    const list = this.getProblems();
+    return list.find(x => x.id === this.state.selectedId) || list[0];
+  }
+  readProblemState() {
+    let imported = [], pEdits = {};
+    try { const a = localStorage.getItem('dsa_imported'); if (a) imported = JSON.parse(a); } catch (e) {}
+    try { const b = localStorage.getItem('dsa_pedits'); if (b) pEdits = JSON.parse(b); } catch (e) {}
+    return { imported: Array.isArray(imported) ? imported : [], pEdits: (pEdits && typeof pEdits === 'object') ? pEdits : {} };
+  }
+  persistProblems() {
+    try { localStorage.setItem('dsa_imported', JSON.stringify(this.state.imported || [])); } catch (e) {}
+    try { localStorage.setItem('dsa_pedits', JSON.stringify(this.state.pEdits || {})); } catch (e) {}
+  }
+  setProblemField(id, field, value) {
+    this.setState(s => { const prev = (s.pEdits || {})[id] || {}; return { pEdits: Object.assign({}, s.pEdits, { [id]: Object.assign({}, prev, { [field]: value }) }) }; }, () => this.persistProblems());
+  }
+  practiceLeet(q) {
+    const id = 'lc-' + q.n;
+    if (this.getBaseProblems().find(p => p.id === id)) { this.openProblem(id); return; }
+    const prob = {
+      id, title: q.title, topic: (q.tags && q.tags[0]) || 'General', difficulty: q.difficulty,
+      status: 'Not started', due: false, statement: q.statement || '', exIn: q.exIn || '', exOut: q.exOut || '',
+      approach: '', solution: '', notes: '', lang: 'Python', patterns: (q.tags || []).slice(0, 3),
+      created: 'just now', lastRevised: '\u2014', nextLabel: '\u2014', nextColor: '#5f5b53', dueMeta: 'not started', revisions: 0,
+    };
+    this.setState(s => ({ imported: [prob].concat(s.imported || []) }), () => { this.persistProblems(); this.openProblem(id); });
+  }
+  markSolved(id) {
+    this.setState(s => {
+      const prev = (s.pEdits || {})[id] || {};
+      const patch = { status: 'Done', due: true, revisions: 1, lastRevised: 'just now \u00b7 1\u00d7', dueMeta: 'revised just now \u00b7 1\u00d7', nextLabel: 'in 3d', nextColor: '#847F76' };
+      return { pEdits: Object.assign({}, s.pEdits, { [id]: Object.assign({}, prev, patch) }), revealed: false };
+    }, () => { this.persistProblems(); this.go('problems'); });
+  }
+  problemFields() { return ['title','topic','difficulty','status','statement','exIn','exOut','approach','notes','solution','patterns']; }
+  startEditProblem(focusField) {
+    const p = this.getSelected();
+    const draft = {};
+    this.problemFields().forEach(f => { draft[f] = f === 'patterns' ? (p[f] || []).slice() : (p[f] !== undefined && p[f] !== null ? p[f] : ''); });
+    this.setState({ editingProblem: true, pDraft: draft, pFocus: focusField || null });
+    if (focusField) {
+      const ph = { approach: 'How do you crack this one?', notes: 'Gotchas, complexity, what tripped you up\u2026', solution: '// your code solution' }[focusField];
+      let tries = 0;
+      const tryFocus = () => {
+        tries++;
+        let el = null;
+        try { el = [...document.querySelectorAll('textarea')].find(t => t.placeholder === ph); } catch (e) {}
+        if (el) { try { el.focus(); el.selectionStart = el.selectionEnd = (el.value || '').length; } catch (e) {} }
+        else if (tries < 10) setTimeout(tryFocus, 50);
+      };
+      setTimeout(tryFocus, 50);
+    }
+  }
+  cancelEditProblem() { this._focusDone = null; this.setState({ editingProblem: false, pDraft: null, pFocus: null }); }
+  saveEditProblem() {
+    const d = this.state.pDraft;
+    const id = this.state.selectedId;
+    this._focusDone = null;
+    if (!d) { this.setState({ editingProblem: false, pFocus: null }); return; }
+    this.setState(s => {
+      const patch = {};
+      this.problemFields().forEach(f => { patch[f] = d[f]; });
+      const prev = (s.pEdits || {})[id] || {};
+      return { pEdits: Object.assign({}, s.pEdits, { [id]: Object.assign({}, prev, patch) }), editingProblem: false, pDraft: null, pFocus: null };
+    }, () => this.persistProblems());
+  }
+  pDraftSet(field, v) { this.setState(s => ({ pDraft: Object.assign({}, s.pDraft, { [field]: v }) })); }
+  pDraftAddPattern(v) { const t = (v || '').trim(); if (!t) return; this.setState(s => ({ pDraft: Object.assign({}, s.pDraft, { patterns: (s.pDraft.patterns || []).concat([t]) }) })); }
+  pDraftRemovePattern(i) { this.setState(s => ({ pDraft: Object.assign({}, s.pDraft, { patterns: (s.pDraft.patterns || []).filter((_, idx) => idx !== i) }) })); }
+  markComplete() {
+    const id = this.state.selectedId;
+    this.setState(s => { const prev = (s.pEdits || {})[id] || {}; return { pEdits: Object.assign({}, s.pEdits, { [id]: Object.assign({}, prev, { status: 'Done' }) }) }; }, () => this.persistProblems());
+  }
+  startRevision() { this.setState({ screen:'revise', revIdx:0, revealed:false }); this.persist('revise'); }
+  gradeRevision() { this.setState(s => ({ revIdx: s.revIdx + 1, revealed:false })); }
+  startFlashcards() { this.setState({ screen:'flashcards', fcIdx:0, flipped:false }); this.persist('flashcards'); }
+  flipCard() { this.setState(s => ({ flipped: !s.flipped })); }
+  gradeCard() { this.setState(s => ({ fcIdx: s.fcIdx + 1, flipped:false })); }
+  toggleDue() { this.setState(s => ({ dueOnly: !s.dueOnly })); }
+
+  componentDidMount() {
+    try { const s = localStorage.getItem('dsa_screen'); if (s) this.setState({ screen: s }); } catch (e) {}
+  }
+
+  renderVals() {
+    const screen = this.state.screen;
+    const nd = this.navParts('dashboard'), np = this.navParts('problems'), nt = this.navParts('templates'), nr = this.navParts('revise'), nf = this.navParts('flashcards');
+    const nl = this.navParts('leetcode');
+    const leet = this.leetView();
+    const tpl = this.tplView();
+    const PROB = this.getProblems();
+    const dueList = PROB.filter(p => p.due).map(p => this.decorate(p));
+    const visible = (this.state.dueOnly ? PROB.filter(p => p.due) : PROB).map(p => this.decorate(p));
+    const solvedCount = PROB.filter(p => p.status === 'Done').length;
+
+    const baseSel = this.getSelected();
+    const mergedSel = (this.state.editingProblem && this.state.pDraft) ? Object.assign({}, baseSel, this.state.pDraft) : baseSel;
+    const p = this.decorate(mergedSel);
+    p.checklist = this.buildChecklist(p);
+    p.checklistTotal = p.checklist.length;
+    p.checklistDone = p.checklist.filter(s => s.done).length;
+    p.checklistPct = Math.round(p.checklistDone / p.checklistTotal * 100);
+    p.editing = this.state.editingProblem;
+    p.viewMode = !this.state.editingProblem;
+    p.hasApproach = !!(p.approach && String(p.approach).trim().length);
+    p.hasNotes = !!(p.notes && String(p.notes).trim().length);
+    p.hasSolution = !!(p.solution && String(p.solution).trim().length);
+    p.noApproach = !p.hasApproach;
+    p.noNotes = !p.hasNotes;
+    p.noSolution = !p.hasSolution;
+    p.patternChips = (p.patterns || []).map((t, i) => ({ text: t, onRemove: () => this.pDraftRemovePattern(i) }));
+    p.diffOptions = ['Easy','Medium','Hard'];
+    p.statusOptions = ['Not started','Solving','Done'];
+    p.onEdit = () => this.startEditProblem();
+    p.onMarkComplete = () => this.markComplete();
+    p.onCancelEdit = () => this.cancelEditProblem();
+    p.onSaveEdit = () => this.saveEditProblem();
+    p.onTitle = e => this.pDraftSet('title', e.target.value);
+    p.onTopic = e => this.pDraftSet('topic', e.target.value);
+    p.onStatement = e => this.pDraftSet('statement', e.target.value);
+    p.onExIn = e => this.pDraftSet('exIn', e.target.value);
+    p.onExOut = e => this.pDraftSet('exOut', e.target.value);
+    p.onApproach = e => this.pDraftSet('approach', e.target.value);
+    p.onNotes = e => this.pDraftSet('notes', e.target.value);
+    p.onSolution = e => this.pDraftSet('solution', e.target.value);
+    p.onDifficulty = e => this.pDraftSet('difficulty', e.target.value);
+    p.onStatus = e => this.pDraftSet('status', e.target.value);
+    p.onAddPattern = e => { if (e.key === 'Enter') { e.preventDefault(); this.pDraftAddPattern(e.target.value); e.target.value = ''; } };
+    p.addApproach = () => this.startEditProblem('approach');
+    p.addNotes = () => this.startEditProblem('notes');
+    p.addSolution = () => this.startEditProblem('solution');
+    const solnHideBtn = p.viewMode && p.hasSolution && this.state.revealed;
+    const solnViewFilled = p.viewMode && p.hasSolution;
+    const solnViewEmpty = p.viewMode && p.noSolution;
+    const solved = p.status === 'Done';
+    p.onSolveApproach = e => this.setProblemField(p.id, 'approach', e.target.value);
+    p.onSolveNotes = e => this.setProblemField(p.id, 'notes', e.target.value);
+    p.onSolveSolution = e => this.setProblemField(p.id, 'solution', e.target.value);
+    p.onMarkSolved = () => this.markSolved(p.id);
+    p.lang = p.lang || 'Python';
+    p.langOptions = ['Python','Java','C++','JavaScript','TypeScript','C','Go','Ruby','Rust','Kotlin'];
+    p.onLang = e => this.setProblemField(p.id, 'lang', e.target.value);
+    p.hasPatterns = (p.patterns || []).length > 0;
+
+    const revList = PROB.filter(x => x.due).map(x => this.decorate(x));
+    const revTotal = revList.length;
+    const revIdx = Math.min(this.state.revIdx, revTotal);
+    const revDone = revIdx >= revTotal;
+    const rp = revDone ? this.decorate(PROB[0]) : revList[revIdx];
+
+    const fcTotal = this.CARDS.length;
+    const fcIdx = Math.min(this.state.fcIdx, fcTotal);
+    const fcDone = fcIdx >= fcTotal;
+    const fc = fcDone ? this.CARDS[0] : this.CARDS[fcIdx];
+
+    const blur = this.state.revealed ? 'none' : 'blur(7px)';
+
+    const su = this.state.user;
+    const onName = e => this.setField('name', e.target.value);
+    const onEmail = e => this.setField('email', e.target.value);
+    const onBio = e => this.setField('bio', e.target.value);
+
+    return {
+      // onboarding / profile
+      onboarding: this.state.onboarding,
+      appReady: !this.state.onboarding,
+      editingProfile: this.state.editingProfile,
+      onboardTag: this.state.editingProfile ? 'PROFILE' : 'FIRST-RUN',
+      onboardTitle: this.state.editingProfile ? 'Edit your profile' : 'Set up your profile',
+      onboardSubtitle: this.state.editingProfile
+        ? 'Update your details — your problem history and review schedule stay intact.'
+        : 'Let\u2019s tune AlgOrma to you. Set your daily pace and turn steady reps into algorithms that actually stick.',
+      submitLabel: this.state.editingProfile ? 'Save changes' : 'Enter AlgOrma →',
+      formName: this.state.form.name, formEmail: this.state.form.email,
+      formGoal: this.state.form.dailyGoal, formBio: this.state.form.bio,
+      goalOptions: this.goalOptions(),
+      onName, onEmail, onBio,
+      onGoal: e => this.setField('dailyGoal', parseInt(e.target.value, 10) || 1),
+      submit: () => this.submitOnboarding(), cancelEdit: () => this.cancelEdit(), editProfile: () => this.editProfile(),
+      nameError: !!this.state.nameError, nameErrorMsg: this.state.nameError,
+      emailError: !!this.state.emailError, emailErrorMsg: this.state.emailError,
+      userName: su ? su.name : 'there',
+      userInitial: su ? (su.name || '?').trim().charAt(0).toUpperCase() : '?',
+      userGoal: su ? su.daily_goal : 10,
+      greeting: this.greetingWord(),
+
+      // nav
+      ndColor:nd.color, ndBg:nd.bg, ndBd:nd.bd,
+      npColor:np.color, npBg:np.bg, npBd:np.bd,
+      ntColor:nt.color, ntBg:nt.bg, ntBd:nt.bd,
+      nrColor:nr.color, nrBg:nr.bg, nrBd:nr.bd,
+      nfColor:nf.color, nfBg:nf.bg, nfBd:nf.bd,
+      goDashboard:() => this.goDashboard(), goProblems:() => this.goProblems(), goTemplates:() => this.goTemplates(),
+      goRevise:() => this.startRevision(), goFlashcards:() => this.startFlashcards(),
+      nlColor:nl.color, nlBg:nl.bg, nlBd:nl.bd, goLeetcode:() => this.goLeetcode(),
+      newProblem:() => this.goLeetcode(),
+
+      // leetcode
+      isLeetcode: screen === 'leetcode',
+      leetTotal: 3973,
+      leetRows: leet.rows, leetEmpty: leet.empty,
+      leetDiffOpts: leet.diffOpts, leetTagOpts: leet.tagOpts,
+      leetQuery: this.state.leetQuery, leetDiff: this.state.leetDiff, leetTag: this.state.leetTag,
+      onLeetSearch: e => this.setState({ leetQuery: e.target.value }),
+      onLeetDiff: e => this.setState({ leetDiff: e.target.value }),
+      onLeetTag: e => this.setState({ leetTag: e.target.value }),
+
+      // screen flags
+      isDashboard: screen === 'dashboard', isProblems: screen === 'problems', isTemplates: screen === 'templates',
+      isDetail: screen === 'detail', isRevise: screen === 'revise', isFlashcards: screen === 'flashcards',
+
+      // dashboard
+      stats: { solved: solvedCount, due: dueList.length },
+      dueList, topics: this.TOPICS, heat: this.buildHeat(),
+      startRevision:() => this.startRevision(), startFlashcards:() => this.startFlashcards(),
+
+      // problems
+      visible,
+
+      // templates
+      templatesView: tpl.patterns, tplSubtitle: tpl.subtitle,
+      tplSearch: this.state.tplSearch, onTplSearch: e => this.tplSetSearch(e.target.value),
+      onNewPattern: () => this.tplAddPattern(),
+      tplEmpty: tpl.empty, tplNoMatches: tpl.noMatches, tplQuery: this.state.tplSearch,
+      dueOnly: this.state.dueOnly, toggleDue:() => this.toggleDue(),
+      dueKnobJustify: this.state.dueOnly ? 'flex-end' : 'flex-start',
+      dueToggleBg: this.state.dueOnly ? '#3E72D9' : '#34312b',
+
+      // detail / revise shared reveal
+      p, revealed: this.state.revealed, hidden: !this.state.revealed, blur,
+      solutionHideBtn: solnHideBtn, solutionViewFilled: solnViewFilled, solutionViewEmpty: solnViewEmpty,
+      solveMode: !solved, reviewMode: solved,
+      toggleReveal:() => this.toggleReveal(), back:() => this.back(),
+
+      // revise
+      revActive: !revDone, revDone, rp, revNum: revIdx + 1, revTotal,
+      revPctW: (revTotal ? Math.round((revIdx / revTotal) * 100) : 0) + '%',
+      grades: this.GRADES,
+      gradeRevision:() => this.gradeRevision(),
+
+      // flashcards
+      fcActive: !fcDone, fcDone, fc, fcNum: fcIdx + 1, fcTotal,
+      fcPctW: (fcTotal ? Math.round((fcIdx / fcTotal) * 100) : 0) + '%',
+      flipped: this.state.flipped, front: !this.state.flipped,
+      flipCard:() => this.flipCard(), gradeCard:() => this.gradeCard(),
+    };
+  }
+}
+</script>
+</body>
+</html>
