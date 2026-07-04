@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Checklist from '../components/common/Checklist';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 
 // Simple Markdown to HTML formatter for editorial solutions (matching LeetCodeLibrary)
 const formatMarkdown = (text) => {
@@ -62,6 +63,9 @@ export default function ProblemDetail({
   const [revealedEditorial, setRevealedEditorial] = useState(false);
   const [revealedHints, setRevealedHints] = useState({});
   const [toastMessage, setToastMessage] = useState('');
+  
+  // State for approach deletion confirmation modal
+  const [approachToDeleteIdx, setApproachToDeleteIdx] = useState(null);
 
   // Refs for editor scroll sync
   const textareaRef = useRef(null);
@@ -127,10 +131,22 @@ export default function ProblemDetail({
   const handleDeleteApproach = (indexToDelete, e) => {
     e.stopPropagation();
     if (approaches.length <= 1) return;
-    
-    const updated = approaches.filter((_, idx) => idx !== indexToDelete);
+    setApproachToDeleteIdx(indexToDelete);
+  };
+
+  const handleConfirmDeleteApproach = () => {
+    if (approachToDeleteIdx === null) return;
+    const updated = approaches.filter((_, idx) => idx !== approachToDeleteIdx);
     setApproaches(updated);
     setActiveApproachIdx((prev) => (prev >= updated.length ? updated.length - 1 : prev));
+    setApproachToDeleteIdx(null);
+  };
+
+  // Horizontal scroll for approaches tab bar on mouse wheel scroll
+  const handleTabsWheel = (e) => {
+    if (e.deltaY === 0) return;
+    e.preventDefault();
+    e.currentTarget.scrollLeft += e.deltaY;
   };
 
   // Save changes locally and trigger backend callback
@@ -673,11 +689,14 @@ export default function ProblemDetail({
         </div>
 
         {/* RIGHT PANE (Code Playground) */}
-        <div className="flex-1 h-full flex flex-col bg-[#050505] min-w-[400px]">
+        <div className="flex-1 h-full flex flex-col bg-[#050505] min-w-0 overflow-hidden">
           
           {/* Approaches tabs */}
-          <div className="flex items-center justify-between bg-[#000] border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
-            <div className="flex items-center gap-0.5 overflow-x-auto select-none">
+          <div className="bg-[#000] border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
+            <div 
+              onWheel={handleTabsWheel}
+              className="flex items-center gap-0.5 overflow-x-auto no-scrollbar select-none w-full"
+            >
               {approaches.map((appr, idx) => (
                 <div
                   key={appr.id}
@@ -713,33 +732,6 @@ export default function ProblemDetail({
                 + ADD APPROACH
               </button>
             </div>
-
-            {/* Template inserter */}
-            {templatePatterns.length > 0 && (
-              <div className="relative shrink-0 flex items-center py-2">
-                <select
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleInsertTemplate(e.target.value);
-                      e.target.value = ""; // Reset selector
-                    }
-                  }}
-                  className="text-fs-11 text-accent border border-accent/25 hover:border-accent/40 bg-accent/5 rounded-md px-2 py-1 cursor-pointer outline-none max-w-sp-200"
-                >
-                  <option value="">Insert template pattern...</option>
-                  {templatePatterns.map((pat) => (
-                    <optgroup key={pat.id} label={pat.name}>
-                      {pat.variations.map((v) => (
-                        <option key={v.id} value={v.code}>
-                          {v.name} ({v.lang})
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
           {/* Active approach panel */}
@@ -844,6 +836,25 @@ export default function ProblemDetail({
           )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={approachToDeleteIdx !== null}
+        title="Delete Approach"
+        message={
+          <span>
+            Are you sure you want to delete{' '}
+            <strong className="text-text-main">
+              {approachToDeleteIdx !== null ? approaches[approachToDeleteIdx]?.name : ''}
+            </strong>
+            ? This action cannot be undone.
+          </span>
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteApproach}
+        onCancel={() => setApproachToDeleteIdx(null)}
+        confirmVariant="red"
+      />
     </div>
   );
 }
