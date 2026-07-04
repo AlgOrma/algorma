@@ -7,6 +7,7 @@ export default function ProblemBank({
   onOpenProblem,
   onOpenNewProblemModal,
   onDeleteProblems,
+  onReviseProblems,
   initialSearchQuery = ''
 }) {
   const [search, setSearch] = useState(initialSearchQuery);
@@ -191,14 +192,27 @@ export default function ProblemBank({
                 Deselect all
               </button>
             </div>
-            <Button 
-              variant="red" 
-              size="sm"
-              onClick={handleDeleteSelected}
-              className="cursor-pointer"
-            >
-              Delete Selected
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm"
+                onClick={() => {
+                  const selectedProblems = problems.filter(p => selectedIds.includes(p.id));
+                  if (onReviseProblems) onReviseProblems(selectedProblems);
+                }}
+                className="cursor-pointer"
+              >
+                Revise Selected
+              </Button>
+              <Button 
+                variant="red" 
+                size="sm"
+                onClick={handleDeleteSelected}
+                className="cursor-pointer"
+              >
+                Delete Selected
+              </Button>
+            </div>
           </div>
         )}
 

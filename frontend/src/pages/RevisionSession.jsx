@@ -8,21 +8,26 @@ import * as api from '../api';
 export default function RevisionSession({
   problems = [],
   onUpdateProblem,
-  onNavigate
+  onNavigate,
+  customProblems = null
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealedApproaches, setRevealedApproaches] = useState({});
   const [activeApproachIdx, setActiveApproachIdx] = useState(0);
   const [scratchpadText, setScratchpadText] = useState('');
 
-  // Fetch only due problems for the revision session
-  const dueList = useMemo(() => {
-    return problems.filter(p => p.due);
-  }, [problems]);
+  const [sessionProblems, setSessionProblems] = useState([]);
 
-  const totalCards = dueList.length;
+  // Freeze the session problems list at the start of a session (or when reset)
+  useEffect(() => {
+    if (currentIndex === 0) {
+      setSessionProblems(customProblems || problems.filter(p => p.due));
+    }
+  }, [problems, customProblems, currentIndex]);
+
+  const totalCards = sessionProblems.length;
   const isFinished = currentIndex >= totalCards;
-  const currentCard = isFinished ? null : dueList[currentIndex];
+  const currentCard = isFinished ? null : sessionProblems[currentIndex];
 
   // Reset active approach index, scratchpad, and revealed states when moving to next card
   useEffect(() => {
@@ -111,7 +116,7 @@ export default function RevisionSession({
           <div className="bg-[#000] border-b border-border-muted px-6 py-4 shrink-0 text-fs-11 font-mono">
             <div className="flex items-center justify-between">
               <span className="font-mono text-fs-11 text-accent tracking-[0.06em]">
-                REVISION · SPOILER-FREE
+                {customProblems ? 'FORCED REVISION · SPOILER-FREE' : 'REVISION · SPOILER-FREE'}
               </span>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-fs-11 text-text-muted">
@@ -369,7 +374,7 @@ export default function RevisionSession({
                 setCurrentIndex(0);
                 setRevealedApproaches({});
               }}
-              disabled={problems.filter(p => p.due).length === 0}
+              disabled={customProblems ? customProblems.length === 0 : problems.filter(p => p.due).length === 0}
             >
               Revise again
             </Button>

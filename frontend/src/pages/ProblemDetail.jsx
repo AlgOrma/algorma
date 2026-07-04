@@ -48,6 +48,7 @@ export default function ProblemDetail({
   onBack,
   onUpdateProblem,
   onDeleteProblems,
+  onReviseProblems,
   templatePatterns = [],
   themeColor
 }) {
@@ -383,6 +384,19 @@ export default function ProblemDetail({
             
             {isMenuOpen && (
               <div className="absolute right-0 mt-1.5 w-40 dropdown-menu-3d z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    if (onReviseProblems) onReviseProblems([problem]);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-fs-13 text-text-hover hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                  </svg>
+                  Force Revision
+                </button>
+                <div className="border-t border-border-muted my-1"></div>
                 <button
                   onClick={() => {
                     setIsMenuOpen(false);

@@ -63,6 +63,9 @@ function App() {
   const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
   const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
 
+  // State to hold specific problems forced for revision
+  const [revisionProblems, setRevisionProblems] = useState(null);
+
   // Navigation controller
   const handleNavigate = (targetScreen, params = {}) => {
     if (params.query !== undefined) {
@@ -70,7 +73,16 @@ function App() {
     } else {
       setInitialSearchQuery('');
     }
+    if (targetScreen !== 'revise') {
+      setRevisionProblems(null);
+    }
     setScreen(targetScreen);
+  };
+
+  // Helper to start revision for selected problems
+  const handleStartRevision = (selectedProblems) => {
+    setRevisionProblems(selectedProblems);
+    setScreen('revise');
   };
 
   // Open problem detail
@@ -299,6 +311,7 @@ function App() {
             onOpenProblem={handleOpenProblem}
             onOpenNewProblemModal={() => setIsModalOpen(true)}
             onDeleteProblems={handleDeleteProblems}
+            onReviseProblems={handleStartRevision}
             initialSearchQuery={initialSearchQuery}
             themeColor={themeAccent}
           />
@@ -334,6 +347,7 @@ function App() {
             onBack={() => setScreen('problems')}
             onUpdateProblem={handleUpdateProblem}
             onDeleteProblems={handleDeleteProblems}
+            onReviseProblems={handleStartRevision}
             templatePatterns={templatePatterns}
             themeColor={themeAccent}
           />
@@ -344,6 +358,7 @@ function App() {
             problems={problems}
             onUpdateProblem={handleUpdateProblem}
             onNavigate={handleNavigate}
+            customProblems={revisionProblems}
             themeColor={themeAccent}
           />
         );
