@@ -233,3 +233,126 @@ button {
   .lc-expand { animation: none; }
   .lc-skeleton::after { animation: none; }
 }
+
+/* ── 3D Duolingo Button Styles ──────────────────────────────────────── */
+.btn-3d {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 800; /* Extra bold text for Duolingo style */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transform: translateY(0);
+  outline: none;
+}
+
+.btn-3d:active {
+  transform: translateY(3px) !important;
+  border-bottom-width: 1px !important;
+}
+
+/* Primary Accent 3D (Dynamic blue/purple based on theme) */
+.btn-3d-primary {
+  background-color: var(--color-accent) !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid var(--color-accent-secondary) !important;
+}
+.btn-3d-primary:hover:not(:active) {
+  filter: brightness(1.1);
+}
+
+/* Secondary 3D (Dark gray) */
+.btn-3d-secondary {
+  background-color: #1f1f1f !important;
+  color: #ffffff !important;
+  border: 1px solid #2a2a2a !important;
+  border-bottom: 4px solid #111111 !important;
+}
+.btn-3d-secondary:hover:not(:active) {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+}
+
+/* White 3D (Light variant) */
+.btn-3d-white {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-bottom: 4px solid #c0c0c0 !important;
+}
+.btn-3d-white:hover:not(:active) {
+  background-color: #f3f3f3 !important;
+}
+
+/* Green 3D (Classic Duolingo Green) */
+.btn-3d-green {
+  background-color: #58cc02 !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid #46a302 !important;
+}
+.btn-3d-green:hover:not(:active) {
+  background-color: #61e002 !important;
+}
+
+/* Red 3D (Danger) */
+.btn-3d-red {
+  background-color: #ff4b4b !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid #ea2b2b !important;
+}
+.btn-3d-red:hover:not(:active) {
+  background-color: #ff6060 !important;
+}
+
+/* Orange 3D */
+.btn-3d-orange {
+  background-color: #ff9600 !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid #e27d00 !important;
+}
+.btn-3d-orange:hover:not(:active) {
+  background-color: #ffa520 !important;
+}
+
+/* Card buttons / Options / Grading buttons (3D effect) */
+.btn-card-3d {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 4px solid var(--color-border-main) !important;
+  border-radius: 12px !important;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transform: translateY(0);
+  outline: none;
+}
+.btn-card-3d:hover {
+  background-color: var(--color-bg-element-hover) !important;
+  border-color: var(--color-border-accent) !important;
+}
+.btn-card-3d:active {
+  transform: translateY(3px) !important;
+  border-bottom-width: 1px !important;
+}
+
+/* Compact version of 3D button */
+.btn-3d-sm {
+  font-size: 11px !important;
+  padding: 5px 10px !important;
+  border-radius: 8px !important;
+  border-bottom-width: 3px !important;
+}
+.btn-3d-sm:active {
+  transform: translateY(2px) !important;
+  border-bottom-width: 1px !important;
+}
+
+

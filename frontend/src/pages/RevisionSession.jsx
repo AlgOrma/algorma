@@ -133,20 +133,20 @@ export default function RevisionSession({
           <div className="text-fs-13 text-text-muted mb-2.5">
             How did it go?
           </div>
-          <div className="flex gap-2.5">
+          <div className="flex gap-3">
             {GRADES.map((g) => (
               <button
                 key={g.key}
                 onClick={() => handleGrade(g)}
-                className="flex-1 flex flex-col items-center gap-sp-5 py-sp-13 px-sp-8 rounded-card-sm bg-bg-card border border-border-btn cursor-pointer hover:border-border-btn-hover hover:bg-bg-element-hover transition-colors duration-200"
+                className="btn-card-3d flex-1 flex flex-col items-center gap-1.5 py-3 px-2 select-none"
               >
                 <span 
-                  className="text-fs-13-5 font-semibold"
+                  className="text-fs-13.5 font-bold"
                   style={{ color: g.c }}
                 >
                   {g.key}
                 </span>
-                <span className="font-mono text-fs-10-5 text-text-muted">
+                <span className="font-mono text-fs-10.5 text-text-muted">
                   {g.iv}
                 </span>
               </button>

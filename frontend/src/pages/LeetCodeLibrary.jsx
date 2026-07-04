@@ -346,10 +346,8 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                           disabled={imported || importingId === q.id}
                           onClick={(e) => handleImport(e, q.id)}
                           style={{
-                            minWidth: '82px',
-                            padding: '4px 8px',
-                            fontSize: '11.5px',
-                            opacity: imported ? 0.6 : 1
+                            minWidth: '85px',
+                            opacity: imported ? 0.65 : 1
                           }}
                         >
                           {importingId === q.id
@@ -447,7 +445,6 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                                     <Button
                                       size="sm"
                                       onClick={() => setRevealedSolution(true)}
-                                      style={{ padding: '6px 12px', fontSize: '12px' }}
                                     >
                                       Reveal Solution Article
                                     </Button>

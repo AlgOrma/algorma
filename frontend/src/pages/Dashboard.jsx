@@ -236,19 +236,21 @@ export default function Dashboard({
             <div className="text-fs-12-5 text-text-muted mb-sp-11">
               Quick actions
             </div>
-            <div className="flex flex-col gap-sp-9">
-              <button 
+            <div className="flex flex-col gap-3">
+              <Button 
+                variant="secondary"
                 onClick={onOpenNewProblemModal}
-                className="text-fs-13 font-semibold text-text-main bg-bg-btn-sec border border-border-btn p-2.5 rounded-card-btn cursor-pointer text-left transition-colors duration-200 hover:border-border-btn-hover hover:bg-bg-btn-sec-hover"
+                className="w-full justify-start text-left"
               >
                 + Start a new problem
-              </button>
-              <button 
+              </Button>
+              <Button 
+                variant="secondary"
                 onClick={() => onNavigate('flashcards')}
-                className="text-fs-13 font-semibold text-text-main bg-bg-btn-sec border border-border-btn p-2.5 rounded-card-btn cursor-pointer text-left transition-colors duration-200 hover:border-border-btn-hover hover:bg-bg-btn-sec-hover"
+                className="w-full justify-start text-left"
               >
                 ⚡ Run a flashcard session
-              </button>
+              </Button>
             </div>
           </div>
 
