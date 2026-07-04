@@ -202,6 +202,24 @@ function App() {
     }
   };
 
+  // Delete one or more problems
+  const handleDeleteProblems = async (ids) => {
+    try {
+      await Promise.all(ids.map(id => api.deleteProblem(id)));
+      setProblems(prevProblems => {
+        const nextProblems = prevProblems.filter(p => !ids.includes(p.id));
+        recalculateTopicMastery(nextProblems);
+        return nextProblems;
+      });
+      if (selectedId && ids.includes(selectedId)) {
+        setSelectedId(null);
+        setScreen('problems');
+      }
+    } catch (err) {
+      console.error('Failed to delete problem(s):', err.message);
+    }
+  };
+
   // Save new problem from modal
   const handleSaveProblem = async (newProblem) => {
     // If already created on backend (e.g. from LeetCode import)
@@ -280,6 +298,7 @@ function App() {
             problems={problems}
             onOpenProblem={handleOpenProblem}
             onOpenNewProblemModal={() => setIsModalOpen(true)}
+            onDeleteProblems={handleDeleteProblems}
             initialSearchQuery={initialSearchQuery}
             themeColor={themeAccent}
           />
@@ -314,6 +333,7 @@ function App() {
             problem={currentProblem}
             onBack={() => setScreen('problems')}
             onUpdateProblem={handleUpdateProblem}
+            onDeleteProblems={handleDeleteProblems}
             templatePatterns={templatePatterns}
             themeColor={themeAccent}
           />

@@ -46,6 +46,7 @@ export default function ProblemDetail({
   problem,
   onBack,
   onUpdateProblem,
+  onDeleteProblems,
   templatePatterns = [],
   themeColor
 }) {
@@ -170,6 +171,12 @@ export default function ProblemDetail({
     
     setToastMessage('Problem completed!');
     setTimeout(() => setToastMessage(''), 2500);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm("Are you sure you want to delete this problem? This action cannot be undone.")) {
+      onDeleteProblems([problem.id]);
+    }
   };
 
   // Spaced Repetition Checklist Progress mapping
@@ -303,6 +310,13 @@ export default function ProblemDetail({
               LeetCode ↗
             </a>
           )}
+          <Button 
+            variant="red" 
+            onClick={handleDelete}
+            className="cursor-pointer"
+          >
+            Delete
+          </Button>
           <Button 
             variant="secondary" 
             onClick={handleSave}
