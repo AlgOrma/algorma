@@ -28,6 +28,18 @@ export default function Sidebar({
       )
     },
     {
+      id: 'leetcode',
+      label: 'LeetCode',
+      icon: (color) => (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="14" height="14" rx="2" strokeWidth="1.6"/>
+          <line x1="7" y1="7" x2="13" y2="7"/>
+          <line x1="7" y1="10" x2="13" y2="10"/>
+          <line x1="7" y1="13" x2="11" y2="13"/>
+        </svg>
+      )
+    },
+    {
       id: 'problems',
       label: 'Problems',
       badge: problemsCount,
@@ -39,18 +51,6 @@ export default function Sidebar({
           <circle cx="3.6" cy="10" r="1.1"/>
           <circle cx="3.6" cy="5.5" r="1.1"/>
           <circle cx="3.6" cy="14.5" r="1.1"/>
-        </svg>
-      )
-    },
-    {
-      id: 'leetcode',
-      label: 'LeetCode',
-      icon: (color) => (
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="14" height="14" rx="2" strokeWidth="1.6"/>
-          <line x1="7" y1="7" x2="13" y2="7"/>
-          <line x1="7" y1="10" x2="13" y2="10"/>
-          <line x1="7" y1="13" x2="11" y2="13"/>
         </svg>
       )
     },

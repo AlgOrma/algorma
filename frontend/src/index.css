@@ -384,6 +384,74 @@ button {
   scrollbar-width: none;  /* Firefox */
 }
 
+/* ── 3D Dropdown & Select Customizations ────────────────────────────── */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 32px !important;
+  
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-hover) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 3.5px solid var(--color-border-main) !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, border-color 0.2s ease, background-color 0.2s ease;
+  font-weight: 700;
+  transform: translateY(0);
+}
+
+select:hover {
+  background-color: var(--color-bg-element-hover) !important;
+  border-color: var(--color-border-accent) !important;
+  color: var(--color-text-main) !important;
+}
+
+select:focus {
+  border-color: var(--color-accent) !important;
+}
+
+select:active {
+  transform: translateY(1.5px) !important;
+  border-bottom-width: 1.5px !important;
+}
+
+/* 3D Dropdown trigger button */
+.dropdown-trigger-3d {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 3.5px solid var(--color-border-main) !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transform: translateY(0);
+  outline: none;
+}
+
+.dropdown-trigger-3d:hover {
+  background-color: var(--color-bg-element-hover) !important;
+  border-color: var(--color-border-accent) !important;
+}
+
+.dropdown-trigger-3d:active {
+  transform: translateY(2px) !important;
+  border-bottom-width: 1.5px !important;
+}
+
+/* 3D Dropdown menu container */
+.dropdown-menu-3d {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 4px solid var(--color-border-main) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important;
+}
+
 
 
 

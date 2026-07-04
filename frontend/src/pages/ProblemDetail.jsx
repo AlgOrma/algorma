@@ -67,9 +67,29 @@ export default function ProblemDetail({
   // State for approach deletion confirmation modal
   const [approachToDeleteIdx, setApproachToDeleteIdx] = useState(null);
 
+  // State for problem deletion confirmation modal
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Dropdown menu state and ref
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
   // Refs for editor scroll sync
   const textareaRef = useRef(null);
   const gutterRef = useRef(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Load problem details into local states
   useEffect(() => {
@@ -190,9 +210,12 @@ export default function ProblemDetail({
   };
 
   const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this problem? This action cannot be undone.")) {
-      onDeleteProblems([problem.id]);
-    }
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDeleteProblem = () => {
+    setShowDeleteConfirm(false);
+    onDeleteProblems([problem.id]);
   };
 
   // Spaced Repetition Checklist Progress mapping
@@ -302,7 +325,10 @@ export default function ProblemDetail({
           </button>
           
           <div className="flex items-center gap-3 truncate">
-            <span className="font-mono text-fs-12 text-text-muted">
+            <span 
+              onClick={onBack}
+              className="font-mono text-fs-12 text-text-muted hover:text-text-main cursor-pointer transition-colors"
+            >
               {problem.topic}
             </span>
             <span className="text-[#333]">/</span>
@@ -327,13 +353,6 @@ export default function ProblemDetail({
             </a>
           )}
           <Button 
-            variant="red" 
-            onClick={handleDelete}
-            className="cursor-pointer"
-          >
-            Delete
-          </Button>
-          <Button 
             variant="secondary" 
             onClick={handleSave}
             className="cursor-pointer"
@@ -347,6 +366,41 @@ export default function ProblemDetail({
           >
             {problem.status === 'Done' ? '✓ Completed' : 'Mark complete'}
           </Button>
+
+          {/* Three dot actions menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="flex items-center justify-center p-2.5 dropdown-trigger-3d text-text-muted hover:text-text-main cursor-pointer"
+              title="More Actions"
+            >
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                <circle cx="10" cy="4" r="2.2" />
+                <circle cx="10" cy="10" r="2.2" />
+                <circle cx="10" cy="16" r="2.2" />
+              </svg>
+            </button>
+            
+            {isMenuOpen && (
+              <div className="absolute right-0 mt-1.5 w-40 dropdown-menu-3d z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleDelete();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-fs-13 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-bold transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="10" y1="11" x2="10" y2="17" />
+                    <line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                  Delete Problem
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -853,6 +907,25 @@ export default function ProblemDetail({
         cancelLabel="Cancel"
         onConfirm={handleConfirmDeleteApproach}
         onCancel={() => setApproachToDeleteIdx(null)}
+        confirmVariant="red"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete Problem"
+        message={
+          <span>
+            Are you sure you want to delete{' '}
+            <strong className="text-text-main">
+              {problem.title}
+            </strong>
+            ? This action cannot be undone.
+          </span>
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteProblem}
+        onCancel={() => setShowDeleteConfirm(false)}
         confirmVariant="red"
       />
     </div>
