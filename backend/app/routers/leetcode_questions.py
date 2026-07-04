@@ -7,7 +7,7 @@ from sqlmodel import Session, col, or_, select
 
 from ..db import get_session
 from ..deps import get_current_user
-from ..models import LeetCodeQuestion, Problem, Revision, User, Curriculum, CurriculumQuestionLink
+from ..models import Curriculum, CurriculumQuestionLink, LeetCodeQuestion, Problem, Revision, User
 from ..utils import utcnow
 from .problems import get_or_create_topic
 
@@ -219,6 +219,7 @@ def import_leetcode_question(
         status="Not started",
         statement=x.statement,
         leetcode_url=x.leetcode_url,
+        leetcode_id=x.id,
         created_at=now,
         updated_at=now,
     )

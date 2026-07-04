@@ -10,6 +10,16 @@ class CamelModel(BaseModel):
     )
 
 
+class ProblemApproachIn(CamelModel):
+    id: str | None = None
+    name: str
+    complexity_time: str | None = None
+    complexity_space: str | None = None
+    approach: str = ""
+    code: str = ""
+    language: str = "Python"
+
+
 class ProblemCreate(CamelModel):
     title: str
     topic: str
@@ -23,6 +33,7 @@ class ProblemCreate(CamelModel):
     notes: str | None = None
     patterns: list[str] = []
     leetcode_url: str | None = None  # leetcodeUrl
+    approaches: list[ProblemApproachIn] | None = None
 
 
 class ProblemUpdate(CamelModel):
@@ -38,6 +49,8 @@ class ProblemUpdate(CamelModel):
     notes: str | None = None
     patterns: list[str] | None = None
     leetcode_url: str | None = None
+    approaches: list[ProblemApproachIn] | None = None
+
 
 
 class GradeIn(CamelModel):

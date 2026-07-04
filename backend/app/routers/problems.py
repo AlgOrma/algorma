@@ -99,6 +99,32 @@ def create_problem(
 ):
     topic = get_or_create_topic(session, payload.topic)
     now = utcnow()
+
+    # Resolve leetcode_id if leetcode_url is provided
+    leetcode_id = None
+    if payload.leetcode_url:
+        from ..models import LeetCodeQuestion
+        lc_q = session.exec(select(LeetCodeQuestion).where(LeetCodeQuestion.leetcode_url == payload.leetcode_url)).first()
+        if lc_q:
+            leetcode_id = lc_q.id
+
+    # Build approaches list if provided
+    from ..models import ProblemApproach
+    approaches = []
+    if payload.approaches:
+        approaches = [
+            ProblemApproach(
+                name=a.name,
+                complexity_time=a.complexity_time,
+                complexity_space=a.complexity_space,
+                approach=a.approach,
+                code=a.code,
+                language=a.language,
+                position=i,
+            )
+            for i, a in enumerate(payload.approaches)
+        ]
+
     problem = Problem(
         user_id=user.id,
         title=payload.title,
@@ -112,7 +138,9 @@ def create_problem(
         solution=payload.solution,
         notes=payload.notes,
         leetcode_url=payload.leetcode_url,
+        leetcode_id=leetcode_id,
         patterns=resolve_patterns(session, payload.patterns),
+        approaches=approaches,
         created_at=now,
         updated_at=now,
     )
@@ -150,6 +178,33 @@ def update_problem(
     if pattern_names is not None:
         problem.patterns = resolve_patterns(session, pattern_names)
 
+    # Sync approaches list if provided
+    approaches_data = data.pop("approaches", None)
+    if approaches_data is not None:
+        from ..models import ProblemApproach
+        problem.approaches = [
+            ProblemApproach(
+                name=a.get("name"),
+                complexity_time=a.get("complexityTime"),
+                complexity_space=a.get("complexitySpace"),
+                approach=a.get("approach", ""),
+                code=a.get("code", ""),
+                language=a.get("lang", "Python"),
+                position=i,
+            )
+            for i, a in enumerate(approaches_data)
+        ]
+
+    # Resolve leetcode_id if leetcode_url is updated
+    if "leetcode_url" in data:
+        leetcode_url = data["leetcode_url"]
+        if leetcode_url:
+            from ..models import LeetCodeQuestion
+            lc_q = session.exec(select(LeetCodeQuestion).where(LeetCodeQuestion.leetcode_url == leetcode_url)).first()
+            problem.leetcode_id = lc_q.id if lc_q else None
+        else:
+            problem.leetcode_id = None
+
     for key, value in data.items():
         setattr(problem, _FIELD_MAP.get(key, key), value)
 
@@ -158,6 +213,7 @@ def update_problem(
     session.commit()
     session.refresh(problem)
     return serialize_problem(problem, problem.revision)
+
 
 
 @router.delete("/{problem_id}", status_code=204)

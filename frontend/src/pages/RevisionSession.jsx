@@ -3,6 +3,7 @@ import Badge from '../components/common/Badge';
 import CodeBlock from '../components/common/CodeBlock';
 import Button from '../components/common/Button';
 import { GRADES } from '../data/initialData';
+import * as api from '../api';
 
 export default function RevisionSession({
   problems = [],
@@ -21,23 +22,16 @@ export default function RevisionSession({
   const isFinished = currentIndex >= totalCards;
   const currentCard = isFinished ? null : dueList[currentIndex];
 
-  // Handle rescheduling the card based on spacing grade
-  const handleGrade = (gradeItem) => {
+  // Handle rescheduling the card based on spacing grade via API
+  const handleGrade = async (gradeItem) => {
     if (!currentCard) return;
 
-    // Reschedule utilizing mock SM-2 intervals
-    const nextReviewLabel = gradeItem.iv; // E.g., '12 days' or '2 days' or '<10 min'
-    const isStillDue = gradeItem.key === 'Again'; // 'Again' keeps card due
-
-    const updated = {
-      ...currentCard,
-      due: isStillDue,
-      lastRevised: 'just now',
-      nextLabel: isStillDue ? 'today' : `in ${nextReviewLabel}`,
-      revisions: (currentCard.revisions || 0) + 1
-    };
-
-    onUpdateProblem(updated);
+    try {
+      const res = await api.reviewProblem(currentCard.id, gradeItem.key);
+      onUpdateProblem(res);
+    } catch (err) {
+      console.error('Failed to review problem:', err.message);
+    }
     
     // Proceed to next card
     setRevealed(false);

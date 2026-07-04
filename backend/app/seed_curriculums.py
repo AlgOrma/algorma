@@ -6,7 +6,6 @@ Run from the backend/ directory: python -m app.seed_curriculums
 import json
 import ssl
 import urllib.request
-from typing import Set
 
 import certifi
 from sqlmodel import Session, delete, select

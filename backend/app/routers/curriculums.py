@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
-from sqlmodel import Session, col, delete, or_, select
+from sqlmodel import Session, delete, or_, select
 
 from ..db import get_session
 from ..deps import get_current_user

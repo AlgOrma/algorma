@@ -11,6 +11,7 @@ the problem/flashcard serializers take the matching revision (or ``None`` for an
 item the user has never scheduled).
 """
 
+import json
 from datetime import datetime
 from typing import Optional
 
@@ -94,6 +95,47 @@ def serialize_problem(
     else:
         due_meta = f"revised {days_since_review}d ago · {review_count}×"
 
+    approaches_list = []
+    if p.approaches:
+        approaches_list = [
+            {
+                "id": a.id,
+                "name": a.name,
+                "complexityTime": a.complexity_time,
+                "complexitySpace": a.complexity_space,
+                "approach": a.approach,
+                "code": a.code,
+                "lang": a.language,
+                "position": a.position,
+            }
+            for a in sorted(p.approaches, key=lambda a: a.position)
+        ]
+    
+    if not approaches_list and (p.approach or p.solution):
+        approaches_list = [
+            {
+                "id": "default",
+                "name": "Default Approach",
+                "complexityTime": "",
+                "complexitySpace": "",
+                "approach": p.approach or "",
+                "code": p.solution or "",
+                "lang": "Python",
+                "position": 0,
+            }
+        ]
+
+    # LeetCode references
+    lc = p.leetcode_question
+    hints = json.loads(lc.hints) if (lc and lc.hints) else []
+    solution_content = lc.solution_content if lc else None
+    has_solution = lc.has_solution if lc else False
+    similar_questions = json.loads(lc.similar_questions) if (lc and lc.similar_questions) else []
+    stats = json.loads(lc.stats) if (lc and lc.stats) else {}
+    likes = lc.likes if lc else 0
+    dislikes = lc.dislikes if lc else 0
+    category_title = lc.category_title if lc else "Algorithms"
+
     return {
         # --- shape the existing frontend reads ---
         "id": p.id,
@@ -115,6 +157,17 @@ def serialize_problem(
         "nextColor": next_color,
         "dueMeta": due_meta,
         "revisions": review_count,
+        # --- rich fields ---
+        "approaches": approaches_list,
+        "hints": hints,
+        "solutionContent": solution_content,
+        "hasSolution": has_solution,
+        "similarQuestions": similar_questions,
+        "stats": stats,
+        "likes": likes,
+        "dislikes": dislikes,
+        "categoryTitle": category_title,
+        "leetcodeId": p.leetcode_id or (lc.id if lc else None),
         # --- raw fields for future client-side formatting ---
         "topicSlug": p.topic.slug if p.topic else None,
         "leetcodeUrl": p.leetcode_url,
@@ -127,6 +180,7 @@ def serialize_problem(
         "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
     }
+
 
 
 def serialize_template_pattern(p: TemplatePattern) -> dict:

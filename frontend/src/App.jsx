@@ -22,12 +22,31 @@ function App() {
   // Persistent client-side state
   const [screen, setScreen] = useLocalStorage('dsa_screen', 'dashboard');
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
-  const [problems, setProblems] = useLocalStorage('dsa_problems', INITIAL_PROBLEMS);
+  const [problems, setProblems] = useState([]);
+  const [problemsLoading, setProblemsLoading] = useState(true);
   const [cards, setCards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
   const [topics, setTopics] = useLocalStorage('dsa_topics', INITIAL_TOPICS);
   const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 0);
   const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
+
+  // Load problems from the backend database (user-scoped)
+  useEffect(() => {
+    if (!user?.id) {
+      setProblemsLoading(false);
+      return;
+    }
+    setProblemsLoading(true);
+    api.getProblems()
+      .then((data) => {
+        setProblems(data || []);
+      })
+      .catch((err) => {
+        console.warn('Could not load problems from backend:', err.message);
+      })
+      .finally(() => setProblemsLoading(false));
+  }, [user?.id]);
+
 
   // Template library: a two-level, user-editable set of patterns + code
   // variations, owned by the backend. Loaded per-user from the API; the server
@@ -167,27 +186,47 @@ function App() {
     setIsEditingProfile(false);
   };
 
-  // Update a single problem in local state
-  const handleUpdateProblem = (updatedProblem) => {
-    setProblems(prevProblems => {
-      const nextProblems = prevProblems.map(p => 
-        p.id === updatedProblem.id ? updatedProblem : p
-      );
-      
-      // Dynamic topic mastery recalculation
-      recalculateTopicMastery(nextProblems);
-      return nextProblems;
-    });
+  // Update a single problem in local state and database
+  const handleUpdateProblem = async (updatedProblem) => {
+    try {
+      const res = await api.updateProblem(updatedProblem.id, updatedProblem);
+      setProblems(prevProblems => {
+        const nextProblems = prevProblems.map(p => 
+          p.id === res.id ? res : p
+        );
+        recalculateTopicMastery(nextProblems);
+        return nextProblems;
+      });
+    } catch (err) {
+      console.error('Failed to update problem in database:', err.message);
+    }
   };
 
   // Save new problem from modal
-  const handleSaveProblem = (newProblem) => {
-    setProblems(prevProblems => {
-      const nextProblems = [newProblem, ...prevProblems];
-      recalculateTopicMastery(nextProblems);
-      return nextProblems;
-    });
+  const handleSaveProblem = async (newProblem) => {
+    // If already created on backend (e.g. from LeetCode import)
+    if (newProblem.id && !newProblem.id.startsWith('p_')) {
+      setProblems(prevProblems => {
+        const nextProblems = [newProblem, ...prevProblems];
+        recalculateTopicMastery(nextProblems);
+        return nextProblems;
+      });
+      return;
+    }
+
+    // Manual creation via modal
+    try {
+      const created = await api.createProblem(newProblem);
+      setProblems(prevProblems => {
+        const nextProblems = [created, ...prevProblems];
+        recalculateTopicMastery(nextProblems);
+        return nextProblems;
+      });
+    } catch (err) {
+      console.error('Failed to create manual problem in DB:', err.message);
+    }
   };
+
 
   // Recalculates the topic mastery completion percentage automatically
   const recalculateTopicMastery = (currentProblems) => {
@@ -251,7 +290,8 @@ function App() {
             problems={problems}
             onImportProblem={(newProblem) => {
               handleSaveProblem(newProblem);
-              setScreen('problems');
+              setSelectedId(newProblem.id);
+              setScreen('detail');
             }}
             themeColor={themeAccent}
           />
@@ -274,6 +314,7 @@ function App() {
             problem={currentProblem}
             onBack={() => setScreen('problems')}
             onUpdateProblem={handleUpdateProblem}
+            templatePatterns={templatePatterns}
             themeColor={themeAccent}
           />
         );

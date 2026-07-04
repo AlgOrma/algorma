@@ -86,6 +86,7 @@ class Problem(SQLModel, table=True):
     notes: Optional[str] = None
     solution: Optional[str] = None
     leetcode_url: Optional[str] = None
+    leetcode_id: Optional[str] = Field(default=None, foreign_key="leetcode_question.id", nullable=True)
 
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -104,6 +105,30 @@ class Problem(SQLModel, table=True):
         back_populates="problem",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    leetcode_question: Optional["LeetCodeQuestion"] = Relationship()
+    approaches: list["ProblemApproach"] = Relationship(
+        back_populates="problem",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "order_by": "ProblemApproach.position"},
+    )
+
+
+class ProblemApproach(SQLModel, table=True):
+    __tablename__ = "problem_approach"
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    problem_id: str = Field(foreign_key="problem.id", index=True)
+    name: str
+    complexity_time: Optional[str] = None
+    complexity_space: Optional[str] = None
+    approach: str = ""
+    code: str = ""
+    language: str = "Python"
+    position: int = 0
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    problem: Optional[Problem] = Relationship(back_populates="approaches")
+
 
 
 class Template(SQLModel, table=True):
