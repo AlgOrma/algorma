@@ -393,7 +393,7 @@ export default function ProblemDetail({
                   <h1 className="text-fs-20 font-bold text-text-main leading-tight mb-2">
                     {problem.title}
                   </h1>
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
                     {problem.categoryTitle && (
                       <span className="font-mono text-fs-10 text-text-muted bg-white/4 px-2 py-0.5 rounded">
                         {problem.categoryTitle}
@@ -407,6 +407,61 @@ export default function ProblemDetail({
                         {pat}
                       </span>
                     ))}
+
+                    {/* Concise Stats Icons */}
+                    {((problem.stats && Object.keys(problem.stats).length > 0) || problem.likes > 0 || problem.dislikes > 0) && (
+                      <>
+                        {(problem.categoryTitle || (problem.patterns && problem.patterns.length > 0)) && (
+                          <span className="text-[#333] select-none mx-0.5">|</span>
+                        )}
+                        
+                        {problem.likes > 0 && (
+                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Likes">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/80">
+                              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                            </svg>
+                            <span className="text-green-500/90 font-semibold">{problem.likes.toLocaleString()}</span>
+                          </span>
+                        )}
+                        {problem.dislikes > 0 && (
+                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Dislikes">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500/80">
+                              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+                            </svg>
+                            <span className="text-red-500/90 font-semibold">{problem.dislikes.toLocaleString()}</span>
+                          </span>
+                        )}
+                        {problem.stats?.acRate && (
+                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Acceptance Rate">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                              <circle cx="12" cy="12" r="10" />
+                              <circle cx="12" cy="12" r="6" />
+                              <circle cx="12" cy="12" r="2" />
+                            </svg>
+                            <span className="text-text-hover font-semibold">{problem.stats.acRate}</span>
+                          </span>
+                        )}
+                        {problem.stats?.totalAccepted && (
+                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Accepted Submissions">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/60">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>{problem.stats.totalAccepted}</span>
+                          </span>
+                        )}
+                        {problem.stats?.totalSubmission && (
+                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Total Submissions">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted/60">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <line x1="16" y1="13" x2="8" y2="13" />
+                              <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                            <span>{problem.stats.totalSubmission}</span>
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -481,46 +536,7 @@ export default function ProblemDetail({
                   </div>
                 )}
 
-                {/* Stats & similar questions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  {/* Stats Card */}
-                  {problem.stats && Object.keys(problem.stats).length > 0 && (
-                    <div className="bg-bg-card border border-border-card rounded-xl p-4 flex flex-col gap-2">
-                      <div className="text-fs-12 font-semibold text-text-main font-mono">
-                        Submission Stats
-                      </div>
-                      <div className="flex flex-col gap-1.5 font-mono text-fs-11 text-text-muted">
-                        <div className="flex justify-between">
-                          <span>Acceptance Rate</span>
-                          <span className="text-accent">{problem.stats.acRate}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Total Accepted</span>
-                          <span className="text-text-hover">{problem.stats.totalAccepted}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Total Submissions</span>
-                          <span className="text-text-hover">{problem.stats.totalSubmission}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Likes/Dislikes */}
-                  {(problem.likes > 0 || problem.dislikes > 0) && (
-                    <div className="bg-bg-card border border-border-card rounded-xl p-4 flex items-center justify-around">
-                      <div className="flex flex-col items-center">
-                        <span className="text-green-400 font-bold text-fs-15">{problem.likes.toLocaleString()}</span>
-                        <span className="text-text-muted text-[10px] font-mono mt-1">LIKES</span>
-                      </div>
-                      <div className="w-[1px] h-8 bg-border-main"></div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-red-400 font-bold text-fs-15">{problem.dislikes.toLocaleString()}</span>
-                        <span className="text-text-muted text-[10px] font-mono mt-1">DISLIKES</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* Similar Questions */}
                 {problem.similarQuestions && problem.similarQuestions.length > 0 && (
