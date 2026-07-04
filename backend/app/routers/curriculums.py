@@ -18,7 +18,7 @@ def list_curriculums(
 ):
     # Retrieve global curriculums + user-specific curriculums
     stmt = select(Curriculum).where(
-        or_(Curriculum.user_id == None, Curriculum.user_id == user.id)
+        or_(Curriculum.user_id.is_(None), Curriculum.user_id == user.id)
     )
     curriculums = session.exec(stmt).all()
 
