@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional
 
 from .models import Flashcard, Problem, Revision, TemplatePattern, User
+from .srs import preview_intervals
 from .utils import utcnow
 
 # CSS custom properties already used by the frontend's data layer.
@@ -58,6 +59,15 @@ def serialize_problem(
     ease_factor = revision.ease_factor if revision else 2.5
     interval_days = revision.interval_days if revision else 0
     repetitions = revision.repetitions if revision else 0
+    stability = revision.stability if revision else None
+    difficulty = revision.difficulty if revision else None
+
+    # Per-grade "days until next due" for the grade buttons. Skipped for rows
+    # still on legacy SM-2 state (reviewed, but not yet re-graded under FSRS).
+    if stability is not None or not review_count:
+        next_intervals = preview_intervals(stability, difficulty, last_reviewed_at, now)
+    else:
+        next_intervals = None
 
     days_since_created = _days_delta(now, p.created_at)
     created = "today" if days_since_created <= 0 else f"{days_since_created}d ago"
@@ -150,6 +160,7 @@ def serialize_problem(
         "approach": p.approach,
         "solution": p.solution,
         "notes": p.notes,
+        "checklistProgress": json.loads(p.checklist_progress) if p.checklist_progress else None,
         "patterns": [pat.name for pat in p.patterns],
         "created": created,
         "lastRevised": last_revised,
@@ -175,6 +186,9 @@ def serialize_problem(
         "intervalDays": interval_days,
         "repetitions": repetitions,
         "reviewCount": review_count,
+        "srsStability": stability,
+        "srsDifficulty": difficulty,
+        "nextIntervals": next_intervals,
         "createdAt": _iso(p.created_at),
         "updatedAt": _iso(p.updated_at),
         "lastReviewedAt": _iso(last_reviewed_at),
@@ -210,6 +224,16 @@ def serialize_flashcard(
     now = now or utcnow()
     due_at = revision.due_at if revision else None
     due = due_at is not None and _days_delta(due_at, now) <= 0
+    review_count = revision.review_count if revision else 0
+    last_reviewed_at = revision.last_reviewed_at if revision else None
+    stability = revision.stability if revision else None
+    difficulty = revision.difficulty if revision else None
+
+    if stability is not None or not review_count:
+        next_intervals = preview_intervals(stability, difficulty, last_reviewed_at, now)
+    else:
+        next_intervals = None
+
     return {
         "id": c.id,
         "type": c.type,
@@ -220,7 +244,10 @@ def serialize_flashcard(
         "easeFactor": revision.ease_factor if revision else 2.5,
         "intervalDays": revision.interval_days if revision else 0,
         "repetitions": revision.repetitions if revision else 0,
-        "reviewCount": revision.review_count if revision else 0,
-        "lastReviewedAt": _iso(revision.last_reviewed_at if revision else None),
+        "reviewCount": review_count,
+        "srsStability": stability,
+        "srsDifficulty": difficulty,
+        "nextIntervals": next_intervals,
+        "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
     }

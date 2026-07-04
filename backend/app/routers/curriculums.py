@@ -11,6 +11,14 @@ from ..utils import slugify, utcnow
 router = APIRouter(prefix="/api/curriculums", tags=["curriculums"])
 
 
+def _require_owned(c: Curriculum, user: User) -> None:
+    """Mutations and deletes require ownership. Global (seeded) curriculums are
+    read-only through the API — they're populated by the seed script only, so a
+    request must never be able to add to, remove from, or delete a shared list."""
+    if c.user_id is None or c.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+
 @router.get("")
 def list_curriculums(
     user: User = Depends(get_current_user),
@@ -61,7 +69,9 @@ def create_curriculum(
         name=data.name,
         slug=slug,
         description=data.description,
-        user_id=None if data.is_global else user.id,
+        # Curriculums created via the API are always user-owned. Global lists
+        # can only be created by the seed script, never by a client request.
+        user_id=user.id,
         created_at=now,
         updated_at=now,
     )
@@ -144,8 +154,7 @@ def add_questions_to_curriculum(
     if not c:
         raise HTTPException(status_code=404, detail="Curriculum not found")
 
-    if c.user_id is not None and c.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_owned(c, user)
 
     added_count = 0
     for q_id in data.question_ids:
@@ -178,8 +187,7 @@ def remove_question_from_curriculum(
     if not c:
         raise HTTPException(status_code=404, detail="Curriculum not found")
 
-    if c.user_id is not None and c.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_owned(c, user)
 
     link = session.get(CurriculumQuestionLink, (c.id, leetcode_id))
     if link:
@@ -201,8 +209,7 @@ def delete_curriculum(
     if not c:
         raise HTTPException(status_code=404, detail="Curriculum not found")
 
-    if c.user_id is not None and c.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_owned(c, user)
 
     # Clear all linked questions
     session.exec(

@@ -3,11 +3,11 @@ from sqlmodel import Session, select
 
 from ..db import get_session
 from ..deps import get_current_user
-from ..models import Flashcard, ReviewLog, User
-from ..revisions import get_or_create_flashcard_revision
+from ..models import Flashcard, User
+from ..revisions import get_or_create_flashcard_revision, grade_revision
 from ..schemas import GradeIn
 from ..serialize import serialize_flashcard
-from ..srs import VALID_GRADES, schedule
+from ..srs import VALID_GRADES
 from ..utils import utcnow
 
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
@@ -46,33 +46,8 @@ def review_flashcard(
 
     now = utcnow()
     revision = get_or_create_flashcard_revision(session, user.id, card.id)
-    result = schedule(
-        revision.ease_factor,
-        revision.interval_days,
-        revision.repetitions,
-        payload.grade,
-        now,
-    )
-    revision.ease_factor = result["ease_factor"]
-    revision.interval_days = result["interval_days"]
-    revision.repetitions = result["repetitions"]
-    revision.review_count += 1
-    revision.last_reviewed_at = now
-    revision.due_at = result["due_at"]
-    revision.updated_at = now
+    grade_revision(session, revision, payload.grade, now)
     card.updated_at = now
-
-    session.add(
-        ReviewLog(
-            user_id=user.id,
-            grade=payload.grade,
-            interval_days=result["interval_days"],
-            ease_factor=result["ease_factor"],
-            flashcard_id=card.id,
-            reviewed_at=now,
-        )
-    )
-    session.add(revision)
     session.add(card)
     session.commit()
     session.refresh(card)

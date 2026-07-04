@@ -5,7 +5,7 @@ import Button from '../components/common/Button';
 export default function ProblemBank({
   problems = [],
   onOpenProblem,
-  onOpenNewProblemModal,
+  onNewProblem,
   onDeleteProblems,
   onReviseProblems,
   initialSearchQuery = ''
@@ -99,7 +99,7 @@ export default function ProblemBank({
           </div>
         </div>
         
-        <Button onClick={onOpenNewProblemModal}>
+        <Button onClick={onNewProblem}>
           <span className="text-fs-16 leading-[0] mt-[-1px]">+</span> New problem
         </Button>
       </div>

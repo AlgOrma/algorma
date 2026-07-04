@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Button from '../components/common/Button';
-import { GRADES } from '../data/initialData';
+import { GRADES, gradeIntervalLabel } from '../data/initialData';
 
 export default function FlashcardSession({
   cards = [],
@@ -102,7 +102,7 @@ export default function FlashcardSession({
                         {g.key}
                       </span>
                       <span className="font-mono text-fs-10 text-text-muted">
-                        {g.iv}
+                        {gradeIntervalLabel(currentCard, g)}
                       </span>
                     </button>
                   ))}

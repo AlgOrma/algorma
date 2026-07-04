@@ -1,6 +1,6 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select
 
 from ..db import get_session
@@ -10,15 +10,25 @@ from ..utils import utcnow
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
+# Timestamps are stored as naive UTC, but "today", streaks, and heatmap cells
+# should follow the user's calendar. Clients pass their offset in minutes east
+# of UTC (JS: -new Date().getTimezoneOffset()); we shift timestamps by it
+# before taking .date(). ±840 = ±14h, the widest real-world offset.
+_TZ_OFFSET_QUERY = Query(default=0, alias="tzOffset", ge=-840, le=840)
+
 
 @router.get("")
 def get_stats(
+    tz_offset: int = _TZ_OFFSET_QUERY,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     """Dashboard summary cards: solved, due, streak, retention — for one user."""
     now = utcnow()
-    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    local = timedelta(minutes=tz_offset)
+    today = (now + local).date()  # the user's calendar day
+    # Local midnight, expressed as the naive-UTC instants stored in the DB.
+    start_of_today = datetime.combine(today, time.min) - local
     end_of_today = start_of_today + timedelta(days=1)
     week_ago = now - timedelta(days=7)
 
@@ -27,7 +37,9 @@ def get_stats(
     ).all()
     total_solved = sum(1 for p in problems if p.status == "Done")
     solved_this_week = sum(
-        1 for p in problems if p.status == "Done" and p.updated_at >= week_ago
+        1
+        for p in problems
+        if p.status == "Done" and p.solved_at and p.solved_at >= week_ago
     )
 
     # Due/overdue mirror the dashboard's "cards due" — problem schedules only.
@@ -45,22 +57,24 @@ def get_stats(
         .where(ReviewLog.user_id == user.id)
         .order_by(ReviewLog.reviewed_at.desc())
     ).all()
-    review_days = {log.reviewed_at.date() for log in logs}
+    # Streaks count any activity: grading a review or solving a problem.
+    activity_days = {(log.reviewed_at + local).date() for log in logs}
+    activity_days |= {(p.solved_at + local).date() for p in problems if p.solved_at}
 
     # Current streak: consecutive days ending today (or yesterday if today is empty).
     streak_days = 0
-    cursor = start_of_today.date()
-    if cursor not in review_days:
+    cursor = today
+    if cursor not in activity_days:
         cursor -= timedelta(days=1)
-    while cursor in review_days:
+    while cursor in activity_days:
         streak_days += 1
         cursor -= timedelta(days=1)
 
-    # Best streak: longest run of consecutive review days ever.
+    # Best streak: longest run of consecutive activity days ever.
     best_streak_days = 0
     run = 0
     prev: date | None = None
-    for day in sorted(review_days):
+    for day in sorted(activity_days):
         run = run + 1 if prev is not None and (day - prev).days == 1 else 1
         best_streak_days = max(best_streak_days, run)
         prev = day
@@ -78,4 +92,56 @@ def get_stats(
         "streakDays": streak_days,
         "bestStreakDays": best_streak_days,
         "retentionPct": retention_pct,
+    }
+
+
+@router.get("/activity")
+def get_activity(
+    weeks: int = Query(default=52, ge=1, le=53),
+    tz_offset: int = _TZ_OFFSET_QUERY,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Daily activity for the heatmap: per-day counts of problems solved and
+    reviews graded, bucketed by the user's local calendar day.
+
+    Covers the last `weeks` weeks, aligned so the range starts on a Sunday and
+    the final (current) week ends today — matching the FE's column-per-week grid.
+    """
+    now = utcnow()
+    local = timedelta(minutes=tz_offset)
+    today = (now + local).date()
+    days_since_sunday = (today.weekday() + 1) % 7  # Mon=0 … Sun=6
+    start_day = today - timedelta(days=days_since_sunday, weeks=weeks - 1)
+    # Local midnight of the first heatmap day, as a stored naive-UTC instant.
+    start = datetime.combine(start_day, time.min) - local
+
+    # Only the timestamps are needed — skip loading full rows.
+    reviewed_ats = session.exec(
+        select(ReviewLog.reviewed_at).where(
+            ReviewLog.user_id == user.id,
+            ReviewLog.reviewed_at >= start,
+        )
+    ).all()
+    solved_ats = session.exec(
+        select(Problem.solved_at).where(
+            Problem.user_id == user.id,
+            Problem.solved_at >= start,  # NULL solved_at rows drop out in SQL
+        )
+    ).all()
+
+    days: dict[str, dict[str, int]] = {}
+    for ts in reviewed_ats:
+        day = days.setdefault((ts + local).date().isoformat(), {"reviews": 0, "solves": 0})
+        day["reviews"] += 1
+    for ts in solved_ats:
+        day = days.setdefault((ts + local).date().isoformat(), {"reviews": 0, "solves": 0})
+        day["solves"] += 1
+
+    return {
+        "startDate": start_day.isoformat(),
+        "endDate": today.isoformat(),
+        "days": days,
+        "totalReviews": len(reviewed_ats),
+        "totalSolves": len(solved_ats),
     }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FEATURES } from '../features';
 
 export default function Sidebar({
   activeScreen,
@@ -76,6 +77,7 @@ export default function Sidebar({
     },
     {
       id: 'flashcards',
+      hidden: !FEATURES.flashcards,
       label: 'Flashcards',
       badge: flashcardsCount,
       badgeColor: 'text-accent',
@@ -92,16 +94,16 @@ export default function Sidebar({
     <div className="w-sidebar-w flex-none bg-bg-sidebar border-r border-border-main px-3.5 py-5 flex flex-col gap-1.25 h-full">
       {/* Header / Logo */}
       <div className="flex items-center gap-sp-10 px-2 pt-sp-2 pb-sp-18">
-        <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center font-mono text-fs-13 font-semibold text-black">
+        <div className="w-7 h-7 rounded-md bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-mono text-fs-13 font-semibold text-text-dark">
           ›_
         </div>
-        <span className="font-bold text-fs-15 text-text-main tracking-[-0.015em]">
+        <span className="font-bold text-fs-15 tracking-[-0.015em] bg-gradient-to-r from-accent to-accent-secondary bg-clip-text text-transparent">
           AlgOrma
         </span>
       </div>
 
       {/* Nav List */}
-      {navItems.map((item) => {
+      {navItems.filter((item) => !item.hidden).map((item) => {
         const isActive = activeScreen === item.id || (item.id === 'problems' && activeScreen === 'detail');
         const color = isActive ? 'var(--color-text-main)' : 'var(--color-text-muted)';
 

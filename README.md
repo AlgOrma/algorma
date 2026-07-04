@@ -1,13 +1,14 @@
 # AlgOrma
 
-A personal Data Structures & Algorithms practice tracker with **SM-2 spaced
+A personal Data Structures & Algorithms practice tracker with **FSRS spaced
 repetition** — track problems, store spoiler-free solutions, study reusable
-patterns, and review with problem cards + flashcards on a schedule.
+patterns, and revise problem cards on a schedule. (Flashcards are
+feature-flagged off until implemented — see `frontend/src/features.js`.)
 
 ## Stack
 
 - **`frontend/`** — React 19 + Vite + Tailwind CSS v4 (oxlint). The UI is built.
-- **`backend/`** — FastAPI + SQLModel + SQLite. REST API + SM-2 scheduler.
+- **`backend/`** — FastAPI + SQLModel + SQLite. REST API + FSRS scheduler.
 
 ## Run it
 
@@ -17,14 +18,12 @@ patterns, and review with problem cards + flashcards on a schedule.
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m app.seed                       # create + seed the SQLite DB
-python -m app.seed_leetcode              # seed / reseed LeetCode questions pool
-python -m app.seed_curriculums           # seed default study curriculums (Blind 75, NeetCode, etc.)
+python -m app.bootstrap                   # create the DB, run migrations, seed all reference data
 uvicorn app.main:app --reload --port 8000
 ```
 
 > [!NOTE]
-> `seed_leetcode` updates the catalog incrementally and non-destructively. Running it does not overwrite or remove curriculum mappings, so you do not need to run `seed_curriculums` every time you update LeetCode questions. You only need to run `seed_curriculums` upon first setup or after a complete database wipe.
+> `python -m app.bootstrap` runs every setup step in order — schema migrations plus the topic, LeetCode, and curriculum seeds — and is idempotent, so it's safe to re-run after pulling changes. It's the single source of truth for setup: new migrations/seeds are wired into `app/bootstrap.py`, so this command never changes even as steps are added. Run it again after `git pull` to pick up any new migrations. The individual seeds (`app.seed`, `app.seed_leetcode`, `app.seed_curriculums`) still exist if you want to run just one.
 
 
 **Frontend** (http://localhost:5173):
@@ -72,6 +71,6 @@ returns problems in that same shape, so switching to live data is incremental:
 | Save problem (modal)           | `POST /problems`                                    |
 | Update / mark complete         | `PATCH /problems/{id}`                              |
 | Grade in a revision session    | `POST /problems/{id}/review` `{ grade }`            |
-| Flashcards                     | `GET /flashcards?due=true`, `POST /flashcards/{id}/review` |
+| Flashcards (flagged off)       | `GET /flashcards?due=true`, `POST /flashcards/{id}/review` |
 | Templates                      | `GET /templates`                                    |
 ```

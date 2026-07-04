@@ -1,15 +1,17 @@
+import json
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from ..db import get_session
 from ..deps import get_current_user
 from ..models import Pattern, Problem, ReviewLog, Revision, Topic, User
-from ..revisions import get_or_create_problem_revision
+from ..revisions import get_or_create_problem_revision, grade_revision
 from ..schemas import GradeIn, ProblemCreate, ProblemUpdate
 from ..serialize import serialize_problem
-from ..srs import VALID_GRADES, schedule
+from ..srs import VALID_GRADES
 from ..utils import slugify, utcnow
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
@@ -65,6 +67,13 @@ def list_problems(
     stmt = (
         select(Problem)
         .where(Problem.user_id == user.id)
+        .options(
+            selectinload(Problem.approaches),
+            selectinload(Problem.leetcode_question),
+            selectinload(Problem.topic),
+            selectinload(Problem.patterns),
+            selectinload(Problem.revision),
+        )
         .order_by(Problem.created_at.desc())
     )
     if difficulty:
@@ -131,6 +140,7 @@ def create_problem(
         topic_id=topic.id,
         difficulty=payload.difficulty,
         status=payload.status,
+        solved_at=now if payload.status == "Done" else None,
         statement=payload.statement,
         example_input=payload.ex_in,
         example_output=payload.ex_out,
@@ -178,22 +188,28 @@ def update_problem(
     if pattern_names is not None:
         problem.patterns = resolve_patterns(session, pattern_names)
 
-    # Sync approaches list if provided
-    approaches_data = data.pop("approaches", None)
-    if approaches_data is not None:
+    # Sync approaches list if provided. Build from the parsed payload objects
+    # (not the model_dump, whose keys are snake_case) so complexity/language
+    # aren't silently dropped.
+    if data.pop("approaches", None) is not None and payload.approaches is not None:
         from ..models import ProblemApproach
         problem.approaches = [
             ProblemApproach(
-                name=a.get("name"),
-                complexity_time=a.get("complexityTime"),
-                complexity_space=a.get("complexitySpace"),
-                approach=a.get("approach", ""),
-                code=a.get("code", ""),
-                language=a.get("lang", "Python"),
+                name=a.name,
+                complexity_time=a.complexity_time,
+                complexity_space=a.complexity_space,
+                approach=a.approach,
+                code=a.code,
+                language=a.language,
                 position=i,
             )
-            for i, a in enumerate(approaches_data)
+            for i, a in enumerate(payload.approaches)
         ]
+
+    # Checklist progress is stored JSON-encoded on the row.
+    checklist_progress = data.pop("checklist_progress", None)
+    if checklist_progress is not None:
+        problem.checklist_progress = json.dumps(checklist_progress)
 
     # Resolve leetcode_id if leetcode_url is updated
     if "leetcode_url" in data:
@@ -208,12 +224,41 @@ def update_problem(
     for key, value in data.items():
         setattr(problem, _FIELD_MAP.get(key, key), value)
 
+    # First arrival at "Done" is the solve moment (kept even if status changes later).
+    if problem.status == "Done" and problem.solved_at is None:
+        problem.solved_at = utcnow()
+
     problem.updated_at = utcnow()
     session.add(problem)
     session.commit()
     session.refresh(problem)
     return serialize_problem(problem, problem.revision)
 
+
+
+@router.get("/{problem_id}/reviews")
+def list_problem_reviews(
+    problem_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """The problem's grading history, oldest first — powers the revision-history
+    panel in the revise session."""
+    problem = _get_owned_problem(session, user, problem_id)
+    logs = session.exec(
+        select(ReviewLog)
+        .where(ReviewLog.problem_id == problem.id, ReviewLog.user_id == user.id)
+        .order_by(ReviewLog.reviewed_at)
+    ).all()
+    return [
+        {
+            "id": log.id,
+            "grade": log.grade,
+            "intervalDays": log.interval_days,
+            "reviewedAt": log.reviewed_at.isoformat() + "Z",
+        }
+        for log in logs
+    ]
 
 
 @router.delete("/{problem_id}", status_code=204)
@@ -241,33 +286,8 @@ def review_problem(
 
     now = utcnow()
     revision = get_or_create_problem_revision(session, user.id, problem.id)
-    result = schedule(
-        revision.ease_factor,
-        revision.interval_days,
-        revision.repetitions,
-        payload.grade,
-        now,
-    )
-    revision.ease_factor = result["ease_factor"]
-    revision.interval_days = result["interval_days"]
-    revision.repetitions = result["repetitions"]
-    revision.review_count += 1
-    revision.last_reviewed_at = now
-    revision.due_at = result["due_at"]
-    revision.updated_at = now
+    grade_revision(session, revision, payload.grade, now)
     problem.updated_at = now
-
-    session.add(
-        ReviewLog(
-            user_id=user.id,
-            grade=payload.grade,
-            interval_days=result["interval_days"],
-            ease_factor=result["ease_factor"],
-            problem_id=problem.id,
-            reviewed_at=now,
-        )
-    )
-    session.add(revision)
     session.add(problem)
     session.commit()
     session.refresh(problem)

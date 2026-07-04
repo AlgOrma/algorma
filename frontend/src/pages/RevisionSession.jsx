@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Badge from '../components/common/Badge';
 import CodeBlock from '../components/common/CodeBlock';
 import Button from '../components/common/Button';
-import { GRADES } from '../data/initialData';
+import { GRADES, gradeIntervalLabel } from '../data/initialData';
 import * as api from '../api';
 
 export default function RevisionSession({
@@ -11,19 +11,27 @@ export default function RevisionSession({
   onNavigate,
   customProblems = null
 }) {
+  const [sessionStarted, setSessionStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealedApproaches, setRevealedApproaches] = useState({});
   const [activeApproachIdx, setActiveApproachIdx] = useState(0);
   const [scratchpadText, setScratchpadText] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const [sessionProblems, setSessionProblems] = useState([]);
 
-  // Freeze the session problems list at the start of a session (or when reset)
+  // Past grading events for the card being revised (null = loading)
+  const [reviewHistory, setReviewHistory] = useState(null);
+
+  // Shown when saving a grade fails (otherwise the buttons look dead)
+  const [gradeError, setGradeError] = useState(null);
+
+  // Keep the queue fresh while on the overview; freeze it once the session starts
   useEffect(() => {
-    if (currentIndex === 0) {
+    if (!sessionStarted && currentIndex === 0) {
       setSessionProblems(customProblems || problems.filter(p => p.due));
     }
-  }, [problems, customProblems, currentIndex]);
+  }, [problems, customProblems, currentIndex, sessionStarted]);
 
   const totalCards = sessionProblems.length;
   const isFinished = currentIndex >= totalCards;
@@ -89,22 +97,213 @@ export default function RevisionSession({
     }
   };
 
-  // Handle rescheduling the card based on spacing grade via API
+  // Handle rescheduling the card based on spacing grade via API.
+  // reviewProblem already persists the schedule and returns the fresh problem,
+  // so we only sync local state — advancing only if the review succeeded.
   const handleGrade = async (gradeItem) => {
     if (!currentCard) return;
 
+    setGradeError(null);
     try {
       const res = await api.reviewProblem(currentCard.id, gradeItem.key);
       onUpdateProblem(res);
+      // Proceed to next card
+      setCurrentIndex(prev => prev + 1);
     } catch (err) {
       console.error('Failed to review problem:', err.message);
+      setGradeError(`Couldn't save your "${gradeItem.key}" grade — check that the backend is running, then try again.`);
     }
-    
-    // Proceed to next card
-    setCurrentIndex(prev => prev + 1);
   };
 
   const progressPercentage = totalCards ? Math.round((currentIndex / totalCards) * 100) : 0;
+
+  // Queue selection — revise the checked subset, or everything when none checked
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const allSelected = totalCards > 0 && sessionProblems.every(p => selectedIds.includes(p.id));
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? [] : sessionProblems.map(p => p.id));
+  };
+
+  const handleStartSession = () => {
+    if (selectedIds.length > 0) {
+      setSessionProblems(prev => prev.filter(p => selectedIds.includes(p.id)));
+    }
+    setSelectedIds([]);
+    setSessionStarted(true);
+  };
+
+  // Clicking a row skips the button entirely — revise just that problem
+  const handleReviseOne = (problem) => {
+    setSessionProblems([problem]);
+    setSelectedIds([]);
+    setSessionStarted(true);
+  };
+
+  // Deep link: opening /revise/<id> starts a session for that problem as soon
+  // as the problem list has loaded.
+  const deepLinkTriedRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkTriedRef.current || sessionStarted || problems.length === 0) return;
+    deepLinkTriedRef.current = true;
+    const match = window.location.pathname.match(/^\/revise\/([^/]+)$/);
+    if (!match) return;
+    const target = problems.find(p => p.id === match[1]);
+    if (target) handleReviseOne(target);
+    // handleReviseOne only touches state setters; safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problems, sessionStarted]);
+
+  // Deep link while already mounted: history navigation to /revise/<id>
+  // doesn't remount this component (screen stays 'revise'), so react to
+  // popstate directly — start that problem's session, or return to the queue
+  // for plain /revise.
+  useEffect(() => {
+    const onPopState = () => {
+      const match = window.location.pathname.match(/^\/revise\/([^/]+)$/);
+      if (match) {
+        const target = problems.find(p => p.id === match[1]);
+        if (target) handleReviseOne(target);
+      } else if (window.location.pathname === '/revise') {
+        setSessionStarted(false);
+        setCurrentIndex(0);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+    // handleReviseOne only touches state setters; safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problems]);
+
+  // Load the revision history for the card on screen
+  useEffect(() => {
+    if (!sessionStarted || !currentCard?.id) return;
+    let cancelled = false;
+    setReviewHistory(null);
+    setGradeError(null);
+    api.getProblemReviews(currentCard.id)
+      .then((rows) => { if (!cancelled) setReviewHistory(rows || []); })
+      .catch(() => { if (!cancelled) setReviewHistory([]); });
+    return () => { cancelled = true; };
+  }, [sessionStarted, currentCard?.id]);
+
+  const gradeColor = (key) =>
+    GRADES.find(g => g.key === key)?.c || 'var(--color-text-muted)';
+
+  // Keep the URL naming the question being revised: /revise/<id> during the
+  // session, plain /revise on the queue and completion screens.
+  useEffect(() => {
+    if (!window.location.pathname.startsWith('/revise')) return;
+    const path = sessionStarted && currentCard ? `/revise/${currentCard.id}` : '/revise';
+    if (window.location.pathname !== path) {
+      window.history.replaceState(null, '', path);
+    }
+  }, [sessionStarted, currentCard]);
+
+  // Queue Overview — list every question in the session before it starts
+  if (!sessionStarted) {
+    return (
+      <div className="w-full h-full overflow-y-auto custom-scrollbar">
+        <div className="max-w-[1140px] mx-auto px-sp-30 pt-sp-26 pb-10 flex flex-col gap-4">
+          {/* Header section */}
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <div className="text-fs-21 font-bold text-text-main tracking-[-0.015em]">
+                {customProblems ? 'Forced revision' : 'Revision queue'}
+              </div>
+              <div className="font-mono text-fs-12 text-text-muted mt-1">
+                {totalCards} {totalCards === 1 ? 'problem' : 'problems'} · spoiler-free recall session
+                {selectedIds.length > 0 && (
+                  <span className="text-accent"> · {selectedIds.length} selected</span>
+                )}
+              </div>
+            </div>
+
+            <Button onClick={handleStartSession} disabled={totalCards === 0}>
+              {selectedIds.length > 0
+                ? `Revise ${selectedIds.length} selected →`
+                : 'Start revision →'}
+            </Button>
+          </div>
+
+          {/* Queue list */}
+          <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
+            {/* Table Header */}
+            <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_78px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left items-center">
+              <div className="flex items-center justify-center">
+                {allSelected ? (
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer" onClick={toggleSelectAll}>
+                    <rect x="2" y="2" width="16" height="16" rx="4" fill="var(--color-accent)" />
+                    <path d="M6 10l3 3 5-5" stroke="var(--color-text-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-text-muted hover:text-text-main cursor-pointer transition-colors duration-150" onClick={toggleSelectAll}>
+                    <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="2" />
+                  </svg>
+                )}
+              </div>
+              <span>TITLE</span>
+              <span>TOPIC</span>
+              <span>DIFF</span>
+              <span>LAST REV</span>
+              <span className="text-right">DUE</span>
+            </div>
+
+            {/* Table Rows */}
+            <div className="flex flex-col">
+              {sessionProblems.map((row) => {
+                const isSelected = selectedIds.includes(row.id);
+                return (
+                  <div
+                    key={row.id}
+                    onClick={() => handleReviseOne(row)}
+                    title="Revise this problem now"
+                    className={`grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_78px] gap-3 items-center px-sp-18 py-3 border-b border-bg-element-dark cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150 ${isSelected ? 'bg-bg-element-hover/50' : ''}`}
+                  >
+                    <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); toggleSelect(row.id); }}>
+                      {isSelected ? (
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer">
+                          <rect x="2" y="2" width="16" height="16" rx="4" fill="var(--color-accent)" />
+                          <path d="M6 10l3 3 5-5" stroke="var(--color-text-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-text-muted hover:text-text-main cursor-pointer transition-colors duration-150">
+                          <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="2" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-fs-13-5 text-text-main font-medium truncate">
+                      {row.title}
+                    </span>
+                    <span className="font-mono text-fs-11-5 text-text-hover truncate">
+                      {row.topic}
+                    </span>
+                    <Badge type="difficulty" value={row.difficulty} />
+                    <span className="font-mono text-fs-11 text-text-muted">
+                      {row.lastRevised || '—'}
+                    </span>
+                    <span className={`font-mono text-fs-11 text-right ${row.due ? 'text-accent' : 'text-text-muted'}`}>
+                      {row.due ? 'today' : row.nextLabel || '—'}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {totalCards === 0 && (
+                <div className="py-10 px-5 text-text-muted text-fs-14 text-center">
+                  No problems due for revision right now. Nice job staying on top of your schedule!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Active Deck View
   if (!isFinished && currentCard) {
@@ -153,8 +352,36 @@ export default function RevisionSession({
             </div>
 
             {/* Metadata */}
-            <div className="font-mono text-fs-11 text-text-muted mt-2">
-              {currentCard.topic} · last revised {currentCard.lastRevised} · created {currentCard.created}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-2.5 font-mono text-fs-11">
+              {/* Topic pill */}
+              <span className="inline-flex items-center px-2 py-sp-2 rounded-md border border-border-muted bg-bg-card text-text-hover">
+                {currentCard.topic}
+              </span>
+
+              {/* Last revised (or a gentle "new" state when never revised) */}
+              {currentCard.lastRevised && currentCard.lastRevised !== '—' ? (
+                <span className="inline-flex items-center gap-1.5 text-text-muted" title="Last revised">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7.5V12l3 1.5" />
+                  </svg>
+                  {currentCard.lastRevised}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-text-muted" title="Not revised yet">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  Not revised yet
+                </span>
+              )}
+
+              {/* Created */}
+              <span className="inline-flex items-center gap-1.5 text-text-muted" title="Created">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                  <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+                </svg>
+                created {currentCard.created}
+              </span>
             </div>
 
             <hr className="border-border-muted my-5" />
@@ -187,6 +414,53 @@ export default function RevisionSession({
                 )}
               </div>
             )}
+
+            {/* Revision history */}
+            <div className="mt-5 bg-bg-card border border-border-card rounded-xl p-5 text-left">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-mono text-fs-11 text-text-muted tracking-[0.08em]">
+                  <span className="w-[3px] h-[14px] rounded-full bg-accent inline-block" />
+                  REVISION HISTORY
+                </div>
+                <span className="font-mono text-fs-11 text-accent bg-accent/10 border border-accent/25 rounded-md px-2 py-0.5">
+                  {reviewHistory ? reviewHistory.length : currentCard.revisions || 0}×
+                </span>
+              </div>
+
+              {reviewHistory === null ? (
+                <div className="font-mono text-fs-11 text-text-muted pt-4 pb-1">Loading…</div>
+              ) : reviewHistory.length === 0 ? (
+                <div className="text-fs-12-5 text-text-muted pt-4 pb-1">
+                  No revisions yet — this is your first attempt at recalling this problem.
+                </div>
+              ) : (
+                <div className="flex flex-col mt-2">
+                  {reviewHistory.map((log, idx) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center gap-3 py-2.5 border-b border-bg-element-dark last:border-b-0"
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: gradeColor(log.grade) }}
+                      />
+                      <span className="text-fs-13 font-semibold text-text-main">
+                        Revision {idx + 1}
+                      </span>
+                      <span className="font-mono text-fs-11 text-text-muted ml-auto">
+                        {new Date(log.reviewedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span
+                        className="text-fs-12 font-semibold border border-border-main bg-bg-code rounded-md px-2.5 py-1"
+                        style={{ color: gradeColor(log.grade) }}
+                      >
+                        {log.grade}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -319,6 +593,11 @@ export default function RevisionSession({
                     Hide solutions ▲
                   </button>
                 </div>
+                {gradeError && (
+                  <div className="text-fs-12 text-center" style={{ color: 'var(--color-accent-red)' }}>
+                    {gradeError}
+                  </div>
+                )}
                 <div className="flex gap-3">
                   {GRADES.map((g) => (
                     <button
@@ -333,7 +612,7 @@ export default function RevisionSession({
                         {g.key}
                       </span>
                       <span className="font-mono text-[10px] text-text-muted">
-                        {g.iv}
+                        {gradeIntervalLabel(currentCard, g)}
                       </span>
                     </button>
                   ))}
@@ -371,6 +650,7 @@ export default function RevisionSession({
             <Button 
               variant="secondary"
               onClick={() => {
+                setSessionStarted(false);
                 setCurrentIndex(0);
                 setRevealedApproaches({});
               }}

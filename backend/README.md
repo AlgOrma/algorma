@@ -1,7 +1,7 @@
 # AlgOrma — Backend (FastAPI)
 
 REST API for the AlgOrma DSA tracker. **FastAPI + SQLModel + SQLite**, with an
-SM-2 spaced-repetition scheduler shared by problem reviews and flashcards.
+FSRS spaced-repetition scheduler shared by problem reviews and flashcards.
 
 Data is **per-user** (no authentication): each request is scoped to the current
 profile, resolved from an `X-User-Id` header. A fresh install has an **empty
@@ -9,8 +9,9 @@ users table** — the first profile is created through onboarding (`POST /users`
 and user-scoped endpoints require the header (there is no default profile).
 Problems and flashcards belong to a user; topics, patterns, and templates are a
 shared global bank. Spaced-repetition state lives in its own per-user `Revision`
-table (one row per item), kept separate from the content rows and ready to swap
-SM-2 for FSRS later.
+table (one row per item), kept separate from the content rows. Rows scheduled by
+the old SM-2 code migrate to FSRS automatically on their next grade (their
+`ReviewLog` history is replayed).
 
 ## Layout
 
@@ -22,11 +23,12 @@ backend/
 │   ├── db.py            # engine + session dependency
 │   ├── deps.py          # get_current_user (requires X-User-Id header → User)
 │   ├── models.py        # tables: User, Topic, Pattern, Problem, Template, Flashcard, Revision, ReviewLog
-│   ├── revisions.py     # get-or-create helpers for per-user SRS state
+│   ├── revisions.py     # per-user SRS state: get-or-create + grading (incl. SM-2 → FSRS replay)
 │   ├── schemas.py       # request bodies (camelCase, matches the frontend)
-│   ├── srs.py           # SM-2 scheduler (swappable for FSRS later)
+│   ├── srs.py           # FSRS scheduler (py-fsrs) + per-grade interval previews
 │   ├── serialize.py     # emits the exact JSON shape the React frontend reads
 │   ├── seed.py          # seeds global reference data only (topics + templates)
+│   ├── bootstrap.py     # `python -m app.bootstrap`: run migrations + all seeds in order
 │   └── routers/         # users, problems, topics, templates, flashcards, stats
 ├── requirements.txt
 └── .env.example
@@ -42,26 +44,71 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# create the SQLite DB + seed global reference data (topics + templates)
-python -m app.seed
-
-# seed or incrementally reseed LeetCode questions (idempotent, does not wipe user data)
-python -m app.seed_leetcode
-
-# seed default study curriculums (Blind 75, NeetCode 150/250)
-python -m app.seed_curriculums
+# one command: create the DB, run schema migrations, and seed all reference data
+# (topics, LeetCode questions, and study curriculums). Idempotent — safe to re-run.
+python -m app.bootstrap
 
 # run the API with reload (http://localhost:8000, docs at /docs)
 uvicorn app.main:app --reload --port 8000
 ```
 
 > [!NOTE]
-> `seed_leetcode` updates questions incrementally. It does not overwrite curriculum mappings, so you do not need to run `seed_curriculums` every time you update LeetCode questions. You only need to run it during first-time setup or after a complete database wipe.
+> `app.bootstrap` is the single source of truth for setup: it runs the schema
+> migrations and every seed in order. **Adding a new migration or seed?** Wire it
+> into `run()` in [`app/bootstrap.py`](app/bootstrap.py) — the setup command stays
+> `python -m app.bootstrap`, so this README (and everyone's install flow) never
+> needs to change. Re-run it after `git pull` to apply new migrations. The
+> individual seeds still exist (`app.seed`, `app.seed_leetcode`,
+> `app.seed_curriculums`) if you need to run just one.
 
+Tables and schema migrations are also applied automatically on app startup, so
+the API is usable even without seeding — the seeds just cache the shared topics,
+template library, LeetCode pool, and curriculums. Users, problems, and flashcards
+are created at runtime through the app.
 
-Tables are auto-created on app startup, so the seed steps are optional — they
-cache the shared topics, template library, and LeetCode questions pool. Users,
-problems, and flashcards are created at runtime through the app.
+If you start the API before seeding, startup prints a clear, non-blocking warning
+telling you to run `python -m app.bootstrap` — so you don't have to know about the
+command in advance:
+
+```
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  Setup incomplete: no topics, LeetCode questions, study curriculums found.
+  The schema is migrated, but reference data has not been seeded.
+  Run this once (idempotent, safe to re-run):
+      python -m app.bootstrap
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+```
+
+## Database & migrations
+
+There's no Alembic. Setup has two layers, both idempotent and both driven by
+`app.bootstrap` (so you never run steps individually or update this README when
+you add one):
+
+1. **Schema migrations** — structural changes (`CREATE TABLE`, `ALTER TABLE`,
+   backfills). They live in `init_db()` in [`app/db.py`](app/db.py) and run
+   automatically **on every app startup** (via `main.py`'s lifespan) and at the
+   start of `bootstrap`. Each is guarded by a column/table check, so re-running
+   is a no-op on an already-migrated database.
+2. **Reference-data seeds** — content, not structure: topics
+   ([`seed.py`](app/seed.py)), the LeetCode catalog
+   ([`seed_leetcode.py`](app/seed_leetcode.py)), and curriculums
+   ([`seed_curriculums.py`](app/seed_curriculums.py)). Each exposes an idempotent
+   `run()`. The last two fetch from GitHub, so they need network.
+
+`bootstrap` runs the schema migrations, then all three seeds, in order.
+
+### Adding a migration or seed
+
+- **New schema change:** add an idempotent block to `init_db()` in `db.py`, guarded
+  by an existence check (see the `checklist_progress` / `leetcode_id` examples). It
+  applies on the next app startup or `bootstrap` run — nothing else to wire up.
+- **New seed:** add a module with a `run()` and register it in `run()` in
+  [`app/bootstrap.py`](app/bootstrap.py).
+
+Either way the setup command stays `python -m app.bootstrap`, so **this README
+never changes**. To apply new migrations after `git pull`, just re-run
+`python -m app.bootstrap` (or, for schema-only changes, simply start the server).
 
 ## API
 
@@ -86,12 +133,25 @@ user and **require** an `X-User-Id: <id>` header (the id returned by
 | GET    | `/problems/{id}`         | one problem                                   |
 | PATCH  | `/problems/{id}`         | update fields / status / patterns             |
 | DELETE | `/problems/{id}`         | delete                                        |
-| POST   | `/problems/{id}/review`  | body `{ "grade": "Good" }` → reschedule (SM-2)|
-| GET    | `/flashcards`            | list; filter: `due`                           |
-| POST   | `/flashcards/{id}/review`| body `{ "grade": "Good" }` → reschedule (SM-2)|
+| POST   | `/problems/{id}/review`  | body `{ "grade": "Good" }` → reschedule (FSRS)|
+| GET    | `/flashcards`            | list; filter: `due` *(feature-flagged)*       |
+| POST   | `/flashcards/{id}/review`| body `{ "grade": "Good" }` *(feature-flagged)*|
 
 `grade` ∈ `Again | Hard | Good | Easy`. Creating a problem auto-creates its
 `Revision` (SRS) row; grading reads/updates that row and appends a `ReviewLog`.
+
+> [!NOTE]
+> The flashcards endpoints are off by default (the UI isn't implemented yet).
+> Set `ENABLE_FLASHCARDS=true` in `.env` to expose them; the frontend side is
+> gated separately by `FEATURES.flashcards` in `frontend/src/features.js`.
+
+## Tests & linting
+
+```bash
+pip install -r requirements-dev.txt
+pytest        # unit tests: FSRS scheduling, SM-2 replay, stats bucketing
+ruff check app/ tests/
+```
 
 ## Frontend contract
 

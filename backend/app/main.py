@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 from .config import settings
-from .db import init_db
+from .db import check_setup, init_db
 from .routers import (
     curriculums,
     flashcards,
@@ -28,7 +28,8 @@ warnings.filterwarnings("ignore", category=UnsupportedFieldAttributeWarning)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    init_db()  # create tables + apply schema migrations
+    check_setup()  # warn (non-blocking) if reference data isn't seeded yet
     yield
 
 
@@ -37,6 +38,8 @@ app = FastAPI(title="AlgOrma API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.web_origin],
+    # Local-only app: also accept any localhost port so dev/preview servers work.
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,7 +60,8 @@ app.include_router(users.router)
 app.include_router(problems.router)
 app.include_router(topics.router)
 app.include_router(templates.router)
-app.include_router(flashcards.router)
+if settings.enable_flashcards:  # feature-flagged: UI not implemented yet
+    app.include_router(flashcards.router)
 app.include_router(stats.router)
 app.include_router(leetcode_questions.router)
 app.include_router(curriculums.router)

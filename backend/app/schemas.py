@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
@@ -17,7 +17,9 @@ class ProblemApproachIn(CamelModel):
     complexity_space: str | None = None
     approach: str = ""
     code: str = ""
-    language: str = "Python"
+    # The frontend (and serialize_problem) uses "lang", not the camelCase
+    # "language" the alias generator would otherwise expect.
+    language: str = Field(default="Python", alias="lang")
 
 
 class ProblemCreate(CamelModel):
@@ -50,6 +52,7 @@ class ProblemUpdate(CamelModel):
     patterns: list[str] | None = None
     leetcode_url: str | None = None
     approaches: list[ProblemApproachIn] | None = None
+    checklist_progress: list[bool] | None = None  # checklistProgress
 
 
 

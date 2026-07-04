@@ -21,13 +21,25 @@ def init_db() -> None:
 
     # Run lightweight schema migrations for existing SQLite databases
     from sqlalchemy import inspect, text
-    from sqlmodel import func, select
-    
+    from sqlmodel import select
+
     inspector = inspect(engine)
     
-    # 1. Add leetcode_id to problem table if missing
+    # 1. Add leetcode_id / checklist_progress to problem table if missing
     columns = [c["name"] for c in inspector.get_columns("problem")]
     with engine.connect() as conn:
+        if "checklist_progress" not in columns:
+            conn.execute(text("ALTER TABLE problem ADD COLUMN checklist_progress VARCHAR"))
+            conn.commit()
+        if "solved_at" not in columns:
+            conn.execute(text("ALTER TABLE problem ADD COLUMN solved_at DATETIME"))
+            conn.commit()
+
+            # Backfill: existing Done problems count as solved when last touched.
+            conn.execute(text(
+                "UPDATE problem SET solved_at = updated_at WHERE status = 'Done'"
+            ))
+            conn.commit()
         if "leetcode_id" not in columns:
             conn.execute(text("ALTER TABLE problem ADD COLUMN leetcode_id VARCHAR"))
             conn.commit()
@@ -52,25 +64,74 @@ def init_db() -> None:
                 (Problem.approach.is_not(None)) | (Problem.solution.is_not(None))
             )
         ).all()
-        
-        for p in problems_to_migrate:
-            # Check if it already has approaches
-            has_approaches = session.exec(
-                select(func.count(ProblemApproach.id)).where(ProblemApproach.problem_id == p.id)
-            ).one() > 0
-            
-            if not has_approaches:
-                default_approach = ProblemApproach(
+
+        if problems_to_migrate:
+            # One query for every problem that already has an approach row,
+            # instead of a per-problem COUNT on every startup.
+            migrated_ids = set(
+                session.exec(select(ProblemApproach.problem_id).distinct()).all()
+            )
+            new_approaches = [
+                ProblemApproach(
                     problem_id=p.id,
                     name="Default Approach",
                     approach=p.approach or "",
                     code=p.solution or "",
                     language="Python",
-                    position=0
+                    position=0,
                 )
-                session.add(default_approach)
-        session.commit()
+                for p in problems_to_migrate
+                if p.id not in migrated_ids
+            ]
+            if new_approaches:
+                session.add_all(new_approaches)
+                session.commit()
 
+
+
+def check_setup() -> list[str]:
+    """Warn (without blocking) when reference data hasn't been seeded yet.
+
+    Schema migrations run automatically on startup (see ``init_db``), but the
+    reference-data seeds do not — so a fresh clone that skipped
+    ``python -m app.bootstrap`` boots with an empty topic / LeetCode / curriculum
+    catalog. Rather than let that look like a silent bug, detect it and print
+    exactly what to run.
+
+    Non-blocking: the API still serves (the schema is present). Returns the list
+    of missing datasets — empty when everything is seeded.
+    """
+    from sqlalchemy import inspect
+    from sqlmodel import func, select
+
+    from . import models
+
+    inspector = inspect(engine)
+    datasets = [
+        ("topics", models.Topic),
+        ("LeetCode questions", models.LeetCodeQuestion),
+        ("study curriculums", models.Curriculum),
+    ]
+
+    missing: list[str] = []
+    with Session(engine) as session:
+        for label, model in datasets:
+            if not inspector.has_table(model.__tablename__):
+                missing.append(label)
+                continue
+            if not session.exec(select(func.count(model.id))).one():
+                missing.append(label)
+
+    if missing:
+        print(
+            "\n" + "!" * 72 + "\n"
+            f"  Setup incomplete: no {', '.join(missing)} found.\n"
+            "  The schema is migrated, but reference data has not been seeded.\n"
+            "  Run this once (idempotent, safe to re-run):\n"
+            "      python -m app.bootstrap\n"
+            + "!" * 72 + "\n"
+        )
+    return missing
 
 
 def get_session() -> Iterator[Session]:
