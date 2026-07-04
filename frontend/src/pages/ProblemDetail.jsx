@@ -114,7 +114,7 @@ export default function ProblemDetail({
       setRevealedEditorial(false);
       setRevealedHints({});
     }
-  }, [problem?.id, problem]);
+  }, [problem?.id]);
 
   if (!problem) {
     return (

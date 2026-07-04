@@ -15,6 +15,7 @@ export default function ProblemBank({
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [dueOnly, setDueOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Reset selection when filters or problems change
   useEffect(() => {
@@ -46,14 +47,9 @@ export default function ProblemBank({
 
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
-    const confirmMsg = selectedIds.length === 1 
-      ? "Are you sure you want to delete the selected problem? This action cannot be undone."
-      : `Are you sure you want to delete the ${selectedIds.length} selected problems? This action cannot be undone.`;
-    if (window.confirm(confirmMsg)) {
-      onDeleteProblems(selectedIds);
-      setSelectedIds([]);
-    }
+    setShowDeleteConfirm(true);
   };
+
 
   // Sync initial search query if redirected from dashboard search
   useEffect(() => {
@@ -278,6 +274,39 @@ export default function ProblemBank({
         </div>
       </div>
       </div>
+      
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-bg-overlay/80 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
+          <div className="w-full max-w-[440px] bg-bg-main border border-border-main rounded-md shadow-modal flex flex-col p-6 text-left">
+            <h3 className="text-fs-16 font-bold text-text-main mb-2">
+              Delete Problems
+            </h3>
+            <p className="text-fs-13 text-text-muted mb-6 leading-relaxed">
+              {selectedIds.length === 1
+                ? "Are you sure you want to delete the selected problem? This action cannot be undone."
+                : `Are you sure you want to delete the ${selectedIds.length} selected problems? This action cannot be undone.`}
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  onDeleteProblems(selectedIds);
+                  setSelectedIds([]);
+                  setShowDeleteConfirm(false);
+                }}
+                style={{ backgroundColor: 'var(--color-accent-red-hover)', color: '#fff' }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
