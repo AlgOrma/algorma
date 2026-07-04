@@ -244,6 +244,31 @@ class ReviewLog(SQLModel, table=True):
     flashcard: Optional[Flashcard] = Relationship(back_populates="review_logs")
 
 
+class CurriculumQuestionLink(SQLModel, table=True):
+    """Link table between Curriculum and LeetCodeQuestion."""
+    __tablename__ = "curriculum_question_link"
+
+    curriculum_id: str = Field(foreign_key="curriculum.id", primary_key=True)
+    leetcode_id: str = Field(foreign_key="leetcode_question.id", primary_key=True)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Curriculum(SQLModel, table=True):
+    """A study plan / playlist of LeetCode questions, either global or user-owned."""
+    __tablename__ = "curriculum"
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    name: str
+    slug: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+    user_id: Optional[str] = Field(default=None, foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    # Relationships
+    user: Optional[User] = Relationship()
+
+
 class LeetCodeQuestion(SQLModel, table=True):
     """Global LeetCode question cache for reference and importing."""
 

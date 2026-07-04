@@ -48,9 +48,16 @@ python -m app.seed
 # seed or incrementally reseed LeetCode questions (idempotent, does not wipe user data)
 python -m app.seed_leetcode
 
+# seed default study curriculums (Blind 75, NeetCode 150/250)
+python -m app.seed_curriculums
+
 # run the API with reload (http://localhost:8000, docs at /docs)
 uvicorn app.main:app --reload --port 8000
 ```
+
+> [!NOTE]
+> `seed_leetcode` updates questions incrementally. It does not overwrite curriculum mappings, so you do not need to run `seed_curriculums` every time you update LeetCode questions. You only need to run it during first-time setup or after a complete database wipe.
+
 
 Tables are auto-created on app startup, so the seed steps are optional — they
 cache the shared topics, template library, and LeetCode questions pool. Users,

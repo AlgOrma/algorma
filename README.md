@@ -19,8 +19,13 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m app.seed                       # create + seed the SQLite DB
 python -m app.seed_leetcode              # seed / reseed LeetCode questions pool
+python -m app.seed_curriculums           # seed default study curriculums (Blind 75, NeetCode, etc.)
 uvicorn app.main:app --reload --port 8000
 ```
+
+> [!NOTE]
+> `seed_leetcode` updates the catalog incrementally and non-destructively. Running it does not overwrite or remove curriculum mappings, so you do not need to run `seed_curriculums` every time you update LeetCode questions. You only need to run `seed_curriculums` upon first setup or after a complete database wipe.
+
 
 **Frontend** (http://localhost:5173):
 

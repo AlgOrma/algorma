@@ -7,7 +7,7 @@ from sqlmodel import Session, col, or_, select
 
 from ..db import get_session
 from ..deps import get_current_user
-from ..models import LeetCodeQuestion, Problem, Revision, User
+from ..models import LeetCodeQuestion, Problem, Revision, User, Curriculum, CurriculumQuestionLink
 from ..utils import utcnow
 from .problems import get_or_create_topic
 
@@ -44,6 +44,7 @@ def list_leetcode_questions(
     q: Optional[str] = None,
     difficulty: Optional[str] = None,
     tag: Optional[str] = None,
+    curriculum: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
@@ -70,6 +71,22 @@ def list_leetcode_questions(
 
     if tag and tag != "All":
         conditions.append(col(LeetCodeQuestion.topic_tags).like(f'%"{tag}"%'))
+
+    if curriculum and curriculum != "All":
+        curriculum_obj = session.exec(
+            select(Curriculum).where(
+                or_(Curriculum.slug == curriculum, Curriculum.id == curriculum)
+            )
+        ).first()
+        if curriculum_obj:
+            conditions.append(
+                col(LeetCodeQuestion.id).in_(
+                    select(CurriculumQuestionLink.leetcode_id).where(
+                        CurriculumQuestionLink.curriculum_id == curriculum_obj.id
+                    )
+                )
+            )
+
 
     stmt = select(LeetCodeQuestion)
     for cond in conditions:

@@ -86,3 +86,14 @@ class UserUpdate(CamelModel):
     timezone: str | None = None
     daily_goal: int | None = None
     bio: str | None = None
+
+
+class CurriculumCreate(CamelModel):
+    name: str
+    description: str | None = None
+    is_global: bool = False
+
+
+class CurriculumQuestionsUpdate(CamelModel):
+    question_ids: list[str] = []
+

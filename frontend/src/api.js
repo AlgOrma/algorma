@@ -113,11 +113,12 @@ export const reviewFlashcard = (id, grade) =>
 
 // --- LeetCode Questions ---
 
-export function searchLeetCodeQuestions({ q, difficulty, tag, page = 1, limit = 50 } = {}) {
+export function searchLeetCodeQuestions({ q, difficulty, tag, curriculum, page = 1, limit = 50 } = {}) {
   const params = new URLSearchParams();
   if (q) params.append('q', q);
   if (difficulty && difficulty !== 'All') params.append('difficulty', difficulty);
   if (tag && tag !== 'All') params.append('tag', tag);
+  if (curriculum && curriculum !== 'All') params.append('curriculum', curriculum);
   params.append('page', page);
   params.append('limit', limit);
   return request(`/leetcode-questions?${params.toString()}`);
@@ -130,3 +131,14 @@ export function getLeetCodeQuestion(id) {
 export function importLeetCodeQuestion(id) {
   return request(`/leetcode-questions/${id}/import`, { method: 'POST' });
 }
+
+// --- Curriculums / Study Playlists ---
+export const getCurriculums = () => request('/curriculums');
+export const createCurriculum = (body) => request('/curriculums', { method: 'POST', body });
+export const getCurriculum = (idOrSlug) => request(`/curriculums/${idOrSlug}`);
+export const deleteCurriculum = (id) => request(`/curriculums/${id}`, { method: 'DELETE' });
+export const addQuestionsToCurriculum = (curriculumId, questionIds) =>
+  request(`/curriculums/${curriculumId}/questions`, { method: 'POST', body: { questionIds } });
+export const removeQuestionFromCurriculum = (curriculumId, leetcodeId) =>
+  request(`/curriculums/${curriculumId}/questions/${leetcodeId}`, { method: 'DELETE' });
+
