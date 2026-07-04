@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import SyntaxHighlighter from '../components/common/SyntaxHighlighter';
+import Button from '../components/common/Button';
 
 // A two-level, editable template library (mirrors the claude.ai/design screen).
 // A parent "pattern" holds shared guidance (description) plus named code
@@ -255,12 +256,13 @@ export default function Templates({
                 className="bg-transparent border-none outline-none text-text-main text-fs-13 w-full p-0"
               />
             </div>
-            <button
+            <Button
               onClick={addPattern}
-              className="flex items-center gap-1.5 text-fs-13 font-semibold text-text-dark-alt bg-accent border-none px-3.5 py-sp-9 rounded-card-btn cursor-pointer whitespace-nowrap hover:bg-accent-secondary transition-colors duration-200"
+              variant="primary"
+              className="whitespace-nowrap"
             >
-              <span className="text-fs-15 leading-[0] mt-[-1px]">+</span> New pattern
-            </button>
+              + New pattern
+            </Button>
           </div>
         </div>
 
@@ -286,12 +288,13 @@ export default function Templates({
               Capture a reusable approach once — its guidance and code variations —
               and reach for it the moment a problem smells familiar.
             </div>
-            <button
+            <Button
               onClick={addPattern}
-              className="mt-3 text-fs-13 font-semibold text-text-dark-alt bg-accent border-none px-4 py-sp-9 rounded-card-btn cursor-pointer hover:bg-accent-secondary transition-colors duration-200"
+              variant="primary"
+              className="mt-3"
             >
               + New pattern
-            </button>
+            </Button>
           </div>
         )}
 
@@ -374,12 +377,13 @@ export default function Templates({
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-none">
-                    <button
+                    <Button
                       onClick={() => addVariation(p.id)}
-                      className="font-mono text-fs-11-5 font-medium text-text-hover bg-bg-btn-sec border border-border-btn px-2.5 py-1.5 rounded-card-xs cursor-pointer hover:border-border-btn-hover transition-colors duration-200"
+                      variant="secondary"
+                      className="font-mono py-1 px-2.5 text-[11px] h-sp-26 font-bold"
                     >
                       + Variation
-                    </button>
+                    </Button>
                     <div className="relative">
                       <button
                         onClick={() =>
@@ -632,25 +636,26 @@ export default function Templates({
                         ))}
 
                         <div className="flex items-center gap-2.5">
-                          <button
+                          <Button
                             onClick={draftAddVar}
-                            className="font-mono text-fs-12 font-medium text-text-hover bg-bg-btn-sec border border-border-btn px-3 py-2 rounded-card-btn cursor-pointer hover:border-border-btn-hover transition-colors duration-200"
+                            variant="secondary"
+                            className="font-mono"
                           >
                             + Add variation
-                          </button>
+                          </Button>
                           <div className="ml-auto flex gap-2">
-                            <button
+                            <Button
                               onClick={cancelEdit}
-                              className="text-fs-13 font-semibold text-text-hover bg-transparent border border-border-btn px-4 py-2 rounded-card-btn cursor-pointer hover:border-border-btn-hover transition-colors duration-200"
+                              variant="ghost"
                             >
                               Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={saveEdit}
-                              className="text-fs-13 font-semibold text-text-dark-alt bg-accent border-none px-[18px] py-2 rounded-card-btn cursor-pointer hover:bg-accent-secondary transition-colors duration-200"
+                              variant="primary"
                             >
                               Save
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </>

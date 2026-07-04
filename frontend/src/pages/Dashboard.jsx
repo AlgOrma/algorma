@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Heatmap from '../components/common/Heatmap';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { getStats } from '../api';
+import { getStats, getActivity } from '../api';
 
 // Time-of-day greeting word
 function greetingWord() {
@@ -15,16 +15,19 @@ export default function Dashboard({
   topics = [],
   userName,
   onNavigate,
-  onOpenProblem,
-  onOpenNewProblemModal
+  onOpenProblem
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [stats, setStats] = useState(null);
+  const [activity, setActivity] = useState(null);
   useEffect(() => {
     getStats()
       .then(setStats)
       .catch((err) => console.warn('Could not load stats:', err.message));
+    getActivity()
+      .then(setActivity)
+      .catch((err) => console.warn('Could not load activity:', err.message));
   }, []);
 
   // Derived (fallback) statistics
@@ -34,6 +37,7 @@ export default function Dashboard({
 
   const solvedDisplay = stats ? stats.totalSolved : totalSolved;
   const dueDisplay = stats ? stats.dueToday + stats.overdue : dueCount;
+  const activityTotal = activity ? (activity.totalSolves || 0) + (activity.totalReviews || 0) : 0;
 
   const handleSearchSubmit = (e) => {
     if (e.key === 'Enter' || e.type === 'click') {
@@ -51,7 +55,7 @@ export default function Dashboard({
             {greetingWord()}, {userName || 'there'}
           </div>
           <div className="font-mono text-fs-12-5 text-text-muted mt-sp-5 text-left">
-            Tue · Jun 25 &nbsp;·&nbsp; <span className="text-accent">{dueCount} cards</span> due for review
+            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).replace(',', ' ·')} &nbsp;·&nbsp; <span className="text-accent">{dueCount} cards</span> due for review
           </div>
         </div>
         
@@ -73,7 +77,7 @@ export default function Dashboard({
             <span className="font-mono text-fs-11 text-border-btn-hover">⌘K</span>
           </div>
           
-          <Button onClick={onOpenNewProblemModal}>
+          <Button onClick={() => onNavigate('leetcode')}>
             <span className="text-fs-16 leading-[0] mt-[-1px]">+</span> New problem
           </Button>
         </div>
@@ -137,7 +141,9 @@ export default function Dashboard({
       <div className="bg-bg-card border border-border-card rounded-xl p-4 px-sp-18 text-left">
         <div className="flex items-center justify-between mb-3">
           <div className="text-fs-14 font-semibold text-text-main">
-            Review activity <span className="font-mono text-fs-11 text-text-muted font-normal">· last 16 weeks</span>
+            Review activity <span className="font-mono text-fs-11 text-text-muted font-normal">
+              · {activity ? `${activityTotal} ${activityTotal === 1 ? 'activity' : 'activities'} in the ` : ''}past year
+            </span>
           </div>
           <div className="flex items-center gap-1.5 font-mono text-fs-10 text-text-muted">
             less
@@ -148,7 +154,7 @@ export default function Dashboard({
             more
           </div>
         </div>
-        <Heatmap colorBase="111, 191, 146" />
+        <Heatmap colorBase="111, 191, 146" activity={activity} />
       </div>
 
       {/* Main split sections */}
@@ -236,19 +242,21 @@ export default function Dashboard({
             <div className="text-fs-12-5 text-text-muted mb-sp-11">
               Quick actions
             </div>
-            <div className="flex flex-col gap-sp-9">
-              <button 
-                onClick={onOpenNewProblemModal}
-                className="text-fs-13 font-semibold text-text-main bg-bg-btn-sec border border-border-btn p-2.5 rounded-card-btn cursor-pointer text-left transition-colors duration-200 hover:border-border-btn-hover hover:bg-bg-btn-sec-hover"
+            <div className="flex flex-col gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => onNavigate('leetcode')}
+                className="w-full justify-start text-left"
               >
                 + Start a new problem
-              </button>
-              <button 
-                onClick={() => onNavigate('flashcards')}
-                className="text-fs-13 font-semibold text-text-main bg-bg-btn-sec border border-border-btn p-2.5 rounded-card-btn cursor-pointer text-left transition-colors duration-200 hover:border-border-btn-hover hover:bg-bg-btn-sec-hover"
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => onNavigate('revise')}
+                className="w-full justify-start text-left"
               >
-                ⚡ Run a flashcard session
-              </button>
+                ⚡ Start a revision session
+              </Button>
             </div>
           </div>
 

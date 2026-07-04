@@ -32,6 +32,12 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedDiff, setSelectedDiff] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
+  const [curriculums, setCurriculums] = useState([]);
+  const [selectedCurriculum, setSelectedCurriculum] = useState('All');
+
+  // Add to List Select State
+  const [addingToListId, setAddingToListId] = useState('');
+
   const [page, setPage] = useState(1);
   const [questions, setQuestions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -57,6 +63,20 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
     return () => clearTimeout(timer);
   }, [search]);
 
+  // Load curriculums list
+  const loadCurriculums = useCallback(async () => {
+    try {
+      const list = await api.getCurriculums();
+      setCurriculums(list);
+    } catch (err) {
+      console.error('Failed to load curriculums:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCurriculums();
+  }, [loadCurriculums]);
+
   // Fetch questions
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -66,6 +86,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
         q: debouncedSearch,
         difficulty: selectedDiff,
         tag: selectedTag,
+        curriculum: selectedCurriculum,
         page,
         limit: 25
       });
@@ -78,7 +99,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, selectedDiff, selectedTag, page]);
+  }, [debouncedSearch, selectedDiff, selectedTag, selectedCurriculum, page]);
 
   // Trigger fetch when filters or page change
   useEffect(() => {
@@ -133,6 +154,8 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
       setImportingId(null);
     }
   };
+
+
 
   // Check if already in user's personal list
   const isImported = (leetcodeUrl) => {
@@ -248,6 +271,23 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                 </option>
               ))}
             </select>
+
+            {/* Curriculum filter */}
+            <select
+              value={selectedCurriculum}
+              onChange={(e) => {
+                setSelectedCurriculum(e.target.value);
+                setPage(1);
+              }}
+              className="text-fs-12-5 text-text-hover bg-bg-card border border-border-main rounded-card-btn px-3 py-2 cursor-pointer outline-none transition-colors duration-200 focus:border-accent max-w-sp-200"
+            >
+              <option value="All">Curriculum: All</option>
+              {curriculums.map((c) => (
+                <option key={c.id} value={c.slug}>
+                  {c.name} ({c.questionCount})
+                </option>
+              ))}
+            </select>
           </div>
         </form>
 
@@ -260,8 +300,8 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
         {/* Table Content */}
         <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="grid grid-cols-[80px_2.3fr_0.9fr_1.8fr_140px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left">
-            <span>ID</span>
+          <div className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_140px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left">
+            <span>#</span>
             <span>TITLE</span>
             <span>DIFFICULTY</span>
             <span>TAGS</span>
@@ -282,9 +322,9 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
               Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-[80px_2.3fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3.5 border-b border-bg-element-dark"
+                  className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3.5 border-b border-bg-element-dark"
                 >
-                  <div className="lc-skeleton h-3 w-8" />
+                  <div className="lc-skeleton h-3 w-4" />
                   <div className="lc-skeleton h-3.5 w-3/5" />
                   <div className="lc-skeleton h-4 w-14 rounded-full" />
                   <div className="flex gap-1.5">
@@ -299,7 +339,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                 No matching reference questions found.
               </div>
             ) : (
-              questions.map((q) => {
+              questions.map((q, idx) => {
                 const isExpanded = expandedId === q.id;
                 const imported = isImported(q.leetcodeUrl);
 
@@ -311,11 +351,16 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                     {/* Summary row */}
                     <div
                       onClick={() => handleToggleExpand(q.id)}
-                      className="grid grid-cols-[80px_2.3fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150"
+                      className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150"
                     >
-                      <span className="font-mono text-fs-12 text-text-muted">#{q.id}</span>
-                      <span className="text-fs-13-5 text-text-main font-medium truncate flex items-center gap-1.5">
-                        {q.title}
+                      <span className="font-mono text-fs-12 text-text-muted select-none">
+                        {((page - 1) * 25) + idx + 1}.
+                      </span>
+                      <span className="text-fs-13-5 text-text-main font-medium truncate flex items-center">
+                        <span className="font-mono text-fs-12 text-text-muted mr-2 shrink-0 select-none opacity-60">
+                          #{q.id}
+                        </span>
+                        <span className="truncate">{q.title}</span>
                         {q.isPaidOnly && (
                           <span className="font-mono text-[9px] bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-1 py-0.5 rounded">
                             Premium
@@ -346,10 +391,8 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                           disabled={imported || importingId === q.id}
                           onClick={(e) => handleImport(e, q.id)}
                           style={{
-                            minWidth: '82px',
-                            padding: '4px 8px',
-                            fontSize: '11.5px',
-                            opacity: imported ? 0.6 : 1
+                            minWidth: '85px',
+                            opacity: imported ? 0.65 : 1
                           }}
                         >
                           {importingId === q.id
@@ -447,7 +490,6 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                                     <Button
                                       size="sm"
                                       onClick={() => setRevealedSolution(true)}
-                                      style={{ padding: '6px 12px', fontSize: '12px' }}
                                     >
                                       Reveal Solution Article
                                     </Button>
@@ -546,6 +588,63 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                                 </div>
                               </div>
 
+                              {/* Study Lists management */}
+                              <div className="bg-bg-card border border-border-card rounded-xl p-3.5 flex flex-col gap-2.5">
+                                <div className="text-fs-13 font-semibold text-text-main text-left">
+                                  Study Lists
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <select
+                                    value={addingToListId}
+                                    onChange={async (e) => {
+                                      const val = e.target.value;
+                                      if (!val) return;
+                                      setAddingToListId(val);
+                                      try {
+                                        const res = await api.addQuestionsToCurriculum(val, [expandedQuestion.id]);
+                                        alert(`Added to study list! (New count: ${res.addedCount})`);
+                                        // Refresh
+                                        loadCurriculums();
+                                      } catch (err) {
+                                        alert(err.message || 'Failed to add to curriculum list');
+                                      } finally {
+                                        setAddingToListId('');
+                                      }
+                                    }}
+                                    className="text-fs-12 text-text-hover bg-bg-element-dark border border-border-main rounded-md px-2 py-1.5 cursor-pointer outline-none w-full"
+                                  >
+                                    <option value="">+ Add to list...</option>
+                                    {curriculums.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  {selectedCurriculum !== 'All' && (
+                                    <button
+                                      onClick={async () => {
+                                        if (!confirm('Remove this question from the active study list?')) return;
+                                        try {
+                                          const activeCurrObj = curriculums.find(c => c.slug === selectedCurriculum);
+                                          if (!activeCurrObj) return;
+                                          await api.removeQuestionFromCurriculum(activeCurrObj.id, expandedQuestion.id);
+                                          alert('Removed from study list!');
+                                          // Refresh
+                                          fetchQuestions();
+                                          loadCurriculums();
+                                        } catch (err) {
+                                          alert(err.message || 'Failed to remove from list');
+                                        }
+                                      }}
+                                      className="text-fs-11 text-red-400 hover:text-red-300 font-semibold border border-red-500/20 hover:border-red-500/30 bg-red-500/10 py-1.5 rounded-md cursor-pointer transition-colors w-full text-center"
+                                    >
+                                      ✕ Remove From List
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
                               {/* Similar Questions */}
                               {expandedQuestion.similarQuestions &&
                                 expandedQuestion.similarQuestions.length > 0 && (
@@ -614,6 +713,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
           </div>
         )}
       </div>
+
     </div>
   );
 }

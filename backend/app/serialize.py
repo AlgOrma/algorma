@@ -11,10 +11,12 @@ the problem/flashcard serializers take the matching revision (or ``None`` for an
 item the user has never scheduled).
 """
 
+import json
 from datetime import datetime
 from typing import Optional
 
 from .models import Flashcard, Problem, Revision, TemplatePattern, User
+from .srs import preview_intervals
 from .utils import utcnow
 
 # CSS custom properties already used by the frontend's data layer.
@@ -57,6 +59,15 @@ def serialize_problem(
     ease_factor = revision.ease_factor if revision else 2.5
     interval_days = revision.interval_days if revision else 0
     repetitions = revision.repetitions if revision else 0
+    stability = revision.stability if revision else None
+    difficulty = revision.difficulty if revision else None
+
+    # Per-grade "days until next due" for the grade buttons. Skipped for rows
+    # still on legacy SM-2 state (reviewed, but not yet re-graded under FSRS).
+    if stability is not None or not review_count:
+        next_intervals = preview_intervals(stability, difficulty, last_reviewed_at, now)
+    else:
+        next_intervals = None
 
     days_since_created = _days_delta(now, p.created_at)
     created = "today" if days_since_created <= 0 else f"{days_since_created}d ago"
@@ -94,6 +105,47 @@ def serialize_problem(
     else:
         due_meta = f"revised {days_since_review}d ago · {review_count}×"
 
+    approaches_list = []
+    if p.approaches:
+        approaches_list = [
+            {
+                "id": a.id,
+                "name": a.name,
+                "complexityTime": a.complexity_time,
+                "complexitySpace": a.complexity_space,
+                "approach": a.approach,
+                "code": a.code,
+                "lang": a.language,
+                "position": a.position,
+            }
+            for a in sorted(p.approaches, key=lambda a: a.position)
+        ]
+    
+    if not approaches_list and (p.approach or p.solution):
+        approaches_list = [
+            {
+                "id": "default",
+                "name": "Default Approach",
+                "complexityTime": "",
+                "complexitySpace": "",
+                "approach": p.approach or "",
+                "code": p.solution or "",
+                "lang": "Python",
+                "position": 0,
+            }
+        ]
+
+    # LeetCode references
+    lc = p.leetcode_question
+    hints = json.loads(lc.hints) if (lc and lc.hints) else []
+    solution_content = lc.solution_content if lc else None
+    has_solution = lc.has_solution if lc else False
+    similar_questions = json.loads(lc.similar_questions) if (lc and lc.similar_questions) else []
+    stats = json.loads(lc.stats) if (lc and lc.stats) else {}
+    likes = lc.likes if lc else 0
+    dislikes = lc.dislikes if lc else 0
+    category_title = lc.category_title if lc else "Algorithms"
+
     return {
         # --- shape the existing frontend reads ---
         "id": p.id,
@@ -108,6 +160,7 @@ def serialize_problem(
         "approach": p.approach,
         "solution": p.solution,
         "notes": p.notes,
+        "checklistProgress": json.loads(p.checklist_progress) if p.checklist_progress else None,
         "patterns": [pat.name for pat in p.patterns],
         "created": created,
         "lastRevised": last_revised,
@@ -115,6 +168,17 @@ def serialize_problem(
         "nextColor": next_color,
         "dueMeta": due_meta,
         "revisions": review_count,
+        # --- rich fields ---
+        "approaches": approaches_list,
+        "hints": hints,
+        "solutionContent": solution_content,
+        "hasSolution": has_solution,
+        "similarQuestions": similar_questions,
+        "stats": stats,
+        "likes": likes,
+        "dislikes": dislikes,
+        "categoryTitle": category_title,
+        "leetcodeId": p.leetcode_id or (lc.id if lc else None),
         # --- raw fields for future client-side formatting ---
         "topicSlug": p.topic.slug if p.topic else None,
         "leetcodeUrl": p.leetcode_url,
@@ -122,11 +186,15 @@ def serialize_problem(
         "intervalDays": interval_days,
         "repetitions": repetitions,
         "reviewCount": review_count,
+        "srsStability": stability,
+        "srsDifficulty": difficulty,
+        "nextIntervals": next_intervals,
         "createdAt": _iso(p.created_at),
         "updatedAt": _iso(p.updated_at),
         "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
     }
+
 
 
 def serialize_template_pattern(p: TemplatePattern) -> dict:
@@ -156,6 +224,16 @@ def serialize_flashcard(
     now = now or utcnow()
     due_at = revision.due_at if revision else None
     due = due_at is not None and _days_delta(due_at, now) <= 0
+    review_count = revision.review_count if revision else 0
+    last_reviewed_at = revision.last_reviewed_at if revision else None
+    stability = revision.stability if revision else None
+    difficulty = revision.difficulty if revision else None
+
+    if stability is not None or not review_count:
+        next_intervals = preview_intervals(stability, difficulty, last_reviewed_at, now)
+    else:
+        next_intervals = None
+
     return {
         "id": c.id,
         "type": c.type,
@@ -166,7 +244,10 @@ def serialize_flashcard(
         "easeFactor": revision.ease_factor if revision else 2.5,
         "intervalDays": revision.interval_days if revision else 0,
         "repetitions": revision.repetitions if revision else 0,
-        "reviewCount": revision.review_count if revision else 0,
-        "lastReviewedAt": _iso(revision.last_reviewed_at if revision else None),
+        "reviewCount": review_count,
+        "srsStability": stability,
+        "srsDifficulty": difficulty,
+        "nextIntervals": next_intervals,
+        "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
     }

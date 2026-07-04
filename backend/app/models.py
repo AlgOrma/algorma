@@ -79,13 +79,17 @@ class Problem(SQLModel, table=True):
     topic_id: str = Field(foreign_key="topic.id", index=True)
     difficulty: str  # "Easy" | "Medium" | "Hard"
     status: str = "Not started"  # "Not started" | "Solving" | "Done"
+    # First time the problem reached "Done" — counts as heatmap/streak activity.
+    solved_at: Optional[datetime] = None
     statement: str = ""
     example_input: Optional[str] = None
     example_output: Optional[str] = None
     approach: Optional[str] = None
     notes: Optional[str] = None
     solution: Optional[str] = None
+    checklist_progress: Optional[str] = None  # JSON-encoded list of booleans (solve checklist)
     leetcode_url: Optional[str] = None
+    leetcode_id: Optional[str] = Field(default=None, foreign_key="leetcode_question.id", nullable=True)
 
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -104,6 +108,30 @@ class Problem(SQLModel, table=True):
         back_populates="problem",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    leetcode_question: Optional["LeetCodeQuestion"] = Relationship()
+    approaches: list["ProblemApproach"] = Relationship(
+        back_populates="problem",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "order_by": "ProblemApproach.position"},
+    )
+
+
+class ProblemApproach(SQLModel, table=True):
+    __tablename__ = "problem_approach"
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    problem_id: str = Field(foreign_key="problem.id", index=True)
+    name: str
+    complexity_time: Optional[str] = None
+    complexity_space: Optional[str] = None
+    approach: str = ""
+    code: str = ""
+    language: str = "Python"
+    position: int = 0
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    problem: Optional[Problem] = Relationship(back_populates="approaches")
+
 
 
 class Template(SQLModel, table=True):
@@ -189,9 +217,11 @@ class Revision(SQLModel, table=True):
 
     One row per (user, problem) or (user, flashcard) — exactly one of
     ``problem_id`` / ``flashcard_id`` is set (mirrors ReviewLog). The fields are
-    grouped so a different scheduler can be slotted in later (see ``algo``):
-    neutral scheduling fields, the current SM-2 state, and nullable FSRS/opensrs
-    state populated only once we switch.
+    grouped by scheduler (see ``algo``): neutral scheduling fields, legacy SM-2
+    state (kept for display/history, no longer written), and the FSRS/opensrs
+    state that drives scheduling. Rows created before the FSRS switch keep
+    ``algo="sm2"`` until their next grade replays them onto FSRS (see
+    ``revisions.grade_revision``).
     """
 
     id: str = Field(default_factory=gen_id, primary_key=True)
@@ -204,17 +234,17 @@ class Revision(SQLModel, table=True):
     )
 
     # --- scheduler-neutral state ---
-    algo: str = "sm2"  # "sm2" today; "fsrs" later
+    algo: str = "fsrs"  # legacy rows say "sm2" until their next grade
     review_count: int = 0
     last_reviewed_at: Optional[datetime] = None
     due_at: Optional[datetime] = Field(default=None, index=True)
 
-    # --- SM-2 state ---
+    # --- legacy SM-2 state (read-only since the FSRS switch) ---
     ease_factor: float = 2.5
-    interval_days: int = 0
-    repetitions: int = 0
+    interval_days: int = 0  # still written: days until due_at
+    repetitions: int = 0  # still written: successful-review streak
 
-    # --- FSRS / opensrs state (nullable until we adopt it) ---
+    # --- FSRS / opensrs state (None until first graded under FSRS) ---
     stability: Optional[float] = None
     difficulty: Optional[float] = None
 
@@ -242,6 +272,31 @@ class ReviewLog(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="review_logs")
     problem: Optional[Problem] = Relationship(back_populates="review_logs")
     flashcard: Optional[Flashcard] = Relationship(back_populates="review_logs")
+
+
+class CurriculumQuestionLink(SQLModel, table=True):
+    """Link table between Curriculum and LeetCodeQuestion."""
+    __tablename__ = "curriculum_question_link"
+
+    curriculum_id: str = Field(foreign_key="curriculum.id", primary_key=True)
+    leetcode_id: str = Field(foreign_key="leetcode_question.id", primary_key=True)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Curriculum(SQLModel, table=True):
+    """A study plan / playlist of LeetCode questions, either global or user-owned."""
+    __tablename__ = "curriculum"
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    name: str
+    slug: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+    user_id: Optional[str] = Field(default=None, foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    # Relationships
+    user: Optional[User] = Relationship()
 
 
 class LeetCodeQuestion(SQLModel, table=True):

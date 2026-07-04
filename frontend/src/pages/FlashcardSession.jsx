@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Button from '../components/common/Button';
-import { GRADES } from '../data/initialData';
+import { GRADES, gradeIntervalLabel } from '../data/initialData';
 
 export default function FlashcardSession({
   cards = [],
@@ -88,21 +88,21 @@ export default function FlashcardSession({
                   How well did you recall it?
                 </div>
                 
-                <div className="flex gap-2.25">
+                <div className="flex gap-3">
                   {GRADES.map((g) => (
                     <button
                       key={g.key}
                       onClick={() => handleGrade(g)}
-                      className="flex-1 flex flex-col items-center gap-1 py-sp-11 px-sp-8 rounded-card-md bg-bg-card border border-border-btn cursor-pointer hover:border-border-btn-hover hover:bg-bg-element-hover transition-colors duration-200"
+                      className="btn-card-3d flex-1 flex flex-col items-center gap-1 py-2.5 px-2 select-none"
                     >
                       <span 
-                        className="text-fs-13 font-semibold"
+                        className="text-fs-13 font-bold"
                         style={{ color: g.c }}
                       >
                         {g.key}
                       </span>
                       <span className="font-mono text-fs-10 text-text-muted">
-                        {g.iv}
+                        {gradeIntervalLabel(currentCard, g)}
                       </span>
                     </button>
                   ))}

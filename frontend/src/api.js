@@ -83,7 +83,13 @@ export function updateUser(payload) {
 }
 
 // --- Reads ---
-export const getStats = () => request('/stats');
+// Minutes east of UTC, so the backend buckets streaks/heatmap days by the
+// user's local calendar instead of UTC.
+const tzOffset = () => -new Date().getTimezoneOffset();
+export const getStats = () => request(withQuery('/stats', { tzOffset: tzOffset() }));
+// Daily review counts for the dashboard heatmap ({ startDate, endDate, days }).
+export const getActivity = (weeks) =>
+  request(withQuery('/stats/activity', { weeks, tzOffset: tzOffset() }));
 export const getTopics = () => request('/topics');
 // Template library: nested patterns → variations (user-scoped).
 export const getTemplates = () => request('/templates');
@@ -99,6 +105,8 @@ export const reorderVariations = (patternId, ids) =>
   request(`/templates/${patternId}/variations/reorder`, { method: 'POST', body: { ids } });
 export const getProblems = (params) => request(withQuery('/problems', params));
 export const getProblem = (id) => request(`/problems/${id}`);
+// Grading history for one problem (oldest first) — the revision-history panel.
+export const getProblemReviews = (id) => request(`/problems/${id}/reviews`);
 export const getFlashcards = (params) => request(withQuery('/flashcards', params));
 
 // --- Writes ---
@@ -113,11 +121,12 @@ export const reviewFlashcard = (id, grade) =>
 
 // --- LeetCode Questions ---
 
-export function searchLeetCodeQuestions({ q, difficulty, tag, page = 1, limit = 50 } = {}) {
+export function searchLeetCodeQuestions({ q, difficulty, tag, curriculum, page = 1, limit = 50 } = {}) {
   const params = new URLSearchParams();
   if (q) params.append('q', q);
   if (difficulty && difficulty !== 'All') params.append('difficulty', difficulty);
   if (tag && tag !== 'All') params.append('tag', tag);
+  if (curriculum && curriculum !== 'All') params.append('curriculum', curriculum);
   params.append('page', page);
   params.append('limit', limit);
   return request(`/leetcode-questions?${params.toString()}`);
@@ -130,3 +139,14 @@ export function getLeetCodeQuestion(id) {
 export function importLeetCodeQuestion(id) {
   return request(`/leetcode-questions/${id}/import`, { method: 'POST' });
 }
+
+// --- Curriculums / Study Playlists ---
+export const getCurriculums = () => request('/curriculums');
+export const createCurriculum = (body) => request('/curriculums', { method: 'POST', body });
+export const getCurriculum = (idOrSlug) => request(`/curriculums/${idOrSlug}`);
+export const deleteCurriculum = (id) => request(`/curriculums/${id}`, { method: 'DELETE' });
+export const addQuestionsToCurriculum = (curriculumId, questionIds) =>
+  request(`/curriculums/${curriculumId}/questions`, { method: 'POST', body: { questionIds } });
+export const removeQuestionFromCurriculum = (curriculumId, leetcodeId) =>
+  request(`/curriculums/${curriculumId}/questions/${leetcodeId}`, { method: 'DELETE' });
+

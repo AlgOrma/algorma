@@ -27,3 +27,12 @@ export const GRADES = [
   { key: 'Good', c: 'var(--color-accent-green-hover)', iv: '6 days' },
   { key: 'Easy', c: 'var(--color-accent)', iv: '12 days' }
 ];
+
+// Grade-button hint: prefer the card's per-grade FSRS preview (days until next
+// due, from the backend's `nextIntervals`) over the static fallback label.
+export const gradeIntervalLabel = (card, grade) => {
+  const days = card?.nextIntervals?.[grade.key];
+  if (days === undefined || days === null) return grade.iv;
+  if (days === 0) return 'now';
+  return days === 1 ? '1 day' : `${days} days`;
+};

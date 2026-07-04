@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import * as api from './api';
 import Sidebar from './components/Sidebar';
@@ -9,8 +9,8 @@ import ProblemDetail from './pages/ProblemDetail';
 import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
 import ProfileSetup from './pages/ProfileSetup';
-import NewProblemModal from './components/NewProblemModal';
 import LeetCodeLibrary from './pages/LeetCodeLibrary';
+import { FEATURES } from './features';
 
 import {
   INITIAL_PROBLEMS,
@@ -18,16 +18,117 @@ import {
   INITIAL_TOPICS
 } from './data/initialData';
 
+// URL path for each screen, so pages are shareable endpoints (e.g. /revise).
+// Feature-flagged screens are left out entirely, so their URLs don't resolve.
+const SCREEN_PATHS = {
+  dashboard: '/dashboard',
+  problems: '/problems',
+  leetcode: '/leetcode',
+  templates: '/templates',
+  revise: '/revise',
+  ...(FEATURES.flashcards ? { flashcards: '/flashcards' } : {})
+};
+
+// '/problems/<id>' opens that problem's detail screen directly.
+// '/revise/<id>' lands on the revision screen (RevisionSession reads the id
+// itself and starts a session for that problem).
+function screenFromPath(pathname) {
+  const detailMatch = pathname.match(/^\/problems\/([^/]+)$/);
+  if (detailMatch) return { screen: 'detail', id: detailMatch[1] };
+  if (/^\/revise\/[^/]+$/.test(pathname)) return { screen: 'revise', id: null };
+  const entry = Object.entries(SCREEN_PATHS).find(([, path]) => path === pathname);
+  return entry ? { screen: entry[0], id: null } : null;
+}
+
+function pathForScreen(screen, selectedId) {
+  if (screen === 'detail' && selectedId) return `/problems/${selectedId}`;
+  return SCREEN_PATHS[screen] || '/dashboard';
+}
+
 function App() {
   // Persistent client-side state
   const [screen, setScreen] = useLocalStorage('dsa_screen', 'dashboard');
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
-  const [problems, setProblems] = useLocalStorage('dsa_problems', INITIAL_PROBLEMS);
+  const [problems, setProblems] = useState([]);
+  const [problemsLoading, setProblemsLoading] = useState(true);
   const [cards, setCards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
   const [topics, setTopics] = useLocalStorage('dsa_topics', INITIAL_TOPICS);
   const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 0);
   const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
+
+  // A feature-flagged-off screen can still be remembered in localStorage from
+  // before the flag flipped — fall back to the dashboard.
+  useEffect(() => {
+    if (!FEATURES.flashcards && screen === 'flashcards') setScreen('dashboard');
+    // setScreen is a stable useState setter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // On first render, the URL wins over the remembered screen so direct links
+  // like /revise or /problems/<id> land on the right page (render-phase update,
+  // before anything paints).
+  const adoptedUrlRef = useRef(false);
+  if (!adoptedUrlRef.current) {
+    adoptedUrlRef.current = true;
+    const fromUrl = screenFromPath(window.location.pathname);
+    if (fromUrl) {
+      if (fromUrl.screen !== screen) setScreen(fromUrl.screen);
+      if (fromUrl.id && fromUrl.id !== selectedId) setSelectedId(fromUrl.id);
+    }
+  }
+
+  // Keep the address bar in sync with the active screen. The first sync
+  // replaces the history entry (so '/' doesn't linger); later ones push,
+  // making the browser back/forward buttons work.
+  const urlInitializedRef = useRef(false);
+  useEffect(() => {
+    const path = pathForScreen(screen, selectedId);
+    // Leave subpaths owned by the active screen alone (e.g. /revise/<id>,
+    // which RevisionSession manages itself).
+    const current = screenFromPath(window.location.pathname);
+    const onSameScreen =
+      current && current.screen === screen && (screen !== 'detail' || current.id === selectedId);
+    if (!onSameScreen && window.location.pathname !== path) {
+      if (urlInitializedRef.current) {
+        window.history.pushState(null, '', path);
+      } else {
+        window.history.replaceState(null, '', path);
+      }
+    }
+    urlInitializedRef.current = true;
+  }, [screen, selectedId]);
+
+  // Browser back/forward → restore the screen for that history entry.
+  useEffect(() => {
+    const handlePopState = () => {
+      const fromUrl = screenFromPath(window.location.pathname) || { screen: 'dashboard', id: null };
+      setScreen(fromUrl.screen);
+      if (fromUrl.id) setSelectedId(fromUrl.id);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+    // setScreen/setSelectedId are stable useState setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load problems from the backend database (user-scoped)
+  useEffect(() => {
+    if (!user?.id) {
+      setProblemsLoading(false);
+      return;
+    }
+    setProblemsLoading(true);
+    api.getProblems()
+      .then((data) => {
+        setProblems(data || []);
+      })
+      .catch((err) => {
+        console.warn('Could not load problems from backend:', err.message);
+      })
+      .finally(() => setProblemsLoading(false));
+  }, [user?.id]);
+
 
   // Template library: a two-level, user-editable set of patterns + code
   // variations, owned by the backend. Loaded per-user from the API; the server
@@ -36,13 +137,15 @@ function App() {
   const [templatesLoading, setTemplatesLoading] = useState(true);
 
   // Temporary UI state
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
   // Theme settings mapping
-  const themeAccent = theme === 'blue' ? '#3E72D9' : '#9B86F5';
-  const themeSecondary = theme === 'blue' ? '#2B52AE' : '#7660d8';
+  const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
+  const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
+
+  // State to hold specific problems forced for revision
+  const [revisionProblems, setRevisionProblems] = useState(null);
 
   // Navigation controller
   const handleNavigate = (targetScreen, params = {}) => {
@@ -51,7 +154,16 @@ function App() {
     } else {
       setInitialSearchQuery('');
     }
+    if (targetScreen !== 'revise') {
+      setRevisionProblems(null);
+    }
     setScreen(targetScreen);
+  };
+
+  // Helper to start revision for selected problems
+  const handleStartRevision = (selectedProblems) => {
+    setRevisionProblems(selectedProblems);
+    setScreen('revise');
   };
 
   // Open problem detail
@@ -167,20 +279,47 @@ function App() {
     setIsEditingProfile(false);
   };
 
-  // Update a single problem in local state
-  const handleUpdateProblem = (updatedProblem) => {
+  // Sync a single problem into local state (server already has the change)
+  const applyProblemUpdate = (updatedProblem) => {
     setProblems(prevProblems => {
-      const nextProblems = prevProblems.map(p => 
+      const nextProblems = prevProblems.map(p =>
         p.id === updatedProblem.id ? updatedProblem : p
       );
-      
-      // Dynamic topic mastery recalculation
       recalculateTopicMastery(nextProblems);
       return nextProblems;
     });
   };
 
-  // Save new problem from modal
+  // Update a single problem in local state and database
+  const handleUpdateProblem = async (updatedProblem) => {
+    try {
+      const res = await api.updateProblem(updatedProblem.id, updatedProblem);
+      applyProblemUpdate(res);
+    } catch (err) {
+      console.error('Failed to update problem in database:', err.message);
+    }
+  };
+
+  // Delete one or more problems
+  const handleDeleteProblems = async (ids) => {
+    try {
+      await Promise.all(ids.map(id => api.deleteProblem(id)));
+      setProblems(prevProblems => {
+        const nextProblems = prevProblems.filter(p => !ids.includes(p.id));
+        recalculateTopicMastery(nextProblems);
+        return nextProblems;
+      });
+      if (selectedId && ids.includes(selectedId)) {
+        setSelectedId(null);
+        setScreen('problems');
+      }
+    } catch (err) {
+      console.error('Failed to delete problem(s):', err.message);
+    }
+  };
+
+  // Add a problem imported from the LeetCode library (already created on the
+  // backend) to local state.
   const handleSaveProblem = (newProblem) => {
     setProblems(prevProblems => {
       const nextProblems = [newProblem, ...prevProblems];
@@ -188,6 +327,7 @@ function App() {
       return nextProblems;
     });
   };
+
 
   // Recalculates the topic mastery completion percentage automatically
   const recalculateTopicMastery = (currentProblems) => {
@@ -217,8 +357,9 @@ function App() {
     });
   };
 
-  // Helper to fetch current selected problem
-  const currentProblem = problems.find(p => p.id === selectedId) || problems[0];
+  // Helper to fetch current selected problem. No fallback: a stale deep link
+  // (e.g. /problems/<deleted-id>) must show "not found", not a different problem.
+  const currentProblem = problems.find(p => p.id === selectedId) || null;
 
   // Screen router rendering
   const renderScreen = () => {
@@ -231,7 +372,6 @@ function App() {
             userName={user?.name}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
-            onOpenNewProblemModal={() => setIsModalOpen(true)}
             themeColor={themeAccent}
           />
         );
@@ -240,7 +380,9 @@ function App() {
           <ProblemBank
             problems={problems}
             onOpenProblem={handleOpenProblem}
-            onOpenNewProblemModal={() => setIsModalOpen(true)}
+            onNewProblem={() => handleNavigate('leetcode')}
+            onDeleteProblems={handleDeleteProblems}
+            onReviseProblems={handleStartRevision}
             initialSearchQuery={initialSearchQuery}
             themeColor={themeAccent}
           />
@@ -251,7 +393,8 @@ function App() {
             problems={problems}
             onImportProblem={(newProblem) => {
               handleSaveProblem(newProblem);
-              setScreen('problems');
+              setSelectedId(newProblem.id);
+              setScreen('detail');
             }}
             themeColor={themeAccent}
           />
@@ -269,11 +412,22 @@ function App() {
           />
         );
       case 'detail':
+        // Deep link may render before the problem list has loaded.
+        if (!currentProblem && problemsLoading) {
+          return (
+            <div className="flex-1 flex items-center justify-center font-mono text-fs-12 text-text-muted">
+              Loading problem…
+            </div>
+          );
+        }
         return (
           <ProblemDetail
             problem={currentProblem}
             onBack={() => setScreen('problems')}
             onUpdateProblem={handleUpdateProblem}
+            onDeleteProblems={handleDeleteProblems}
+            onReviseProblems={handleStartRevision}
+            templatePatterns={templatePatterns}
             themeColor={themeAccent}
           />
         );
@@ -281,12 +435,16 @@ function App() {
         return (
           <RevisionSession
             problems={problems}
-            onUpdateProblem={handleUpdateProblem}
+            onUpdateProblem={applyProblemUpdate}
             onNavigate={handleNavigate}
+            customProblems={revisionProblems}
             themeColor={themeAccent}
           />
         );
       case 'flashcards':
+        // Flag off: render nothing for the frame before the fallback effect
+        // switches the screen to the dashboard.
+        if (!FEATURES.flashcards) return null;
         return (
           <FlashcardSession
             cards={cards}
@@ -353,13 +511,7 @@ function App() {
       <div className="flex-1 min-w-0 relative flex flex-col">
         {/* Dynamic screen output */}
         {renderScreen()}
-      </div>      {/* Add New Problem Form Overlay */}
-      <NewProblemModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveProblem}
-        themeColor={themeAccent}
-      />
+      </div>
     </div>
   );
 }

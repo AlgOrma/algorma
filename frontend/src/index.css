@@ -1,75 +1,75 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  --font-sans: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'Geist Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
   
   /* Dynamic accent colors from state */
-  --color-accent: var(--theme-accent, #3E72D9);
-  --color-accent-secondary: var(--theme-secondary, #2B52AE);
+  --color-accent: var(--theme-accent, #0070F3);
+  --color-accent-secondary: var(--theme-secondary, #0051CB);
 
   /* Background Colors */
-  --color-bg-overlay: #100e0c;
-  --color-bg-sidebar: #181613;
-  --color-bg-main: #1c1a17;
-  --color-bg-card: #221f1a;
-  --color-bg-code: #1a1714;
-  --color-bg-btn-sec: #2a2823;
-  --color-bg-btn-sec-hover: #2d2b26;
-  --color-bg-card-grad-start: #20211e;
-  --color-bg-card-grad-end: #201d1a;
-  --color-bg-element-hover: #262320;
-  --color-bg-element-dark: #29251f;
-  --color-bg-dot-empty: #2f2c26;
-  --color-bg-dot-fill: #3a352c;
-  --color-bg-track: #2a2722;
-  --color-bg-panel-dark: #161311;
+  --color-bg-overlay: rgba(0, 0, 0, 0.8);
+  --color-bg-sidebar: #000000;
+  --color-bg-main: #000000;
+  --color-bg-card: #0a0a0a;
+  --color-bg-code: #0a0a0a;
+  --color-bg-btn-sec: #000000;
+  --color-bg-btn-sec-hover: #111111;
+  --color-bg-card-grad-start: #0a0a0a;
+  --color-bg-card-grad-end: #050505;
+  --color-bg-element-hover: #111111;
+  --color-bg-element-dark: #0f0f0f;
+  --color-bg-dot-empty: #111111;
+  --color-bg-dot-fill: #333333;
+  --color-bg-track: #111111;
+  --color-bg-panel-dark: #050505;
   
   /* Border Colors */
-  --color-border-main: #322f29;
-  --color-border-subtle: #292621;
-  --color-border-muted: #2a2722;
-  --color-border-card: #2c2924;
-  --color-border-btn: #34312b;
-  --color-border-btn-hover: #4a463f;
-  --color-border-accent: #5f5b53;
+  --color-border-main: #222222;
+  --color-border-subtle: #111111;
+  --color-border-muted: #1a1a1a;
+  --color-border-card: #222222;
+  --color-border-btn: #333333;
+  --color-border-btn-hover: #444444;
+  --color-border-accent: #666666;
 
   /* Text Colors */
-  --color-text-main: #ECE8E1;
-  --color-text-muted: #847F76;
-  --color-text-hover: #B3ADA3;
-  --color-text-code: #C9C4BA;
-  --color-text-dark: #16130f;
-  --color-text-dark-alt: #181511;
-  --color-text-light: #D6D1C7;
-  --color-text-mid: #9d978c;
+  --color-text-main: #ffffff;
+  --color-text-muted: #888888;
+  --color-text-hover: #cccccc;
+  --color-text-code: #eaeaea;
+  --color-text-dark: #000000;
+  --color-text-dark-alt: #000000;
+  --color-text-light: #ffffff;
+  --color-text-mid: #a0a0a0;
   
   /* Semantic Colors */
-  --color-accent-green: #6BAA82;
-  --color-accent-green-hover: #6FBF92;
-  --color-accent-red: #E5483A;
-  --color-accent-red-hover: #D8705E;
-  --color-accent-blue: #8CABF4;
-  --color-accent-orange: #D6A24E;
+  --color-accent-green: #10B981;
+  --color-accent-green-hover: #059669;
+  --color-accent-red: #EE0000;
+  --color-accent-red-hover: #CC0000;
+  --color-accent-blue: #0070F3;
+  --color-accent-orange: #F5A623;
 
   /* Badge-specific Colors */
-  --color-badge-easy-bg: rgba(111,191,146,0.14);
-  --color-badge-easy-border: rgba(111,191,146,0.26);
-  --color-badge-medium-bg: rgba(214,162,78,0.14);
-  --color-badge-medium-border: rgba(214,162,78,0.26);
-  --color-badge-hard-bg: rgba(216,112,94,0.14);
-  --color-badge-hard-border: rgba(216,112,94,0.26);
+  --color-badge-easy-bg: rgba(16, 185, 129, 0.1);
+  --color-badge-easy-border: rgba(16, 185, 129, 0.2);
+  --color-badge-medium-bg: rgba(245, 166, 35, 0.1);
+  --color-badge-medium-border: rgba(245, 166, 35, 0.2);
+  --color-badge-hard-bg: rgba(238, 0, 0, 0.1);
+  --color-badge-hard-border: rgba(238, 0, 0, 0.2);
 
   /* Dimensions, Shadows, Radii */
   --spacing-sidebar-w: 226px;
-  --shadow-modal: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
-  --shadow-card: 0 18px 44px -22px rgba(0, 0, 0, 0.6);
-  --radius-card-sm: 11px;
-  --radius-card-btn: 9px;
-  --radius-card-md: 10px;
-  --radius-card-xs: 7px;
-  --radius-card-xxs: 5px;
-  --radius-progress: 3px;
+  --shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 44px -22px rgba(0, 0, 0, 0.8);
+  --radius-card-sm: 6px;
+  --radius-card-btn: 6px;
+  --radius-card-md: 6px;
+  --radius-card-xs: 4px;
+  --radius-card-xxs: 4px;
+  --radius-progress: 2px;
 
   /* Custom Spacings */
   --spacing-sp-1: 1px;
@@ -131,8 +131,8 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: #1c1a17;
-  color: #ECE8E1;
+  background-color: #000000;
+  color: #ffffff;
   font-family: var(--font-sans);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -233,3 +233,225 @@ button {
   .lc-expand { animation: none; }
   .lc-skeleton::after { animation: none; }
 }
+
+/* ── 3D Duolingo Button Styles ──────────────────────────────────────── */
+.btn-3d {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 800; /* Extra bold text for Duolingo style */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transform: translateY(0);
+  outline: none;
+}
+
+.btn-3d:active {
+  transform: translateY(3px) !important;
+  border-bottom-width: 1px !important;
+}
+
+/* Primary Accent 3D (Dynamic blue/purple based on theme) */
+.btn-3d-primary {
+  background-color: var(--color-accent) !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid var(--color-accent-secondary) !important;
+}
+.btn-3d-primary:hover:not(:active) {
+  filter: brightness(1.1);
+}
+
+/* Secondary 3D (Dark gray) */
+.btn-3d-secondary {
+  background-color: #1f1f1f !important;
+  color: #ffffff !important;
+  border: 1px solid #2a2a2a !important;
+  border-bottom: 4px solid #111111 !important;
+}
+.btn-3d-secondary:hover:not(:active) {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+}
+
+/* White 3D (Light variant) */
+.btn-3d-white {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-bottom: 4px solid #c0c0c0 !important;
+}
+.btn-3d-white:hover:not(:active) {
+  background-color: #f3f3f3 !important;
+}
+
+/* Green 3D (Classic Duolingo Green) */
+.btn-3d-green {
+  background-color: #58cc02 !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid #46a302 !important;
+}
+.btn-3d-green:hover:not(:active) {
+  background-color: #61e002 !important;
+}
+
+/* Red 3D (Danger) */
+.btn-3d-red {
+  background-color: #ff4b4b !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid #ea2b2b !important;
+}
+.btn-3d-red:hover:not(:active) {
+  background-color: #ff6060 !important;
+}
+
+/* Orange 3D */
+.btn-3d-orange {
+  background-color: #ff9600 !important;
+  color: #ffffff !important;
+  border-bottom: 4px solid #e27d00 !important;
+}
+.btn-3d-orange:hover:not(:active) {
+  background-color: #ffa520 !important;
+}
+
+/* Card buttons / Options / Grading buttons (3D effect) */
+.btn-card-3d {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 4px solid var(--color-border-main) !important;
+  border-radius: 12px !important;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transform: translateY(0);
+  outline: none;
+}
+.btn-card-3d:hover {
+  background-color: var(--color-bg-element-hover) !important;
+  border-color: var(--color-border-accent) !important;
+}
+.btn-card-3d:active {
+  transform: translateY(3px) !important;
+  border-bottom-width: 1px !important;
+}
+
+/* Compact version of 3D button */
+.btn-3d-sm {
+  font-size: 11px !important;
+  padding: 5px 10px !important;
+  border-radius: 8px !important;
+  border-bottom-width: 3px !important;
+}
+.btn-3d-sm:active {
+  transform: translateY(2px) !important;
+  border-bottom-width: 1px !important;
+}
+
+/* Custom Modal Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* ── 3D Dropdown & Select Customizations ────────────────────────────── */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 32px !important;
+  
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-hover) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 3.5px solid var(--color-border-main) !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, border-color 0.2s ease, background-color 0.2s ease;
+  font-weight: 700;
+  transform: translateY(0);
+}
+
+select:hover {
+  background-color: var(--color-bg-element-hover) !important;
+  border-color: var(--color-border-accent) !important;
+  color: var(--color-text-main) !important;
+}
+
+select:focus {
+  border-color: var(--color-accent) !important;
+}
+
+select:active {
+  transform: translateY(1.5px) !important;
+  border-bottom-width: 1.5px !important;
+}
+
+/* 3D Dropdown trigger button */
+.dropdown-trigger-3d {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 3.5px solid var(--color-border-main) !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-bottom-width 0.1s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transform: translateY(0);
+  outline: none;
+}
+
+.dropdown-trigger-3d:hover {
+  background-color: var(--color-bg-element-hover) !important;
+  border-color: var(--color-border-accent) !important;
+}
+
+.dropdown-trigger-3d:active {
+  transform: translateY(2px) !important;
+  border-bottom-width: 1.5px !important;
+}
+
+/* 3D Dropdown menu container */
+.dropdown-menu-3d {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-card) !important;
+  border-bottom: 4px solid var(--color-border-main) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important;
+}
+
+
+
+

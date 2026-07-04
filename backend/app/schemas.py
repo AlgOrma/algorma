@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
@@ -8,6 +8,18 @@ class CamelModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel, populate_by_name=True, extra="ignore"
     )
+
+
+class ProblemApproachIn(CamelModel):
+    id: str | None = None
+    name: str
+    complexity_time: str | None = None
+    complexity_space: str | None = None
+    approach: str = ""
+    code: str = ""
+    # The frontend (and serialize_problem) uses "lang", not the camelCase
+    # "language" the alias generator would otherwise expect.
+    language: str = Field(default="Python", alias="lang")
 
 
 class ProblemCreate(CamelModel):
@@ -23,6 +35,7 @@ class ProblemCreate(CamelModel):
     notes: str | None = None
     patterns: list[str] = []
     leetcode_url: str | None = None  # leetcodeUrl
+    approaches: list[ProblemApproachIn] | None = None
 
 
 class ProblemUpdate(CamelModel):
@@ -38,6 +51,9 @@ class ProblemUpdate(CamelModel):
     notes: str | None = None
     patterns: list[str] | None = None
     leetcode_url: str | None = None
+    approaches: list[ProblemApproachIn] | None = None
+    checklist_progress: list[bool] | None = None  # checklistProgress
+
 
 
 class GradeIn(CamelModel):
@@ -86,3 +102,14 @@ class UserUpdate(CamelModel):
     timezone: str | None = None
     daily_goal: int | None = None
     bio: str | None = None
+
+
+class CurriculumCreate(CamelModel):
+    name: str
+    description: str | None = None
+    is_global: bool = False
+
+
+class CurriculumQuestionsUpdate(CamelModel):
+    question_ids: list[str] = []
+

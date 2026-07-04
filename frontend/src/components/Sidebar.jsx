@@ -1,4 +1,5 @@
 import React from 'react';
+import { FEATURES } from '../features';
 
 export default function Sidebar({
   activeScreen,
@@ -28,6 +29,15 @@ export default function Sidebar({
       )
     },
     {
+      id: 'leetcode',
+      label: 'LeetCode',
+      icon: (color) => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill={color}>
+          <path d="M13.483 0a1.374 1.374 0 0 0-.961.438L7.116 6.226l-3.854 4.126a5.266 5.266 0 0 0-1.209 2.104 5.35 5.35 0 0 0-.125.513 5.527 5.527 0 0 0 .062 2.362 5.83 5.83 0 0 0 .349 1.017 5.938 5.938 0 0 0 1.271 1.818l4.277 4.193.039.038c2.248 2.165 5.852 2.133 8.063-.074l2.396-2.392c.54-.54.54-1.414.003-1.955a1.378 1.378 0 0 0-1.951-.003l-2.396 2.392a3.021 3.021 0 0 1-4.205.038l-.02-.019-4.276-4.193c-.652-.64-.972-1.469-.948-2.263a2.68 2.68 0 0 1 .066-.523 2.545 2.545 0 0 1 .619-1.164L9.13 8.114c1.058-1.134 3.204-1.27 4.43-.278l3.501 2.831c.593.48 1.461.387 1.94-.207a1.384 1.384 0 0 0-.207-1.943l-3.5-2.831c-.8-.647-1.766-1.045-2.774-1.202l2.015-2.158A1.384 1.384 0 0 0 13.483 0zm-2.866 12.815a1.38 1.38 0 0 0-1.38 1.382 1.38 1.38 0 0 0 1.38 1.382H20.79a1.38 1.38 0 0 0 1.38-1.382 1.38 1.38 0 0 0-1.38-1.382z"/>
+        </svg>
+      )
+    },
+    {
       id: 'problems',
       label: 'Problems',
       badge: problemsCount,
@@ -39,18 +49,6 @@ export default function Sidebar({
           <circle cx="3.6" cy="10" r="1.1"/>
           <circle cx="3.6" cy="5.5" r="1.1"/>
           <circle cx="3.6" cy="14.5" r="1.1"/>
-        </svg>
-      )
-    },
-    {
-      id: 'leetcode',
-      label: 'LeetCode',
-      icon: (color) => (
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="14" height="14" rx="2" strokeWidth="1.6"/>
-          <line x1="7" y1="7" x2="13" y2="7"/>
-          <line x1="7" y1="10" x2="13" y2="10"/>
-          <line x1="7" y1="13" x2="11" y2="13"/>
         </svg>
       )
     },
@@ -79,6 +77,7 @@ export default function Sidebar({
     },
     {
       id: 'flashcards',
+      hidden: !FEATURES.flashcards,
       label: 'Flashcards',
       badge: flashcardsCount,
       badgeColor: 'text-accent',
@@ -92,19 +91,19 @@ export default function Sidebar({
   ];
 
   return (
-    <div className="w-sidebar-w flex-none bg-bg-sidebar border-r border-border-subtle px-3.5 py-5 flex flex-col gap-1.25 h-full">
+    <div className="w-sidebar-w flex-none bg-bg-sidebar border-r border-border-main px-3.5 py-5 flex flex-col gap-1.25 h-full">
       {/* Header / Logo */}
       <div className="flex items-center gap-sp-10 px-2 pt-sp-2 pb-sp-18">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-mono text-fs-13 font-semibold text-text-dark">
+        <div className="w-7 h-7 rounded-md bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-mono text-fs-13 font-semibold text-text-dark">
           ›_
         </div>
-        <span className="font-bold text-fs-15 text-text-main tracking-[-0.015em]">
+        <span className="font-bold text-fs-15 tracking-[-0.015em] bg-gradient-to-r from-accent to-accent-secondary bg-clip-text text-transparent">
           AlgOrma
         </span>
       </div>
 
       {/* Nav List */}
-      {navItems.map((item) => {
+      {navItems.filter((item) => !item.hidden).map((item) => {
         const isActive = activeScreen === item.id || (item.id === 'problems' && activeScreen === 'detail');
         const color = isActive ? 'var(--color-text-main)' : 'var(--color-text-muted)';
 
@@ -114,8 +113,8 @@ export default function Sidebar({
             onClick={() => onNavigate(item.id)}
             className={`flex items-center gap-sp-11 px-sp-11 py-2.5 rounded-card-btn text-fs-14 font-medium cursor-pointer transition-all duration-150 border ${
               isActive 
-                ? 'bg-accent/13 border-accent/22 text-text-main' 
-                : 'bg-transparent border-transparent text-text-muted hover:text-text-main hover:bg-white/3'
+                ? 'bg-white/10 border-white/5 text-white' 
+                : 'bg-transparent border-transparent text-text-muted hover:text-white hover:bg-white/5'
             }`}
           >
             {item.icon(color)}
@@ -138,7 +137,7 @@ export default function Sidebar({
         title="Edit profile"
         className="flex items-center gap-sp-10 px-2.5 py-sp-9 rounded-card-sm bg-bg-card border border-border-card cursor-pointer transition-colors hover:border-border-btn-hover"
       >
-        <div className="w-[30px] h-[30px] flex-none rounded-[9px] bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-bold text-fs-13 text-text-dark">
+        <div className="w-[30px] h-[30px] flex-none rounded-md bg-accent flex items-center justify-center font-bold text-fs-13 text-white">
           {userInitial}
         </div>
         <div className="min-w-0 flex-1">

@@ -4,19 +4,33 @@ export default function Button({
   children, 
   onClick, 
   variant = 'primary', 
+  size = 'md',
   className = '',
   style = {},
   ...props 
 }) {
-  const baseClasses = "font-sans text-fs-13-5 font-semibold rounded-card-btn cursor-pointer inline-flex items-center justify-center gap-sp-7 transition-all duration-200 outline-none border-none";
+  let baseClasses = "btn-3d font-sans text-fs-13 font-bold select-none cursor-pointer outline-none transition-all duration-100 ease-out";
+  
+  if (size === 'sm') {
+    baseClasses += " btn-3d-sm";
+  }
   
   let variantClasses = "";
   if (variant === 'primary') {
-    variantClasses = "text-text-dark-alt bg-accent px-sp-15 py-sp-10 hover:brightness-115";
+    variantClasses = "btn-3d-primary";
   } else if (variant === 'secondary') {
-    variantClasses = "text-text-main bg-bg-btn-sec border border-border-btn px-sp-15 py-sp-10 hover:border-border-btn-hover hover:bg-bg-btn-sec-hover";
+    variantClasses = "btn-3d-secondary";
+  } else if (variant === 'white') {
+    variantClasses = "btn-3d-white";
+  } else if (variant === 'green') {
+    variantClasses = "btn-3d-green";
+  } else if (variant === 'red') {
+    variantClasses = "btn-3d-red";
+  } else if (variant === 'orange') {
+    variantClasses = "btn-3d-orange";
   } else if (variant === 'ghost') {
-    variantClasses = "text-text-muted bg-transparent px-sp-10 py-sp-5 hover:text-text-hover";
+    baseClasses = "font-sans text-fs-13 font-bold cursor-pointer inline-flex items-center justify-center gap-2 select-none transition-all duration-150 outline-none rounded-lg py-2 px-3.5";
+    variantClasses = "text-text-muted bg-transparent border-none hover:text-text-main hover:bg-bg-element-hover";
   }
 
   return (

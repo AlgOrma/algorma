@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Button from '../components/common/Button';
 
 // Daily-problem goal choices offered in the setup form
 const GOAL_OPTIONS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 25, 30];
@@ -174,21 +175,23 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
           <div className="mt-sp-20 text-fs-12 text-accent-red-hover">{serverError}</div>
         )}
 
-        <button
+        <Button
           onClick={handleSubmit}
           disabled={submitting}
-          className="w-full mt-sp-22 text-fs-14 font-semibold text-text-dark-alt bg-accent py-sp-12 rounded-card-md cursor-pointer hover:brightness-115 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          variant="primary"
+          className="w-full mt-sp-22 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {submitting ? 'Saving…' : submitLabel}
-        </button>
+        </Button>
 
         {isEditing && (
-          <button
+          <Button
             onClick={onCancel}
-            className="w-full mt-sp-9 text-fs-13 font-semibold text-text-hover bg-transparent border border-border-main py-sp-11 rounded-card-md cursor-pointer hover:border-border-btn-hover transition-colors"
+            variant="secondary"
+            className="w-full mt-sp-9"
           >
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </div>
