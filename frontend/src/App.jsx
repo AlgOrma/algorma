@@ -41,8 +41,8 @@ function App() {
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
   // Theme settings mapping
-  const themeAccent = theme === 'blue' ? '#3E72D9' : '#9B86F5';
-  const themeSecondary = theme === 'blue' ? '#2B52AE' : '#7660d8';
+  const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
+  const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
 
   // Navigation controller
   const handleNavigate = (targetScreen, params = {}) => {

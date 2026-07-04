@@ -92,10 +92,10 @@ export default function Sidebar({
   ];
 
   return (
-    <div className="w-sidebar-w flex-none bg-bg-sidebar border-r border-border-subtle px-3.5 py-5 flex flex-col gap-1.25 h-full">
+    <div className="w-sidebar-w flex-none bg-bg-sidebar border-r border-border-main px-3.5 py-5 flex flex-col gap-1.25 h-full">
       {/* Header / Logo */}
       <div className="flex items-center gap-sp-10 px-2 pt-sp-2 pb-sp-18">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-mono text-fs-13 font-semibold text-text-dark">
+        <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center font-mono text-fs-13 font-semibold text-black">
           ›_
         </div>
         <span className="font-bold text-fs-15 text-text-main tracking-[-0.015em]">
@@ -114,8 +114,8 @@ export default function Sidebar({
             onClick={() => onNavigate(item.id)}
             className={`flex items-center gap-sp-11 px-sp-11 py-2.5 rounded-card-btn text-fs-14 font-medium cursor-pointer transition-all duration-150 border ${
               isActive 
-                ? 'bg-accent/13 border-accent/22 text-text-main' 
-                : 'bg-transparent border-transparent text-text-muted hover:text-text-main hover:bg-white/3'
+                ? 'bg-white/10 border-white/5 text-white' 
+                : 'bg-transparent border-transparent text-text-muted hover:text-white hover:bg-white/5'
             }`}
           >
             {item.icon(color)}
@@ -138,7 +138,7 @@ export default function Sidebar({
         title="Edit profile"
         className="flex items-center gap-sp-10 px-2.5 py-sp-9 rounded-card-sm bg-bg-card border border-border-card cursor-pointer transition-colors hover:border-border-btn-hover"
       >
-        <div className="w-[30px] h-[30px] flex-none rounded-[9px] bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center font-bold text-fs-13 text-text-dark">
+        <div className="w-[30px] h-[30px] flex-none rounded-md bg-accent flex items-center justify-center font-bold text-fs-13 text-white">
           {userInitial}
         </div>
         <div className="min-w-0 flex-1">

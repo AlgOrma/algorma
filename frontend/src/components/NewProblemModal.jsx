@@ -76,15 +76,15 @@ export default function NewProblemModal({
 
   return (
     <div className="fixed inset-0 bg-bg-overlay/80 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
-      <div className="w-full max-w-[680px] bg-bg-main border border-border-main rounded-2xl shadow-modal flex flex-col max-h-[90vh] text-left">
+      <div className="w-full max-w-[680px] bg-bg-main border border-border-main rounded-md shadow-modal flex flex-col max-h-[90vh] text-left">
         {/* Modal Header */}
         <div className="px-6 py-sp-18 border-b border-border-subtle flex items-center justify-between">
-          <span className="text-fs-18 font-bold text-text-main">
+          <span className="text-fs-18 font-semibold text-text-main">
             Add new problem
           </span>
           <button
             onClick={() => { resetForm(); onClose(); }}
-            className="bg-transparent border-none text-text-muted text-fs-20 cursor-pointer leading-none"
+            className="bg-transparent border-none text-text-muted text-fs-20 cursor-pointer leading-none hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -104,7 +104,7 @@ export default function NewProblemModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="E.g., Merge Overlapping Ranges"
-                className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
+                className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
                 required
               />
             </div>
@@ -116,7 +116,7 @@ export default function NewProblemModal({
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="E.g., Arrays"
-                className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
+                className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
                 required
               />
             </div>
@@ -129,7 +129,7 @@ export default function NewProblemModal({
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
-                className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full cursor-pointer transition-colors duration-200"
+                className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full cursor-pointer transition-colors duration-200"
               >
                 <option value="Easy">Easy</option>
                 <option value="Medium">Medium</option>
@@ -142,7 +142,7 @@ export default function NewProblemModal({
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full cursor-pointer transition-colors duration-200"
+                className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full cursor-pointer transition-colors duration-200"
               >
                 <option value="Not started">Not started</option>
                 <option value="Solving">Solving</option>
@@ -159,7 +159,7 @@ export default function NewProblemModal({
               value={statement}
               onChange={(e) => setStatement(e.target.value)}
               placeholder="Enter problem description..."
-              className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full resize-y transition-colors duration-200"
+              className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full resize-y transition-colors duration-200"
             />
           </div>
 
@@ -172,7 +172,7 @@ export default function NewProblemModal({
                 value={exIn}
                 onChange={(e) => setExIn(e.target.value)}
                 placeholder="E.g., nums = [2, 7], target = 9"
-                className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
+                className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
               />
             </div>
             
@@ -183,7 +183,7 @@ export default function NewProblemModal({
                 value={exOut}
                 onChange={(e) => setExOut(e.target.value)}
                 placeholder="E.g., [0, 1]"
-                className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
+                className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
               />
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function NewProblemModal({
               value={approach}
               onChange={(e) => setApproach(e.target.value)}
               placeholder="Outline your approach steps..."
-              className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full resize-y transition-colors duration-200"
+              className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full resize-y transition-colors duration-200"
             />
           </div>
 
@@ -208,7 +208,7 @@ export default function NewProblemModal({
               value={solution}
               onChange={(e) => setSolution(e.target.value)}
               placeholder="function solve() { ... }"
-              className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-12 font-mono outline-none w-full resize-y transition-colors duration-200"
+              className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-12 font-mono outline-none w-full resize-y transition-colors duration-200"
             />
           </div>
 
@@ -220,7 +220,7 @@ export default function NewProblemModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Key learnings or off-by-one pitfalls..."
-              className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full resize-y transition-colors duration-200"
+              className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full resize-y transition-colors duration-200"
             />
           </div>
 
@@ -232,7 +232,7 @@ export default function NewProblemModal({
               value={patternsInput}
               onChange={(e) => setPatternsInput(e.target.value)}
               placeholder="Comma-separated patterns, e.g., Hash Map, Sorting, Two Pointers"
-              className="bg-bg-card border border-border-main focus:border-accent rounded-lg px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
+              className="bg-bg-card border border-border-main focus:border-white rounded-md px-3 py-2.5 text-text-main text-fs-13 outline-none w-full transition-colors duration-200"
             />
           </div>
 

@@ -1,75 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'Geist Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
   
   /* Dynamic accent colors from state */
-  --color-accent: var(--theme-accent, #3E72D9);
-  --color-accent-secondary: var(--theme-secondary, #2B52AE);
+  --color-accent: var(--theme-accent, #0070F3);
+  --color-accent-secondary: var(--theme-secondary, #0051CB);
 
   /* Background Colors */
-  --color-bg-overlay: #100e0c;
-  --color-bg-sidebar: #181613;
-  --color-bg-main: #1c1a17;
-  --color-bg-card: #221f1a;
-  --color-bg-code: #1a1714;
-  --color-bg-btn-sec: #2a2823;
-  --color-bg-btn-sec-hover: #2d2b26;
-  --color-bg-card-grad-start: #20211e;
-  --color-bg-card-grad-end: #201d1a;
-  --color-bg-element-hover: #262320;
-  --color-bg-element-dark: #29251f;
-  --color-bg-dot-empty: #2f2c26;
-  --color-bg-dot-fill: #3a352c;
-  --color-bg-track: #2a2722;
-  --color-bg-panel-dark: #161311;
+  --color-bg-overlay: rgba(0, 0, 0, 0.8);
+  --color-bg-sidebar: #000000;
+  --color-bg-main: #000000;
+  --color-bg-card: #0a0a0a;
+  --color-bg-code: #0a0a0a;
+  --color-bg-btn-sec: #000000;
+  --color-bg-btn-sec-hover: #111111;
+  --color-bg-card-grad-start: #0a0a0a;
+  --color-bg-card-grad-end: #050505;
+  --color-bg-element-hover: #111111;
+  --color-bg-element-dark: #0f0f0f;
+  --color-bg-dot-empty: #111111;
+  --color-bg-dot-fill: #333333;
+  --color-bg-track: #111111;
+  --color-bg-panel-dark: #050505;
   
   /* Border Colors */
-  --color-border-main: #322f29;
-  --color-border-subtle: #292621;
-  --color-border-muted: #2a2722;
-  --color-border-card: #2c2924;
-  --color-border-btn: #34312b;
-  --color-border-btn-hover: #4a463f;
-  --color-border-accent: #5f5b53;
+  --color-border-main: #222222;
+  --color-border-subtle: #111111;
+  --color-border-muted: #1a1a1a;
+  --color-border-card: #222222;
+  --color-border-btn: #333333;
+  --color-border-btn-hover: #444444;
+  --color-border-accent: #666666;
 
   /* Text Colors */
-  --color-text-main: #ECE8E1;
-  --color-text-muted: #847F76;
-  --color-text-hover: #B3ADA3;
-  --color-text-code: #C9C4BA;
-  --color-text-dark: #16130f;
-  --color-text-dark-alt: #181511;
-  --color-text-light: #D6D1C7;
-  --color-text-mid: #9d978c;
+  --color-text-main: #ffffff;
+  --color-text-muted: #888888;
+  --color-text-hover: #cccccc;
+  --color-text-code: #eaeaea;
+  --color-text-dark: #000000;
+  --color-text-dark-alt: #000000;
+  --color-text-light: #ffffff;
+  --color-text-mid: #a0a0a0;
   
   /* Semantic Colors */
-  --color-accent-green: #6BAA82;
-  --color-accent-green-hover: #6FBF92;
-  --color-accent-red: #E5483A;
-  --color-accent-red-hover: #D8705E;
-  --color-accent-blue: #8CABF4;
-  --color-accent-orange: #D6A24E;
+  --color-accent-green: #10B981;
+  --color-accent-green-hover: #059669;
+  --color-accent-red: #EE0000;
+  --color-accent-red-hover: #CC0000;
+  --color-accent-blue: #0070F3;
+  --color-accent-orange: #F5A623;
 
   /* Badge-specific Colors */
-  --color-badge-easy-bg: rgba(111,191,146,0.14);
-  --color-badge-easy-border: rgba(111,191,146,0.26);
-  --color-badge-medium-bg: rgba(214,162,78,0.14);
-  --color-badge-medium-border: rgba(214,162,78,0.26);
-  --color-badge-hard-bg: rgba(216,112,94,0.14);
-  --color-badge-hard-border: rgba(216,112,94,0.26);
+  --color-badge-easy-bg: rgba(16, 185, 129, 0.1);
+  --color-badge-easy-border: rgba(16, 185, 129, 0.2);
+  --color-badge-medium-bg: rgba(245, 166, 35, 0.1);
+  --color-badge-medium-border: rgba(245, 166, 35, 0.2);
+  --color-badge-hard-bg: rgba(238, 0, 0, 0.1);
+  --color-badge-hard-border: rgba(238, 0, 0, 0.2);
 
   /* Dimensions, Shadows, Radii */
   --spacing-sidebar-w: 226px;
-  --shadow-modal: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
-  --shadow-card: 0 18px 44px -22px rgba(0, 0, 0, 0.6);
-  --radius-card-sm: 11px;
-  --radius-card-btn: 9px;
-  --radius-card-md: 10px;
-  --radius-card-xs: 7px;
-  --radius-card-xxs: 5px;
-  --radius-progress: 3px;
+  --shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 44px -22px rgba(0, 0, 0, 0.8);
+  --radius-card-sm: 6px;
+  --radius-card-btn: 6px;
+  --radius-card-md: 6px;
+  --radius-card-xs: 4px;
+  --radius-card-xxs: 4px;
+  --radius-progress: 2px;
 
   /* Custom Spacings */
   --spacing-sp-1: 1px;
@@ -131,8 +132,8 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: #1c1a17;
-  color: #ECE8E1;
+  background-color: #000000;
+  color: #ffffff;
   font-family: var(--font-sans);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
