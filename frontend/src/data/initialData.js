@@ -1,13 +1,11 @@
-// Static seed data has been removed for now — problems, flashcards, and topics
-// all start empty. The template library is owned by the backend (seeded per
-// user; see backend/app/seed.py STARTER_PATTERNS), not seeded here. The
-// maps/lists below (DIFF_MAP, STATUS_MAP, GRADES) are UI config, not seed data,
-// and must stay.
+// Static seed data has been removed for now — problems and flashcards start
+// empty, and topic mastery is derived from the problem bank in App.jsx. The
+// template library is owned by the backend (seeded per user; see
+// backend/app/seed.py STARTER_PATTERNS), not seeded here. The maps/lists below
+// (DIFF_MAP, STATUS_MAP, GRADES) are UI config, not seed data, and must stay.
 export const INITIAL_PROBLEMS = [];
 
 export const INITIAL_CARDS = [];
-
-export const INITIAL_TOPICS = [];
 
 export const DIFF_MAP = {
   Easy: { c: 'var(--color-accent-green-hover)', bg: 'var(--color-badge-easy-bg)', bd: 'var(--color-badge-easy-border)', l: 'EASY' },

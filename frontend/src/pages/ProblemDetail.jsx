@@ -48,9 +48,7 @@ export default function ProblemDetail({
   onBack,
   onUpdateProblem,
   onDeleteProblems,
-  onReviseProblems,
-  templatePatterns = [],
-  themeColor
+  onReviseProblems
 }) {
   // Navigation tabs for left pane: 'description' | 'editorial' | 'checklist'
   const [leftTab, setLeftTab] = useState('description');
@@ -115,6 +113,10 @@ export default function ProblemDetail({
       setRevealedEditorial(false);
       setRevealedHints({});
     }
+    // Re-initialize only when switching to a different problem. Depending on
+    // `problem` itself would clobber in-progress edits (and re-hide spoilers)
+    // every time a save produces a new problem object with the same id.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [problem?.id]);
 
   if (!problem) {
@@ -290,25 +292,6 @@ export default function ProblemDetail({
   const handleScroll = () => {
     if (textareaRef.current && gutterRef.current) {
       gutterRef.current.scrollTop = textareaRef.current.scrollTop;
-    }
-  };
-
-  // Quick insertion of template patterns
-  const handleInsertTemplate = (variationCode) => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const currentCode = approaches[activeApproachIdx]?.code || '';
-      
-      const newCode = currentCode.substring(0, start) + variationCode + currentCode.substring(end);
-      handleUpdateApproachField('code', newCode);
-      
-      // Refocus & set selection after insertion
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + variationCode.length, start + variationCode.length);
-      }, 0);
     }
   };
 

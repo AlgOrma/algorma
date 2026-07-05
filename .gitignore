@@ -12,6 +12,9 @@ dist/
 dist-ssr/
 *.local
 
+# Env (per-machine config; use the .env.example files)
+.env
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

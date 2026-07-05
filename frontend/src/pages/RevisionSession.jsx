@@ -20,6 +20,9 @@ export default function RevisionSession({
 
   const [sessionProblems, setSessionProblems] = useState([]);
 
+  // Left pane tabs during a session: 'problem' | 'history'
+  const [leftTab, setLeftTab] = useState('problem');
+
   // Past grading events for the card being revised (null = loading)
   const [reviewHistory, setReviewHistory] = useState(null);
 
@@ -42,6 +45,7 @@ export default function RevisionSession({
     setActiveApproachIdx(0);
     setRevealedApproaches({});
     setScratchpadText('');
+    setLeftTab('problem');
   }, [currentIndex]);
 
   // Extract approaches for current card
@@ -384,83 +388,114 @@ export default function RevisionSession({
               </span>
             </div>
 
-            <hr className="border-border-muted my-5" />
-
-            {/* Problem Statement */}
-            <div>
-              <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-3">
-                PROBLEM STATEMENT
-              </div>
-              <div 
-                className="text-fs-13.5 leading-relaxed text-text-code select-text"
-                dangerouslySetInnerHTML={{ __html: currentCard.statement }}
-              />
+            {/* PROBLEM / HISTORY tabs */}
+            <div className="flex items-end border-b border-border-muted mt-5 font-mono text-fs-11 tracking-[0.06em] select-none">
+              <button
+                onClick={() => setLeftTab('problem')}
+                className={`px-4 py-2.5 cursor-pointer bg-transparent border-0 border-b-2 transition-colors ${
+                  leftTab === 'problem'
+                    ? 'text-text-main border-b-accent font-semibold'
+                    : 'text-text-muted border-b-transparent hover:text-text-hover'
+                }`}
+              >
+                PROBLEM
+              </button>
+              <button
+                onClick={() => setLeftTab('history')}
+                className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer bg-transparent border-0 border-b-2 transition-colors ${
+                  leftTab === 'history'
+                    ? 'text-text-main border-b-accent font-semibold'
+                    : 'text-text-muted border-b-transparent hover:text-text-hover'
+                }`}
+              >
+                HISTORY
+                <span className="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-accent/15 border border-accent/30 text-accent text-[10px]">
+                  {reviewHistory ? reviewHistory.length : currentCard.revisions || 0}
+                </span>
+              </button>
             </div>
-            
-            {/* Examples */}
-            {(currentCard.exIn || currentCard.exOut) && (
-              <div className="mt-5 bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre">
-                {currentCard.exIn && (
-                  <div>
-                    <span className="text-text-muted select-none">Input: </span>
-                    {currentCard.exIn}
+
+            {leftTab === 'problem' && (
+              <>
+                {/* Problem Statement */}
+                <div className="mt-5">
+                  <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-3">
+                    PROBLEM STATEMENT
+                  </div>
+                  <div
+                    className="text-fs-13.5 leading-relaxed text-text-code select-text"
+                    dangerouslySetInnerHTML={{ __html: currentCard.statement }}
+                  />
+                </div>
+
+                {/* Examples */}
+                {(currentCard.exIn || currentCard.exOut) && (
+                  <div className="mt-5 bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre">
+                    {currentCard.exIn && (
+                      <div>
+                        <span className="text-text-muted select-none">Input: </span>
+                        {currentCard.exIn}
+                      </div>
+                    )}
+                    {currentCard.exOut && (
+                      <div className="mt-1">
+                        <span className="text-text-muted select-none">Output: </span>
+                        {currentCard.exOut}
+                      </div>
+                    )}
                   </div>
                 )}
-                {currentCard.exOut && (
-                  <div className="mt-1">
-                    <span className="text-text-muted select-none">Output: </span>
-                    {currentCard.exOut}
+              </>
+            )}
+
+            {/* Revision history */}
+            {leftTab === 'history' && (
+              <div className="mt-5 text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-mono text-fs-11 text-text-muted tracking-[0.08em]">
+                    <span className="w-[3px] h-[14px] rounded-full bg-accent inline-block" />
+                    REVISION HISTORY
+                  </div>
+                  <span className="font-mono text-fs-11 text-accent bg-accent/10 border border-accent/25 rounded-md px-2 py-0.5">
+                    {reviewHistory ? reviewHistory.length : currentCard.revisions || 0}×
+                  </span>
+                </div>
+
+                {reviewHistory === null ? (
+                  <div className="font-mono text-fs-11 text-text-muted pt-4 pb-1">Loading…</div>
+                ) : reviewHistory.length === 0 ? (
+                  <div className="text-fs-12-5 text-text-muted pt-4 pb-1">
+                    No revisions yet — this is your first attempt at recalling this problem.
+                  </div>
+                ) : (
+                  <div className="flex flex-col mt-2">
+                    {reviewHistory.map((log, idx) => (
+                      <div
+                        key={log.id}
+                        className="flex items-center gap-3 py-2.5 border-b border-bg-element-dark last:border-b-0"
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: gradeColor(log.grade) }}
+                        />
+                        <span className="text-fs-13 font-semibold text-text-main">
+                          Revision {idx + 1}
+                        </span>
+                        <span className="font-mono text-fs-11 text-text-muted ml-auto">
+                          {new Date(log.reviewedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span
+                          className="text-fs-12 font-semibold border border-border-main bg-bg-code rounded-md px-2.5 py-1"
+                          style={{ color: gradeColor(log.grade) }}
+                        >
+                          {log.grade}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             )}
-
-            {/* Revision history */}
-            <div className="mt-5 bg-bg-card border border-border-card rounded-xl p-5 text-left">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-mono text-fs-11 text-text-muted tracking-[0.08em]">
-                  <span className="w-[3px] h-[14px] rounded-full bg-accent inline-block" />
-                  REVISION HISTORY
-                </div>
-                <span className="font-mono text-fs-11 text-accent bg-accent/10 border border-accent/25 rounded-md px-2 py-0.5">
-                  {reviewHistory ? reviewHistory.length : currentCard.revisions || 0}×
-                </span>
-              </div>
-
-              {reviewHistory === null ? (
-                <div className="font-mono text-fs-11 text-text-muted pt-4 pb-1">Loading…</div>
-              ) : reviewHistory.length === 0 ? (
-                <div className="text-fs-12-5 text-text-muted pt-4 pb-1">
-                  No revisions yet — this is your first attempt at recalling this problem.
-                </div>
-              ) : (
-                <div className="flex flex-col mt-2">
-                  {reviewHistory.map((log, idx) => (
-                    <div
-                      key={log.id}
-                      className="flex items-center gap-3 py-2.5 border-b border-bg-element-dark last:border-b-0"
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: gradeColor(log.grade) }}
-                      />
-                      <span className="text-fs-13 font-semibold text-text-main">
-                        Revision {idx + 1}
-                      </span>
-                      <span className="font-mono text-fs-11 text-text-muted ml-auto">
-                        {new Date(log.reviewedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                      <span
-                        className="text-fs-12 font-semibold border border-border-main bg-bg-code rounded-md px-2.5 py-1"
-                        style={{ color: gradeColor(log.grade) }}
-                      >
-                        {log.grade}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
@@ -569,18 +604,9 @@ export default function RevisionSession({
             )}
           </div>
 
-          {/* Rating panel / Show Answer action bar */}
+          {/* Rating panel — only appears once a solution has been revealed */}
+          {hasRevealedAny && (
           <div className="bg-[#000] border-t border-border-muted px-6 py-4 shrink-0 select-none">
-            {!hasRevealedAny ? (
-              <div className="flex justify-between items-center">
-                <span className="font-mono text-fs-10.5 text-text-muted">
-                  Press Reveal to rate your recall
-                </span>
-                <Button size="sm" onClick={() => handleRevealCurrent(true)}>
-                  Reveal Solution
-                </Button>
-              </div>
-            ) : (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-fs-12 font-medium text-text-main">
@@ -618,8 +644,8 @@ export default function RevisionSession({
                   ))}
                 </div>
               </div>
-            )}
           </div>
+          )}
         </div>
       </div>
     );

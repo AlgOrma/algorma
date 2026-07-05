@@ -93,7 +93,7 @@ export default function Dashboard({
             {solvedDisplay}
           </div>
           <div className="text-fs-12 text-accent-green-hover mt-sp-9">
-            ▲ {stats ? stats.solvedThisWeek : 9} this week
+            ▲ {stats ? stats.solvedThisWeek : 0} this week
           </div>
         </div>
 
@@ -108,7 +108,7 @@ export default function Dashboard({
             {dueDisplay}
           </div>
           <div className="text-fs-12 text-text-muted mt-sp-9">
-            {stats ? stats.overdue : 2} overdue
+            {stats ? stats.overdue : 0} overdue
           </div>
         </div>
 
@@ -117,10 +117,10 @@ export default function Dashboard({
             STREAK
           </div>
           <div className="font-mono text-fs-31 font-semibold text-text-main mt-sp-9 leading-none">
-            {stats ? stats.streakDays : 12}<span className="text-fs-15 text-text-muted">d</span>
+            {stats ? stats.streakDays : 0}<span className="text-fs-15 text-text-muted">d</span>
           </div>
           <div className="text-fs-12 text-text-muted mt-sp-9">
-            best · {stats ? stats.bestStreakDays : 21}d
+            best · {stats ? stats.bestStreakDays : 0}d
           </div>
         </div>
 
@@ -129,10 +129,10 @@ export default function Dashboard({
             RETENTION
           </div>
           <div className="font-mono text-fs-31 font-semibold text-text-main mt-sp-9 leading-none">
-            {stats ? stats.retentionPct : 91}<span className="text-fs-15 text-text-muted">%</span>
+            {stats ? stats.retentionPct : 0}<span className="text-fs-15 text-text-muted">%</span>
           </div>
-          <div className="text-fs-12 text-accent-green-hover mt-sp-9">
-            ▲ 2pts
+          <div className="text-fs-12 text-text-muted mt-sp-9">
+            last 60 reviews
           </div>
         </div>
       </div>
@@ -209,7 +209,7 @@ export default function Dashboard({
           </Button>
         </div>
 
-        {/* Right: Topic mastery and Quick Actions */}
+        {/* Right: Topic mastery */}
         <div className="flex-1 display flex flex-col gap-sp-14 min-w-0">
           
           {/* Topic Mastery */}
@@ -218,7 +218,12 @@ export default function Dashboard({
               Topic mastery
             </div>
             <div className="flex flex-col gap-sp-13">
-              {topics.map((t, idx) => (
+              {topics.length === 0 && (
+                <div className="text-fs-12-5 text-text-muted">
+                  Solve problems to start tracking mastery by topic.
+                </div>
+              )}
+              {topics.slice(0, 6).map((t, idx) => (
                 <div key={idx}>
                   <div className="flex justify-between text-fs-12-5 mb-sp-6">
                     <span className="text-text-hover">{t.name}</span>
@@ -234,29 +239,6 @@ export default function Dashboard({
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-bg-card border border-border-card rounded-xl p-4 px-sp-18 text-left">
-            <div className="text-fs-12-5 text-text-muted mb-sp-11">
-              Quick actions
-            </div>
-            <div className="flex flex-col gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => onNavigate('leetcode')}
-                className="w-full justify-start text-left"
-              >
-                + Start a new problem
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => onNavigate('revise')}
-                className="w-full justify-start text-left"
-              >
-                ⚡ Start a revision session
-              </Button>
             </div>
           </div>
 

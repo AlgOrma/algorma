@@ -13,7 +13,9 @@ export default function FlashcardSession({
   const isFinished = currentIndex >= totalCards;
   const currentCard = isFinished ? null : cards[currentIndex];
 
-  const handleGrade = (grade) => {
+  // The grade isn't persisted yet — it'll go to POST /flashcards/{id}/review
+  // once the feature-flagged flashcards UI is wired to the API.
+  const handleGrade = (_grade) => {
     // Proceed to next card
     setFlipped(false);
     setCurrentIndex(prev => prev + 1);

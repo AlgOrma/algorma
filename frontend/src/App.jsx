@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import * as api from './api';
 import Sidebar from './components/Sidebar';
@@ -12,11 +12,7 @@ import ProfileSetup from './pages/ProfileSetup';
 import LeetCodeLibrary from './pages/LeetCodeLibrary';
 import { FEATURES } from './features';
 
-import {
-  INITIAL_PROBLEMS,
-  INITIAL_CARDS,
-  INITIAL_TOPICS
-} from './data/initialData';
+import { INITIAL_CARDS } from './data/initialData';
 
 // URL path for each screen, so pages are shareable endpoints (e.g. /revise).
 // Feature-flagged screens are left out entirely, so their URLs don't resolve.
@@ -51,10 +47,11 @@ function App() {
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
   const [problems, setProblems] = useState([]);
   const [problemsLoading, setProblemsLoading] = useState(true);
-  const [cards, setCards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
-  const [topics, setTopics] = useLocalStorage('dsa_topics', INITIAL_TOPICS);
-  const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 0);
-  const [theme, setTheme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
+  // Read-only for now: cards are graded via the API once flashcards ship, the
+  // streak comes from the backend heatmap, and there's no theme switcher yet.
+  const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
+  const [streakDays] = useLocalStorage('dsa_streak', 0);
+  const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
   // A feature-flagged-off screen can still be remembered in localStorage from
@@ -281,13 +278,9 @@ function App() {
 
   // Sync a single problem into local state (server already has the change)
   const applyProblemUpdate = (updatedProblem) => {
-    setProblems(prevProblems => {
-      const nextProblems = prevProblems.map(p =>
-        p.id === updatedProblem.id ? updatedProblem : p
-      );
-      recalculateTopicMastery(nextProblems);
-      return nextProblems;
-    });
+    setProblems(prevProblems =>
+      prevProblems.map(p => (p.id === updatedProblem.id ? updatedProblem : p))
+    );
   };
 
   // Update a single problem in local state and database
@@ -304,11 +297,7 @@ function App() {
   const handleDeleteProblems = async (ids) => {
     try {
       await Promise.all(ids.map(id => api.deleteProblem(id)));
-      setProblems(prevProblems => {
-        const nextProblems = prevProblems.filter(p => !ids.includes(p.id));
-        recalculateTopicMastery(nextProblems);
-        return nextProblems;
-      });
+      setProblems(prevProblems => prevProblems.filter(p => !ids.includes(p.id)));
       if (selectedId && ids.includes(selectedId)) {
         setSelectedId(null);
         setScreen('problems');
@@ -321,41 +310,54 @@ function App() {
   // Add a problem imported from the LeetCode library (already created on the
   // backend) to local state.
   const handleSaveProblem = (newProblem) => {
-    setProblems(prevProblems => {
-      const nextProblems = [newProblem, ...prevProblems];
-      recalculateTopicMastery(nextProblems);
-      return nextProblems;
-    });
+    setProblems(prevProblems => [newProblem, ...prevProblems]);
   };
 
+  // Topic mastery. The backend is the source of truth (/api/topics: solved out
+  // of total per topic, so the bar always matches the fraction); refetched
+  // whenever the problem list changes so status updates show up.
+  const [serverTopics, setServerTopics] = useState(null);
 
-  // Recalculates the topic mastery completion percentage automatically
-  const recalculateTopicMastery = (currentProblems) => {
-    setTopics(prevTopics => {
-      return prevTopics.map(topic => {
-        const topicProblems = currentProblems.filter(p => p.topic.toLowerCase() === topic.name.toLowerCase());
-        if (topicProblems.length === 0) return topic;
+  // Clear the previous user's mastery the moment the user changes (logout or
+  // switch), so a failed or slow refetch never shows another user's data.
+  useEffect(() => {
+    setServerTopics(null);
+  }, [user?.id]);
 
-        const solved = topicProblems.filter(p => p.status === 'Done').length;
-        const total = topicProblems.length;
-        
-        // Simulating the pdf fraction standard (e.g. solved/total fraction)
-        // We preserve the denominator base for visual consistency but update numerator
-        const parts = topic.frac.split('/');
-        const originalTotal = parseInt(parts[1], 10) || total;
-        
-        // Scale numerator proportionally
-        const ratio = solved / total;
-        const scaledSolved = Math.round(ratio * originalTotal);
-
-        return {
-          ...topic,
-          pct: Math.round(ratio * 100),
-          frac: `${scaledSolved}/${originalTotal}`
-        };
+  // Refetch whenever the user or problem list changes. The cancelled flag drops
+  // stale responses so rapid status toggles can't land out of order and leave
+  // an older topic snapshot rendered.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    api.getTopics()
+      .then((data) => { if (!cancelled) setServerTopics(data); })
+      .catch((err) => {
+        if (!cancelled) console.warn('Could not load topics:', err.message);
       });
-    });
-  };
+    return () => { cancelled = true; };
+  }, [user?.id, problems]);
+
+  // Offline fallback: the same solved/total per topic, derived locally.
+  const localTopics = useMemo(() => {
+    const byTopic = new Map();
+    for (const p of problems) {
+      const name = p.topic || 'Other';
+      const entry = byTopic.get(name) || { name, solved: 0, total: 0 };
+      entry.total += 1;
+      if (p.status === 'Done') entry.solved += 1;
+      byTopic.set(name, entry);
+    }
+    return [...byTopic.values()]
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+      .map(({ name, solved, total }) => ({
+        name,
+        frac: `${solved}/${total}`,
+        pct: Math.round((solved / total) * 100)
+      }));
+  }, [problems]);
+
+  const topics = serverTopics ?? localTopics;
 
   // Helper to fetch current selected problem. No fallback: a stale deep link
   // (e.g. /problems/<deleted-id>) must show "not found", not a different problem.
@@ -427,8 +429,6 @@ function App() {
             onUpdateProblem={handleUpdateProblem}
             onDeleteProblems={handleDeleteProblems}
             onReviseProblems={handleStartRevision}
-            templatePatterns={templatePatterns}
-            themeColor={themeAccent}
           />
         );
       case 'revise':

@@ -37,49 +37,59 @@ export default function Heatmap({ colorBase = '111, 191, 146', activity = null, 
       ...Object.values(days).map((d) => d.reviews + d.solves)
     );
 
+    // Month-segmented columns: a new column starts on each Sunday and on the
+    // 1st of each month, so a week straddling a month boundary is split into
+    // two partial columns and every column holds days of a single month.
+    // Cells sit at their weekday row; the unused rows stay null (transparent).
     const columns = [];
+    let column = null;
     const cursor = toDate(startDate);
     while (cursor <= end) {
-      const column = [];
-      for (let d = 0; d < 7; d++) {
-        if (cursor > end) {
-          // Days in the current week that haven't happened yet.
-          column.push(null);
-        } else {
-          const iso = toIso(cursor);
-          const { reviews = 0, solves = 0 } = days[iso] || {};
-          const count = reviews + solves;
-          const opacity =
-            count === 0
-              ? EMPTY_OPACITY
-              : LEVEL_OPACITIES[Math.min(3, Math.ceil((count / maxCount) * 4) - 1)];
-          column.push({
-            date: iso,
-            reviews,
-            solves,
-            count,
-            color: `rgba(${colorBase}, ${opacity})`,
-          });
-        }
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      const dow = cursor.getUTCDay();
+      if (!column || dow === 0 || cursor.getUTCDate() === 1) {
+        column = Array(7).fill(null);
+        columns.push(column);
       }
-      columns.push(column);
+      const iso = toIso(cursor);
+      const { reviews = 0, solves = 0 } = days[iso] || {};
+      const count = reviews + solves;
+      const opacity =
+        count === 0
+          ? EMPTY_OPACITY
+          : LEVEL_OPACITIES[Math.min(3, Math.ceil((count / maxCount) * 4) - 1)];
+      column[dow] = {
+        date: iso,
+        reviews,
+        solves,
+        count,
+        color: `rgba(${colorBase}, ${opacity})`,
+      };
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     return columns;
   }, [activity, weeks, colorBase]);
 
-  // Label a column when its Sunday lands in a new month; skip a cramped first
-  // label that would collide with the next month one column over.
+  // Every column holds days of a single month. Each month's first column
+  // carries a label along with the block's column count, so the text can be
+  // centered across the whole block. Skip a cramped first label whose lone
+  // leading column would collide with the next month's label.
   const monthLabels = useMemo(() => {
-    const monthOf = (week) => toDate(week[0].date).getUTCMonth();
-    return grid.map((week, i) => {
-      const m = monthOf(week);
-      if (i === 0) {
-        return grid.length > 1 && monthOf(grid[1]) !== m ? '' : MONTHS[m];
+    const monthOf = (column) => toDate(column.find(Boolean).date).getUTCMonth();
+    const labels = grid.map(() => null);
+    let start = 0;
+    for (let i = 1; i <= grid.length; i++) {
+      if (i === grid.length || monthOf(grid[i]) !== monthOf(grid[start])) {
+        labels[start] = { text: MONTHS[monthOf(grid[start])], span: i - start };
+        start = i;
       }
-      return monthOf(grid[i - 1]) !== m ? MONTHS[m] : '';
-    });
+    }
+    if (labels[0] && labels[0].span < 2 && grid.length > 1) labels[0] = null;
+    return labels;
   }, [grid]);
+
+  // Extra space before each month's first column, so months read as blocks.
+  // Applied to the label row and the grid alike to keep columns aligned.
+  const monthGap = (i) => (i > 0 && monthLabels[i] ? ' ml-sp-10' : '');
 
   // Keep the most recent weeks in view when the grid overflows.
   useEffect(() => {
@@ -94,22 +104,32 @@ export default function Heatmap({ colorBase = '111, 191, 146', activity = null, 
 
   return (
     <div ref={scrollRef} className="overflow-x-auto custom-scrollbar">
-      <div className="w-max">
+      {/* Fluid columns (flex-1) so the whole year fits the card without
+          scrolling; the min-width only kicks in on very narrow screens. */}
+      <div className="min-w-[640px]">
         <div className="flex gap-sp-3 mb-1.5">
+          {/* Space before ${} keeps Tailwind's scanner extracting h-sp-10 */}
           {monthLabels.map((label, i) => (
-            <div key={i} className="w-sp-13 shrink-0 font-mono text-fs-10 text-text-muted leading-none">
-              <span className="whitespace-nowrap">{label}</span>
+            <div key={i} className={`relative flex-1 min-w-0 h-sp-10 ${monthGap(i)}`}>
+              {label && (
+                <span
+                  className="absolute left-0 top-0 text-center font-mono text-fs-10 text-text-muted leading-none whitespace-nowrap"
+                  style={{ width: `calc(${label.span * 100}% + ${(label.span - 1) * 3}px)` }}
+                >
+                  {label.text}
+                </span>
+              )}
             </div>
           ))}
         </div>
 
         <div className="flex gap-sp-3" onMouseLeave={() => setTip(null)}>
-          {grid.map((week, wIdx) => (
-            <div key={wIdx} className="flex flex-col gap-sp-3">
-              {week.map((cell, dIdx) => (
+          {grid.map((column, cIdx) => (
+            <div key={cIdx} className={`flex flex-col flex-1 min-w-0 gap-sp-3 ${monthGap(cIdx)}`}>
+              {column.map((cell, dIdx) => (
                 <div
                   key={dIdx}
-                  className="w-sp-13 h-sp-13 rounded-sm transition-colors duration-300"
+                  className="w-full aspect-square rounded-sm transition-colors duration-300"
                   style={{ backgroundColor: cell ? cell.color : 'transparent' }}
                   onMouseEnter={cell ? (e) => showTip(e, cell) : undefined}
                   onMouseLeave={() => setTip(null)}

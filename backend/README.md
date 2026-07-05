@@ -7,11 +7,14 @@ Data is **per-user** (no authentication): each request is scoped to the current
 profile, resolved from an `X-User-Id` header. A fresh install has an **empty
 users table** — the first profile is created through onboarding (`POST /users`),
 and user-scoped endpoints require the header (there is no default profile).
-Problems and flashcards belong to a user; topics, patterns, and templates are a
-shared global bank. Spaced-repetition state lives in its own per-user `Revision`
-table (one row per item), kept separate from the content rows. Rows scheduled by
-the old SM-2 code migrate to FSRS automatically on their next grade (their
-`ReviewLog` history is replayed).
+Problems, flashcards, and the template library belong to a user (each new
+profile gets its own editable copy of the starter templates); topics,
+problem-pattern tags, and the LeetCode question catalog are shared global
+reference data; curriculums are seeded global lists plus any the user creates.
+Spaced-repetition state lives in its own per-user `Revision` table (one row per
+item), kept separate from the content rows. Rows scheduled by the old SM-2 code
+migrate to FSRS automatically on their next grade (their `ReviewLog` history is
+replayed).
 
 ## Layout
 
@@ -22,14 +25,14 @@ backend/
 │   ├── config.py        # settings from .env (pydantic-settings)
 │   ├── db.py            # engine + session dependency
 │   ├── deps.py          # get_current_user (requires X-User-Id header → User)
-│   ├── models.py        # tables: User, Topic, Pattern, Problem, Template, Flashcard, Revision, ReviewLog
+│   ├── models.py        # tables: User, Topic, Pattern, Problem (+ approaches), TemplatePattern/Variation, Flashcard, Revision, ReviewLog, LeetCodeQuestion, Curriculum
 │   ├── revisions.py     # per-user SRS state: get-or-create + grading (incl. SM-2 → FSRS replay)
 │   ├── schemas.py       # request bodies (camelCase, matches the frontend)
 │   ├── srs.py           # FSRS scheduler (py-fsrs) + per-grade interval previews
 │   ├── serialize.py     # emits the exact JSON shape the React frontend reads
-│   ├── seed.py          # seeds global reference data only (topics + templates)
+│   ├── seed.py          # seeds global topics + holds the per-user starter template library
 │   ├── bootstrap.py     # `python -m app.bootstrap`: run migrations + all seeds in order
-│   └── routers/         # users, problems, topics, templates, flashcards, stats
+│   └── routers/         # users, problems, topics, templates, flashcards, stats, leetcode_questions, curriculums
 ├── requirements.txt
 └── .env.example
 ```
@@ -114,26 +117,44 @@ never changes**. To apply new migrations after `git pull`, just re-run
 
 Base URL: `http://localhost:8000/api` · Interactive docs at `/docs`.
 
-All routes except `/health` and `/users` (create/list) are scoped to the current
-user and **require** an `X-User-Id: <id>` header (the id returned by
-`POST /users`). Requests without it get `400 Missing X-User-Id header`.
+All routes are scoped to the current user and **require** an `X-User-Id: <id>`
+header (the id returned by `POST /users`), except `/health`, `/users`
+(create/list), and the read-only LeetCode catalog (`GET /leetcode-questions`,
+`GET /leetcode-questions/{id}`). Requests without it get
+`400 Missing X-User-Id header`.
 
 | Method | Path                     | Description                                   |
 | ------ | ------------------------ | --------------------------------------------- |
 | GET    | `/health`                | liveness check                                |
-| GET    | `/users`                 | list profiles (for a future switcher)         |
+| GET    | `/users`                 | list profiles (profile recovery / future switcher) |
 | POST   | `/users`                 | create a profile → returns `id`               |
 | GET    | `/users/me`              | the current profile (from `X-User-Id`)        |
 | PATCH  | `/users/me`              | update name / email / timezone / dailyGoal / bio |
-| GET    | `/stats`                 | dashboard summary (solved, due, streak, …)    |
+| GET    | `/stats`                 | dashboard summary (solved, due, streak, …); `tzOffset` buckets days in local time |
+| GET    | `/stats/activity`        | daily review counts for the heatmap; params: `weeks`, `tzOffset` |
 | GET    | `/topics`                | topics with `pct` / `frac` mastery (per-user) |
-| GET    | `/templates`             | pattern library (global)                      |
+| GET    | `/templates`             | the user's template library (patterns → variations) |
+| POST   | `/templates`             | create a pattern                              |
+| PATCH  | `/templates/{id}`        | update a pattern / its variations             |
+| DELETE | `/templates/{id}`        | delete a pattern                              |
+| POST   | `/templates/reorder`     | persist a new pattern order (`{ ids }`, top-to-bottom) |
+| POST   | `/templates/{id}/variations/reorder` | reorder variations within a pattern |
 | GET    | `/problems`              | list; filters: `topic,difficulty,status,due`  |
 | POST   | `/problems`              | create                                        |
 | GET    | `/problems/{id}`         | one problem                                   |
 | PATCH  | `/problems/{id}`         | update fields / status / patterns             |
 | DELETE | `/problems/{id}`         | delete                                        |
 | POST   | `/problems/{id}/review`  | body `{ "grade": "Good" }` → reschedule (FSRS)|
+| GET    | `/problems/{id}/reviews` | grading history, oldest first                 |
+| GET    | `/leetcode-questions`    | search the catalog; filters: `q,difficulty,tag,curriculum` + `page,limit` |
+| GET    | `/leetcode-questions/{id}` | one catalog question                        |
+| POST   | `/leetcode-questions/{id}/import` | import it into your problem bank     |
+| GET    | `/curriculums`           | global curriculums + the user's own           |
+| POST   | `/curriculums`           | create a curriculum (always user-owned)       |
+| GET    | `/curriculums/{id_or_slug}` | one curriculum with its questions          |
+| DELETE | `/curriculums/{id}`      | delete (own curriculums only)                 |
+| POST   | `/curriculums/{id}/questions` | add catalog questions (`{ questionIds }`)|
+| DELETE | `/curriculums/{id}/questions/{leetcodeId}` | remove one question         |
 | GET    | `/flashcards`            | list; filter: `due` *(feature-flagged)*       |
 | POST   | `/flashcards/{id}/review`| body `{ "grade": "Good" }` *(feature-flagged)*|
 
@@ -155,9 +176,10 @@ ruff check app/ tests/
 
 ## Frontend contract
 
-`serialize.py` returns problems in the exact shape `frontend/src/data/initialData.js`
-uses (`exIn`, `exOut`, `due`, `created`, `lastRevised`, `nextLabel`, `nextColor`,
-`dueMeta`, `revisions`, `patterns`, `topic` as a name), plus raw fields
-(`dueAt`, `easeFactor`, …) for future client-side formatting. That makes the swap
-from `useLocalStorage` to `fetch` close to drop-in — see the repo root README for
-the wiring steps.
+`serialize.py` returns problems in the exact camelCase shape the React app
+consumes (`exIn`, `exOut`, `due`, `created`, `lastRevised`, `nextLabel`,
+`nextColor`, `dueMeta`, `revisions`, `patterns`, `topic` as a name), plus raw
+fields (`dueAt`, `easeFactor`, …) for client-side formatting. The consumer is
+the fetch client in [`frontend/src/api.js`](../frontend/src/api.js), which
+covers every endpoint in the table above — see the root README's
+"Architecture" section for what lives in the API vs. `localStorage`.
