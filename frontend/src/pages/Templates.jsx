@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import SyntaxHighlighter from '../components/common/SyntaxHighlighter';
+import CodeEditor from '../components/common/CodeEditor';
 import Button from '../components/common/Button';
 
 // A two-level, editable template library (mirrors the claude.ai/design screen).
@@ -623,13 +624,14 @@ export default function Templates({
                               <div className="flex items-center px-3 py-[7px] border-b border-border-subtle font-mono text-fs-9-5 text-border-accent tracking-[0.05em]">
                                 TEMPLATE
                               </div>
-                              <textarea
+                              <CodeEditor
                                 value={v.code}
-                                onChange={(e) => draftVarSet(i, 'code', e.target.value)}
-                                rows={7}
-                                spellCheck={false}
+                                onChange={(val) => draftVarSet(i, 'code', val)}
+                                language={v.lang}
+                                lineNumbers={false}
                                 placeholder="Paste your code template…"
-                                className="block w-full box-border m-0 py-3 px-3.5 bg-transparent border-none font-mono text-fs-11-5 leading-[1.6] text-text-code outline-none resize-y"
+                                minHeight="150px"
+                                className="text-fs-11-5"
                               />
                             </div>
                           </div>
