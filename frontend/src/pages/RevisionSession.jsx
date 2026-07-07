@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Badge from '../components/common/Badge';
 import CodeBlock from '../components/common/CodeBlock';
+import CodeEditor from '../components/common/CodeEditor';
 import Button from '../components/common/Button';
 import { GRADES, gradeIntervalLabel } from '../data/initialData';
 import * as api from '../api';
@@ -81,24 +82,6 @@ export default function RevisionSession({
 
   const handleHideAll = () => {
     setRevealedApproaches({});
-  };
-
-  // Support Tab key indentation inside scratchpad textarea
-  const handleScratchpadKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = e.target.selectionStart;
-      const end = e.target.selectionEnd;
-      const value = e.target.value;
-      
-      const newText = value.substring(0, start) + '    ' + value.substring(end);
-      setScratchpadText(newText);
-      
-      // Reset cursor position after state sync/render
-      setTimeout(() => {
-        e.target.selectionStart = e.target.selectionEnd = start + 4;
-      }, 0);
-    }
   };
 
   // Handle rescheduling the card based on spacing grade via API.
@@ -534,14 +517,16 @@ export default function RevisionSession({
               <label className="font-mono text-fs-11 text-text-muted tracking-[0.05em] uppercase">
                 // CODE scratchpad — type your solution from memory here
               </label>
-              <textarea
-                placeholder="def solve(params):&#10;    # Write code here... Use Tab for indentation"
-                value={scratchpadText}
-                onChange={(e) => setScratchpadText(e.target.value)}
-                onKeyDown={handleScratchpadKeyDown}
-                rows={12}
-                className="bg-[#0c0c0c] border border-border-main font-mono text-fs-13 text-text-code outline-none focus:border-accent p-4 rounded-xl resize-y w-full select-text min-h-[280px]"
-              />
+              <div className="bg-[#0c0c0c] border border-border-main rounded-xl overflow-hidden focus-within:border-accent transition-colors">
+                <CodeEditor
+                  value={scratchpadText}
+                  onChange={setScratchpadText}
+                  language={activeApproach.lang || 'Python'}
+                  placeholder={'def solve(params):\n    # Write code here...'}
+                  minHeight="280px"
+                  className="text-fs-13"
+                />
+              </div>
             </div>
 
             {/* Revealed content or reveal challenge banner */}
@@ -594,8 +579,9 @@ export default function RevisionSession({
                 )}
 
                 {/* Solution Code */}
-                <CodeBlock 
+                <CodeBlock
                   code={activeApproach?.code || ''}
+                  lang={activeApproach?.lang}
                   isSpoiler={false}
                   revealed={true}
                   title={`${activeApproach?.name?.toUpperCase() || 'SOLUTION'} (${activeApproach?.lang || 'Python'})`}

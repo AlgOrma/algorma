@@ -3,6 +3,7 @@ import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Checklist from '../components/common/Checklist';
 import ConfirmationModal from '../components/common/ConfirmationModal';
+import CodeEditor from '../components/common/CodeEditor';
 
 // Simple Markdown to HTML formatter for editorial solutions (matching LeetCodeLibrary)
 const formatMarkdown = (text) => {
@@ -72,10 +73,6 @@ export default function ProblemDetail({
   // Dropdown menu state and ref
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
-
-  // Refs for editor scroll sync
-  const textareaRef = useRef(null);
-  const gutterRef = useRef(null);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -288,16 +285,7 @@ export default function ProblemDetail({
     });
   };
 
-  // Sync editor scrolling
-  const handleScroll = () => {
-    if (textareaRef.current && gutterRef.current) {
-      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
-    }
-  };
-
   const activeApproach = approaches[activeApproachIdx] || {};
-  const codeLinesCount = (activeApproach.code || '').split('\n').length || 1;
-  const lineNumbers = Array.from({ length: Math.max(codeLinesCount, 25) }, (_, i) => i + 1);
 
   return (
     <div className="w-full h-full flex flex-col bg-[#050505] text-[#eaeaea] overflow-hidden select-none">
@@ -868,30 +856,14 @@ export default function ProblemDetail({
               </div>
 
               {/* Code Playground area (Scrollable code block) */}
-              <div className="flex-1 flex overflow-hidden min-h-0 bg-[#0a0a0a] relative select-text">
-                
-                {/* Line Gutter */}
-                <div
-                  ref={gutterRef}
-                  id="line-gutter"
-                  className="w-10 select-none bg-[#0a0a0a] border-r border-border-muted/30 text-right pr-2.5 py-4 font-mono text-[11.5px] leading-[1.65] text-[#333] overflow-hidden shrink-0"
-                >
-                  {lineNumbers.map((num) => (
-                    <div key={num} className="h-[19px]">
-                      {num}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Code Textarea */}
-                <textarea
-                  ref={textareaRef}
+              <div className="flex-1 overflow-hidden min-h-0 bg-[#0a0a0a] select-text">
+                <CodeEditor
                   value={activeApproach.code || ''}
-                  onChange={(e) => handleUpdateApproachField('code', e.target.value)}
-                  onScroll={handleScroll}
+                  onChange={(val) => handleUpdateApproachField('code', val)}
+                  language={activeApproach.lang || 'Python'}
                   placeholder="// Type your solution here..."
-                  className="flex-1 bg-transparent border-none outline-none p-4 font-mono text-[11.5px] leading-[1.65] text-text-code whitespace-pre overflow-auto resize-none h-full focus:ring-0 select-text"
-                  spellCheck="false"
+                  height="100%"
+                  className="h-full text-[11.5px]"
                 />
               </div>
             </div>
