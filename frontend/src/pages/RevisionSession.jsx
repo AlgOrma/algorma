@@ -579,8 +579,9 @@ export default function RevisionSession({
                 )}
 
                 {/* Solution Code */}
-                <CodeBlock 
+                <CodeBlock
                   code={activeApproach?.code || ''}
+                  lang={activeApproach?.lang}
                   isSpoiler={false}
                   revealed={true}
                   title={`${activeApproach?.name?.toUpperCase() || 'SOLUTION'} (${activeApproach?.lang || 'Python'})`}

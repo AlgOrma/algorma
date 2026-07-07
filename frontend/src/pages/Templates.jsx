@@ -522,7 +522,7 @@ export default function Templates({
                                       </span>
                                     </div>
                                     <pre className="m-0 py-3 px-3.5 font-mono text-fs-11-5 leading-[1.6] text-text-code whitespace-pre overflow-x-auto custom-scrollbar">
-                                      <SyntaxHighlighter code={v.code} />
+                                      <SyntaxHighlighter code={v.code} lang={v.lang} />
                                     </pre>
                                   </div>
                                 </>

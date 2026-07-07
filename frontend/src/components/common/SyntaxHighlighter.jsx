@@ -1,7 +1,63 @@
 import React, { useMemo } from 'react';
+import { highlightCode, tagHighlighter, tags as t } from '@lezer/highlight';
+import { pythonLanguage } from '@codemirror/lang-python';
+import { javascriptLanguage, typescriptLanguage } from '@codemirror/lang-javascript';
+import { javaLanguage } from '@codemirror/lang-java';
+import { cppLanguage } from '@codemirror/lang-cpp';
+import { goLanguage } from '@codemirror/lang-go';
+import { rustLanguage } from '@codemirror/lang-rust';
 
-// A lightweight, fast regex-based tokenizer/syntax highlighter.
-// Zero dependencies, very small bundle footprint.
+// Language names as they appear in approach/template `lang` fields
+const LANGUAGE_PARSERS = {
+  python: pythonLanguage,
+  javascript: javascriptLanguage,
+  typescript: typescriptLanguage,
+  java: javaLanguage,
+  'c++': cppLanguage,
+  cpp: cppLanguage,
+  c: cppLanguage,
+  go: goLanguage,
+  rust: rustLanguage,
+};
+
+// Same token palette as CodeEditor's theme and the regex fallback below
+const tokenClasses = tagHighlighter([
+  { tag: t.comment, class: 'text-text-muted/80 italic' },
+  { tag: [t.string, t.special(t.string), t.regexp], class: 'text-accent-green' },
+  { tag: [t.keyword, t.modifier, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword], class: 'text-accent-orange font-medium' },
+  { tag: [t.number, t.bool, t.null, t.atom], class: 'text-accent-blue' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], class: 'text-accent font-medium' },
+  { tag: [t.typeName, t.className, t.namespace], class: 'text-accent-blue' },
+]);
+
+// Grammar-accurate highlighting for languages CodeMirror can parse
+function lezerTokenize(code, language) {
+  const nodes = [];
+  let key = 0;
+  highlightCode(
+    code,
+    language.parser.parse(code),
+    tokenClasses,
+    (text, classes) => {
+      nodes.push(
+        classes ? (
+          <span key={key++} className={classes}>
+            {text}
+          </span>
+        ) : (
+          text
+        )
+      );
+    },
+    () => {
+      nodes.push('\n');
+    }
+  );
+  return nodes;
+}
+
+// A lightweight, fast regex-based tokenizer used as a fallback when the
+// language is unknown. Zero extra bundle footprint.
 const TOKEN_REGEX = new RegExp(
   [
     // Comments: // or /* */ or #
@@ -18,86 +74,63 @@ const TOKEN_REGEX = new RegExp(
   'g'
 );
 
-function tokenize(code) {
+const REGEX_TOKEN_CLASSES = {
+  comment: 'text-text-muted/80 italic',
+  string: 'text-accent-green',
+  keyword: 'text-accent-orange font-medium',
+  number: 'text-accent-blue',
+  function: 'text-accent font-medium',
+};
+
+function regexTokenize(code) {
   if (!code) return [];
   TOKEN_REGEX.lastIndex = 0;
-  
-  const tokens = [];
+
+  const nodes = [];
   let lastIndex = 0;
+  let key = 0;
   let match;
-  
+
   while ((match = TOKEN_REGEX.exec(code)) !== null) {
     if (match.index > lastIndex) {
-      tokens.push({
-        type: 'text',
-        text: code.slice(lastIndex, match.index),
-      });
+      nodes.push(code.slice(lastIndex, match.index));
     }
-    
+
     const groups = match.groups || {};
-    let matchedType = 'text';
-    
-    if (groups.comment) matchedType = 'comment';
-    else if (groups.string) matchedType = 'string';
-    else if (groups.keyword) matchedType = 'keyword';
-    else if (groups.number) matchedType = 'number';
-    else if (groups.function) matchedType = 'function';
-    
-    tokens.push({
-      type: matchedType,
-      text: match[0],
-    });
-    
+    const matchedType = Object.keys(REGEX_TOKEN_CLASSES).find((type) => groups[type]);
+
+    nodes.push(
+      matchedType ? (
+        <span key={key++} className={REGEX_TOKEN_CLASSES[matchedType]}>
+          {match[0]}
+        </span>
+      ) : (
+        match[0]
+      )
+    );
+
     lastIndex = TOKEN_REGEX.lastIndex;
   }
-  
+
   if (lastIndex < code.length) {
-    tokens.push({
-      type: 'text',
-      text: code.slice(lastIndex),
-    });
+    nodes.push(code.slice(lastIndex));
   }
-  
-  return tokens;
+
+  return nodes;
 }
 
-export default function SyntaxHighlighter({ code, className = '' }) {
-  const tokens = useMemo(() => tokenize(code), [code]);
+export default function SyntaxHighlighter({ code, lang, className = '' }) {
+  const content = useMemo(() => {
+    const language = LANGUAGE_PARSERS[(lang || '').toLowerCase()];
+    if (language) {
+      try {
+        return lezerTokenize(code || '', language);
+      } catch {
+        // fall through to the regex tokenizer
+      }
+    }
+    return regexTokenize(code);
+  }, [code, lang]);
 
-  return (
-    <span className={className}>
-      {tokens.map((token, idx) => {
-        if (token.type === 'text') {
-          return token.text;
-        }
-        
-        let styleClass = '';
-        switch (token.type) {
-          case 'comment':
-            styleClass = 'text-text-muted/80 italic';
-            break;
-          case 'string':
-            styleClass = 'text-accent-green';
-            break;
-          case 'keyword':
-            styleClass = 'text-accent-orange font-medium';
-            break;
-          case 'number':
-            styleClass = 'text-accent-blue';
-            break;
-          case 'function':
-            styleClass = 'text-accent font-medium';
-            break;
-          default:
-            break;
-        }
-        
-        return (
-          <span key={idx} className={styleClass}>
-            {token.text}
-          </span>
-        );
-      })}
-    </span>
-  );
+  return <span className={className}>{content}</span>;
 }
