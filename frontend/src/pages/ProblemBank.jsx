@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import CustomListsModal from '../components/common/CustomListsModal';
 
 export default function ProblemBank({
   problems = [],
@@ -8,12 +9,20 @@ export default function ProblemBank({
   onNewProblem,
   onDeleteProblems,
   onReviseProblems,
-  initialSearchQuery = ''
+  initialSearchQuery = '',
+  customLists = [],
+  onLoadCustomLists,
+  onRefreshProblems
 }) {
   const [search, setSearch] = useState(initialSearchQuery);
   const [selectedTopic, setSelectedTopic] = useState('All');
   const [selectedDiff, setSelectedDiff] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedPlaylist, setSelectedPlaylist] = useState('All');
+  
+  // Custom Lists modal state
+  const [isCustomListsModalOpen, setIsCustomListsModalOpen] = useState(false);
+  const [modalTarget, setModalTarget] = useState(null);
   const [dueOnly, setDueOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -21,7 +30,7 @@ export default function ProblemBank({
   // Reset selection when filters or problems change
   useEffect(() => {
     setSelectedIds([]);
-  }, [search, selectedTopic, selectedDiff, selectedStatus, dueOnly, problems.length]);
+  }, [search, selectedTopic, selectedDiff, selectedStatus, selectedPlaylist, dueOnly, problems.length]);
 
   const handleToggleSelectAll = () => {
     const allFilteredIds = filteredProblems.map(p => p.id);
@@ -79,11 +88,13 @@ export default function ProblemBank({
       const matchesDiff = selectedDiff === 'All' || p.difficulty === selectedDiff;
       const matchesStatus = selectedStatus === 'All' || p.status === selectedStatus;
       
+      const matchesPlaylist = selectedPlaylist === 'All' || (p.customListIds && p.customListIds.includes(selectedPlaylist));
+      
       const matchesDue = !dueOnly || p.due;
 
-      return matchesSearch && matchesTopic && matchesDiff && matchesStatus && matchesDue;
+      return matchesSearch && matchesTopic && matchesDiff && matchesStatus && matchesPlaylist && matchesDue;
     });
-  }, [problems, search, selectedTopic, selectedDiff, selectedStatus, dueOnly]);
+  }, [problems, search, selectedTopic, selectedDiff, selectedStatus, selectedPlaylist, dueOnly]);
 
   return (
     <div className="w-full h-full overflow-y-auto custom-scrollbar">
@@ -133,6 +144,18 @@ export default function ProblemBank({
             <option value="All">Topic: All</option>
             {uniqueTopics.filter(t => t !== 'All').map(t => (
               <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+
+          {/* List filter */}
+          <select
+            value={selectedPlaylist}
+            onChange={(e) => setSelectedPlaylist(e.target.value)}
+            className="text-fs-12-5 text-text-hover bg-bg-card border border-border-main rounded-card-btn px-3 py-2 cursor-pointer outline-none transition-colors duration-200 focus:border-accent"
+          >
+            <option value="All">List: All</option>
+            {customLists.map(pl => (
+              <option key={pl.id} value={pl.id}>{pl.name}</option>
             ))}
           </select>
 
@@ -197,6 +220,17 @@ export default function ProblemBank({
                 variant="secondary" 
                 size="sm"
                 onClick={() => {
+                  setModalTarget(selectedIds);
+                  setIsCustomListsModalOpen(true);
+                }}
+                className="cursor-pointer"
+              >
+                Add to List
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm"
+                onClick={() => {
                   const selectedProblems = problems.filter(p => selectedIds.includes(p.id));
                   if (onReviseProblems) onReviseProblems(selectedProblems);
                 }}
@@ -217,7 +251,7 @@ export default function ProblemBank({
         )}
 
         {/* Table Header */}
-        <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left items-center">
+        <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px_45px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left items-center">
           <div className="flex items-center justify-center">
             {filteredProblems.length > 0 && filteredProblems.every(p => selectedIds.includes(p.id)) ? (
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer" onClick={handleToggleSelectAll}>
@@ -236,6 +270,7 @@ export default function ProblemBank({
           <span>STATUS</span>
           <span>LAST REV</span>
           <span className="text-right">NEXT</span>
+          <span></span>
         </div>
 
         {/* Table Rows */}
@@ -246,7 +281,7 @@ export default function ProblemBank({
               <div 
                 key={row.id} 
                 onClick={() => onOpenProblem(row.id)} 
-                className={`grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px] gap-3 items-center px-sp-18 py-3 border-b border-bg-element-dark cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150 ${isSelected ? 'bg-bg-element-hover/50' : ''}`}
+                className={`grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px_45px] gap-3 items-center px-sp-18 py-3 border-b border-bg-element-dark cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150 ${isSelected ? 'bg-bg-element-hover/50' : ''}`}
               >
                 <div className="flex items-center justify-center">
                   {isSelected ? (
@@ -276,6 +311,23 @@ export default function ProblemBank({
                 <span className={`font-mono text-fs-11 text-right ${row.due ? 'text-accent' : 'text-text-muted'}`}>
                   {row.due ? 'today' : row.nextLabel || '—'}
                 </span>
+                <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    title="Add to list"
+                    onClick={() => {
+                      setModalTarget(row);
+                      setIsCustomListsModalOpen(true);
+                    }}
+                    className="bg-transparent border-none text-text-muted hover:text-accent font-mono text-fs-12 cursor-pointer transition-colors p-1"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="3.5" y1="6" x2="16.5" y2="6"/>
+                      <line x1="3.5" y1="10" x2="16.5" y2="10"/>
+                      <line x1="3.5" y1="14" x2="11.5" y2="14"/>
+                      <path d="M14.5 13v4M16.5 15h-4"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -321,6 +373,19 @@ export default function ProblemBank({
           </div>
         </div>
       )}
+
+      <CustomListsModal
+        isOpen={isCustomListsModalOpen}
+        target={modalTarget}
+        problems={problems}
+        customLists={customLists}
+        onClose={() => {
+          setIsCustomListsModalOpen(false);
+          setModalTarget(null);
+        }}
+        onLoadCustomLists={onLoadCustomLists}
+        onRefreshProblems={onRefreshProblems}
+      />
     </div>
   );
 }

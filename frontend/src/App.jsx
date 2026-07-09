@@ -10,6 +10,7 @@ import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
 import ProfileSetup from './pages/ProfileSetup';
 import LeetCodeLibrary from './pages/LeetCodeLibrary';
+import CustomLists from './pages/CustomLists';
 import { FEATURES } from './features';
 
 import { INITIAL_CARDS } from './data/initialData';
@@ -20,6 +21,7 @@ const SCREEN_PATHS = {
   dashboard: '/dashboard',
   problems: '/problems',
   leetcode: '/leetcode',
+  'custom-lists': '/custom-lists',
   templates: '/templates',
   revise: '/revise',
   ...(FEATURES.flashcards ? { flashcards: '/flashcards' } : {})
@@ -47,6 +49,8 @@ function App() {
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
   const [problems, setProblems] = useState([]);
   const [problemsLoading, setProblemsLoading] = useState(true);
+  const [customLists, setCustomLists] = useState([]);
+  const [customListsLoading, setCustomListsLoading] = useState(true);
   // Read-only for now: cards are graded via the API once flashcards ship, the
   // streak comes from the backend heatmap, and there's no theme switcher yet.
   const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
@@ -110,7 +114,7 @@ function App() {
   }, []);
 
   // Load problems from the backend database (user-scoped)
-  useEffect(() => {
+  const loadProblems = React.useCallback(() => {
     if (!user?.id) {
       setProblemsLoading(false);
       return;
@@ -125,6 +129,31 @@ function App() {
       })
       .finally(() => setProblemsLoading(false));
   }, [user?.id]);
+
+  useEffect(() => {
+    loadProblems();
+  }, [loadProblems]);
+
+  // Load custom lists from the backend database (user-scoped)
+  const loadCustomLists = React.useCallback(() => {
+    if (!user?.id) {
+      setCustomListsLoading(false);
+      return;
+    }
+    setCustomListsLoading(true);
+    api.getCustomLists()
+      .then((data) => {
+        setCustomLists(data || []);
+      })
+      .catch((err) => {
+        console.warn('Could not load custom lists from backend:', err.message);
+      })
+      .finally(() => setCustomListsLoading(false));
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadCustomLists();
+  }, [loadCustomLists]);
 
 
   // Template library: a two-level, user-editable set of patterns + code
@@ -387,6 +416,9 @@ function App() {
             onReviseProblems={handleStartRevision}
             initialSearchQuery={initialSearchQuery}
             themeColor={themeAccent}
+            customLists={customLists}
+            onLoadCustomLists={loadCustomLists}
+            onRefreshProblems={loadProblems}
           />
         );
       case 'leetcode':
@@ -398,7 +430,21 @@ function App() {
               setSelectedId(newProblem.id);
               setScreen('detail');
             }}
+            onSaveProblem={handleSaveProblem}
+            customLists={customLists}
+            onLoadCustomLists={loadCustomLists}
+            onRefreshProblems={loadProblems}
             themeColor={themeAccent}
+          />
+        );
+      case 'custom-lists':
+        return (
+          <CustomLists
+            customLists={customLists}
+            customListsLoading={customListsLoading}
+            onLoadCustomLists={loadCustomLists}
+            onStartRevision={handleStartRevision}
+            onOpenProblem={handleOpenProblem}
           />
         );
       case 'templates':
@@ -425,6 +471,10 @@ function App() {
         return (
           <ProblemDetail
             problem={currentProblem}
+            problems={problems}
+            customLists={customLists}
+            onLoadCustomLists={loadCustomLists}
+            onRefreshProblems={loadProblems}
             onBack={() => setScreen('problems')}
             onUpdateProblem={handleUpdateProblem}
             onDeleteProblems={handleDeleteProblems}
@@ -497,6 +547,7 @@ function App() {
         activeScreen={screen}
         onNavigate={handleNavigate}
         problemsCount={problems.length}
+        customListsCount={customLists.length}
         templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}

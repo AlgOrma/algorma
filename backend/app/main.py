@@ -16,6 +16,7 @@ from .routers import (
     templates,
     topics,
     users,
+    custom_lists,
 )
 
 # FastAPI 0.115 re-validates each request body field via _compat.ModelField,
@@ -65,4 +66,5 @@ if settings.enable_flashcards:  # feature-flagged: UI not implemented yet
 app.include_router(stats.router)
 app.include_router(leetcode_questions.router)
 app.include_router(curriculums.router)
+app.include_router(custom_lists.router)
 

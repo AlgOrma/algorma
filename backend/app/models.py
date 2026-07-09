@@ -43,6 +43,10 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    custom_lists: list["CustomList"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class ProblemPatternLink(SQLModel, table=True):
@@ -70,6 +74,33 @@ class Pattern(SQLModel, table=True):
         back_populates="patterns", link_model=ProblemPatternLink
     )
     template: Optional["Template"] = Relationship(back_populates="patterns")
+
+
+class CustomListProblemLink(SQLModel, table=True):
+    """Link table between CustomList and Problem."""
+    __tablename__ = "custom_list_problem_link"
+
+    custom_list_id: str = Field(foreign_key="custom_list.id", primary_key=True)
+    problem_id: str = Field(foreign_key="problem.id", primary_key=True)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class CustomList(SQLModel, table=True):
+    """A user's custom playlist of personal Problems."""
+    __tablename__ = "custom_list"
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    name: str
+    description: Optional[str] = None
+    user_id: str = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    # Relationships
+    user: Optional["User"] = Relationship(back_populates="custom_lists")
+    problems: list["Problem"] = Relationship(
+        back_populates="custom_lists", link_model=CustomListProblemLink
+    )
 
 
 class Problem(SQLModel, table=True):
@@ -112,6 +143,9 @@ class Problem(SQLModel, table=True):
     approaches: list["ProblemApproach"] = Relationship(
         back_populates="problem",
         sa_relationship_kwargs={"cascade": "all, delete-orphan", "order_by": "ProblemApproach.position"},
+    )
+    custom_lists: list["CustomList"] = Relationship(
+        back_populates="problems", link_model=CustomListProblemLink
     )
 
 
@@ -324,4 +358,6 @@ class LeetCodeQuestion(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+
 

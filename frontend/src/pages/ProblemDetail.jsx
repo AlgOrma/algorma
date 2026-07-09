@@ -4,6 +4,7 @@ import Button from '../components/common/Button';
 import Checklist from '../components/common/Checklist';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import CodeEditor from '../components/common/CodeEditor';
+import CustomListsModal from '../components/common/CustomListsModal';
 
 // Simple Markdown to HTML formatter for editorial solutions (matching LeetCodeLibrary)
 const formatMarkdown = (text) => {
@@ -49,10 +50,17 @@ export default function ProblemDetail({
   onBack,
   onUpdateProblem,
   onDeleteProblems,
-  onReviseProblems
+  onReviseProblems,
+  problems = [],
+  customLists = [],
+  onLoadCustomLists,
+  onRefreshProblems
 }) {
   // Navigation tabs for left pane: 'description' | 'editorial' | 'checklist'
   const [leftTab, setLeftTab] = useState('description');
+  
+  // Custom list modal state
+  const [isCustomListsModalOpen, setIsCustomListsModalOpen] = useState(false);
   
   // State for approaches & notes
   const [approaches, setApproaches] = useState([]);
@@ -366,6 +374,22 @@ export default function ProblemDetail({
             
             {isMenuOpen && (
               <div className="absolute right-0 mt-1.5 w-40 dropdown-menu-3d z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setIsCustomListsModalOpen(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-fs-13 text-text-hover hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                >
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="3.5" y1="6" x2="16.5" y2="6"/>
+                    <line x1="3.5" y1="10" x2="16.5" y2="10"/>
+                    <line x1="3.5" y1="14" x2="11.5" y2="14"/>
+                    <path d="M14.5 13v4M16.5 15h-4"/>
+                  </svg>
+                  Add to List
+                </button>
+                <div className="border-t border-border-muted my-1"></div>
                 <button
                   onClick={() => {
                     setIsMenuOpen(false);
@@ -907,6 +931,16 @@ export default function ProblemDetail({
         onConfirm={handleConfirmDeleteProblem}
         onCancel={() => setShowDeleteConfirm(false)}
         confirmVariant="red"
+      />
+
+      <CustomListsModal
+        isOpen={isCustomListsModalOpen}
+        target={problem}
+        problems={problems}
+        customLists={customLists}
+        onClose={() => setIsCustomListsModalOpen(false)}
+        onLoadCustomLists={onLoadCustomLists}
+        onRefreshProblems={onRefreshProblems}
       />
     </div>
   );

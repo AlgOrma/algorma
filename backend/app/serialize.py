@@ -193,6 +193,7 @@ def serialize_problem(
         "updatedAt": _iso(p.updated_at),
         "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
+        "customListIds": [cl.id for cl in p.custom_lists] if p.custom_lists else [],
     }
 
 
