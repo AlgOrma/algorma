@@ -6,7 +6,7 @@ from sqlmodel import Session, delete, select
 from ..db import get_session
 from ..deps import get_current_user
 from ..models import CustomList, CustomListProblemLink, Problem, User
-from ..schemas import CustomListCreate, CustomListUpdate, CustomListProblemsUpdate
+from ..schemas import CustomListCreate, CustomListProblemsUpdate, CustomListUpdate
 from ..serialize import serialize_problem
 from ..utils import utcnow
 

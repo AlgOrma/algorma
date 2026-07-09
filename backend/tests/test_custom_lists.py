@@ -1,16 +1,16 @@
 from sqlmodel import select
 
-from app.models import CustomList, CustomListProblemLink, Problem, User
+from app.models import CustomList, CustomListProblemLink, Problem
 from app.routers.custom_lists import (
-    create_custom_list,
-    list_custom_lists,
-    get_custom_list,
-    update_custom_list,
-    delete_custom_list,
     add_problems_to_custom_list,
+    create_custom_list,
+    delete_custom_list,
+    get_custom_list,
+    list_custom_lists,
     remove_problem_from_custom_list,
+    update_custom_list,
 )
-from app.schemas import CustomListCreate, CustomListUpdate, CustomListProblemsUpdate
+from app.schemas import CustomListCreate, CustomListProblemsUpdate, CustomListUpdate
 from app.serialize import serialize_problem
 
 

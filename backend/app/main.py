@@ -9,6 +9,7 @@ from .config import settings
 from .db import check_setup, init_db
 from .routers import (
     curriculums,
+    custom_lists,
     flashcards,
     leetcode_questions,
     problems,
@@ -16,7 +17,6 @@ from .routers import (
     templates,
     topics,
     users,
-    custom_lists,
 )
 
 # FastAPI 0.115 re-validates each request body field via _compat.ModelField,
