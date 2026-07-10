@@ -15,6 +15,12 @@ export default function CustomLists({
   const [customListDetail, setCustomListDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   
+  // Track selected list ID in a ref to drop slow stale responses and prevent race conditions.
+  const currentSelectedIdRef = React.useRef(selectedCustomListId);
+  useEffect(() => {
+    currentSelectedIdRef.current = selectedCustomListId;
+  }, [selectedCustomListId]);
+  
   // Custom List creation & editing
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -34,14 +40,18 @@ export default function CustomLists({
     setLoadingDetail(true);
     try {
       const data = await api.getCustomList(id);
+      if (id !== currentSelectedIdRef.current) return;
       setCustomListDetail(data);
       setEditName(data.name);
       setEditDesc(data.description || '');
     } catch (err) {
+      if (id !== currentSelectedIdRef.current) return;
       alert(err.message || 'Failed to load list details');
       setSelectedCustomListId(null);
     } finally {
-      setLoadingDetail(false);
+      if (id === currentSelectedIdRef.current) {
+        setLoadingDetail(false);
+      }
     }
   };
 

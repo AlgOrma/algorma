@@ -8,6 +8,7 @@ from app.routers.custom_lists import (
     get_custom_list,
     list_custom_lists,
     remove_problem_from_custom_list,
+    remove_problems_from_custom_list,
     update_custom_list,
 )
 from app.schemas import CustomListCreate, CustomListProblemsUpdate, CustomListUpdate
@@ -99,13 +100,41 @@ def test_update_and_delete_custom_list(session, user, topic):
     session.add(link)
     session.commit()
 
-    # Update
-    update_payload = CustomListUpdate(name="New Name", description="New Desc")
+    # Update name without description (should not affect description)
+    update_payload = CustomListUpdate(name="New Name")
     update_res = update_custom_list(id=cl.id, data=update_payload, user=user, session=session)
     assert update_res["name"] == "New Name"
-    assert update_res["description"] == "New Desc"
+    assert update_res["description"] == "Old Desc"
+
+    # Update description to None (should clear it)
+    update_payload_clear = CustomListUpdate(description=None)
+    update_res_clear = update_custom_list(id=cl.id, data=update_payload_clear, user=user, session=session)
+    assert update_res_clear["description"] is None
 
     # Delete
     delete_custom_list(id=cl.id, user=user, session=session)
     assert session.get(CustomList, cl.id) is None
     assert session.exec(select(CustomListProblemLink)).all() == []
+
+
+def test_bulk_remove_problems_custom_list(session, user, topic):
+    cl = CustomList(name="List A", user_id=user.id)
+    session.add(cl)
+    session.commit()
+    session.refresh(cl)
+
+    p1 = make_problem(session, user, topic, "P1")
+    p2 = make_problem(session, user, topic, "P2")
+
+    # Add problems
+    add_payload = CustomListProblemsUpdate(problem_ids=[p1.id, p2.id])
+    add_problems_to_custom_list(id=cl.id, data=add_payload, user=user, session=session)
+
+    # Bulk remove
+    remove_payload = CustomListProblemsUpdate(problem_ids=[p1.id, p2.id])
+    remove_res = remove_problems_from_custom_list(id=cl.id, data=remove_payload, user=user, session=session)
+    assert remove_res["removedCount"] == 2
+
+    # Verify no links remain
+    links = session.exec(select(CustomListProblemLink)).all()
+    assert len(links) == 0

@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/custom-lists", tags=["custom-lists"])
 
 def _require_owned(c: CustomList, user: User) -> None:
     if c.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=404, detail="Custom list not found")
 
 
 @router.get("")
@@ -127,10 +127,11 @@ def update_custom_list(
 
     _require_owned(cl, user)
 
-    if data.name is not None:
-        cl.name = data.name
-    if data.description is not None:
-        cl.description = data.description
+    data_dict = data.model_dump(exclude_unset=True)
+    if "name" in data_dict:
+        cl.name = data_dict["name"]
+    if "description" in data_dict:
+        cl.description = data_dict["description"]
 
     cl.updated_at = utcnow()
     session.add(cl)
@@ -225,3 +226,31 @@ def remove_problem_from_custom_list(
         session.commit()
 
     return Response(status_code=204)
+
+
+@router.post("/{id}/problems/remove", status_code=200)
+def remove_problems_from_custom_list(
+    id: str,
+    data: CustomListProblemsUpdate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    cl = session.get(CustomList, id)
+    if not cl:
+        raise HTTPException(status_code=404, detail="Custom list not found")
+
+    _require_owned(cl, user)
+
+    removed_count = 0
+    for p_id in data.problem_ids:
+        link = session.get(CustomListProblemLink, (cl.id, p_id))
+        if link:
+            session.delete(link)
+            removed_count += 1
+
+    if removed_count > 0:
+        cl.updated_at = utcnow()
+        session.add(cl)
+        session.commit()
+
+    return {"removedCount": removed_count}

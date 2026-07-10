@@ -47,6 +47,9 @@ export default function CustomListsModal({
   // Track whether we made any changes so we know to refresh on close.
   const hasPendingChangesRef = useRef(false);
 
+  // In-flight LeetCode question import promise to prevent duplicate import race conditions.
+  const importPromiseRef = useRef(null);
+
   // Resolve target problems — always look up from the `problems` array so we
   // get the latest customListIds (important for initial membership calc).
   const resolvedTarget = React.useMemo(() => {
@@ -156,8 +159,14 @@ export default function CustomListsModal({
       setShowCreateInline(false);
       setNewListName('');
       setErrorMessage('');
+      importPromiseRef.current = null;
     }
   }, [isOpen]);
+
+  // Reset import promise ref when target changes
+  useEffect(() => {
+    importPromiseRef.current = null;
+  }, [target]);
 
   // Wrap onClose to sync parent state when the modal is dismissed.
   const handleClose = useCallback(() => {
@@ -181,8 +190,16 @@ export default function CustomListsModal({
     try {
       if (isLeetCodeImportMode && targetProblems.length === 0) {
         // Case A: Reference question not yet imported — import first
-        const newProblem = await api.importLeetCodeQuestion(leetcodeQuestion.id);
-        if (onSaveProblem) onSaveProblem(newProblem);
+        if (!importPromiseRef.current) {
+          importPromiseRef.current = api.importLeetCodeQuestion(leetcodeQuestion.id).then((newProblem) => {
+            if (onSaveProblem) onSaveProblem(newProblem);
+            return newProblem;
+          }).catch((err) => {
+            importPromiseRef.current = null; // Reset on failure so the user can retry
+            throw err;
+          });
+        }
+        const newProblem = await importPromiseRef.current;
         await api.addProblemsToCustomList(listId, [newProblem.id]);
       } else {
         // Case B & C: Already-imported personal problem(s)
@@ -190,9 +207,7 @@ export default function CustomListsModal({
         if (isChecked) {
           await api.addProblemsToCustomList(listId, problemIds);
         } else {
-          await Promise.all(
-            problemIds.map((pId) => api.removeProblemFromCustomList(listId, pId))
-          );
+          await api.removeProblemsFromCustomList(listId, problemIds);
         }
       }
 

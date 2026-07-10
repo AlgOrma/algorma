@@ -161,5 +161,7 @@ export const addProblemsToCustomList = (listId, problemIds) =>
   request(`/custom-lists/${listId}/problems`, { method: 'POST', body: { problemIds } });
 export const removeProblemFromCustomList = (listId, problemId) =>
   request(`/custom-lists/${listId}/problems/${problemId}`, { method: 'DELETE' });
+export const removeProblemsFromCustomList = (listId, problemIds) =>
+  request(`/custom-lists/${listId}/problems/remove`, { method: 'POST', body: { problemIds } });
 
 
