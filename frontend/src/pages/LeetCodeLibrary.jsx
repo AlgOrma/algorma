@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import CustomListsModal from '../components/common/CustomListsModal';
 import * as api from '../api';
 
 const POPULAR_TAGS = [
@@ -27,7 +28,14 @@ const POPULAR_TAGS = [
   'Math'
 ];
 
-export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
+export default function LeetCodeLibrary({
+  problems = [],
+  onImportProblem,
+  onSaveProblem,
+  customLists = [],
+  onLoadCustomLists,
+  onRefreshProblems
+}) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedDiff, setSelectedDiff] = useState('All');
@@ -37,6 +45,10 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
 
   // Add to List Select State
   const [addingToListId, setAddingToListId] = useState('');
+
+  // Custom Lists Modal State
+  const [isCustomListsModalOpen, setIsCustomListsModalOpen] = useState(false);
+  const [selectedQuestionForList, setSelectedQuestionForList] = useState(null);
 
   const [page, setPage] = useState(1);
   const [questions, setQuestions] = useState([]);
@@ -300,7 +312,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
         {/* Table Content */}
         <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_140px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left">
+          <div className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left">
             <span>#</span>
             <span>TITLE</span>
             <span>DIFFICULTY</span>
@@ -322,7 +334,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
               Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3.5 border-b border-bg-element-dark"
+                  className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 items-center px-sp-18 py-3.5 border-b border-bg-element-dark"
                 >
                   <div className="lc-skeleton h-3 w-4" />
                   <div className="lc-skeleton h-3.5 w-3/5" />
@@ -351,7 +363,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                     {/* Summary row */}
                     <div
                       onClick={() => handleToggleExpand(q.id)}
-                      className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_140px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150"
+                      className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150"
                     >
                       <span className="font-mono text-fs-12 text-text-muted select-none">
                         {((page - 1) * 25) + idx + 1}.
@@ -384,7 +396,7 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                         )}
                       </div>
 
-                      <div className="text-right">
+                      <div className="flex items-center justify-end gap-2 text-right">
                         <Button
                           size="sm"
                           variant={imported ? 'secondary' : 'primary'}
@@ -400,6 +412,24 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                             : imported
                             ? '✓ Solved'
                             : 'Practice'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Save to Playlist"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedQuestionForList(q);
+                            setIsCustomListsModalOpen(true);
+                          }}
+                          style={{ padding: '0 8px', minWidth: '32px' }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="3.5" y1="6" x2="16.5" y2="6"/>
+                            <line x1="3.5" y1="10" x2="16.5" y2="10"/>
+                            <line x1="3.5" y1="14" x2="11.5" y2="14"/>
+                            <path d="M14.5 13v4M16.5 15h-4"/>
+                          </svg>
                         </Button>
                       </div>
                     </div>
@@ -588,6 +618,25 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
                                 </div>
                               </div>
 
+                              {/* Custom Playlists management */}
+                              <div className="bg-bg-card border border-border-card rounded-xl p-3.5 flex flex-col gap-2.5">
+                                <div className="text-fs-13 font-semibold text-text-main text-left">
+                                  Custom Playlists
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedQuestionForList(expandedQuestion);
+                                    setIsCustomListsModalOpen(true);
+                                  }}
+                                  className="w-full text-center"
+                                >
+                                  Manage playlists...
+                                </Button>
+                              </div>
+
                               {/* Study Lists management */}
                               <div className="bg-bg-card border border-border-card rounded-xl p-3.5 flex flex-col gap-2.5">
                                 <div className="text-fs-13 font-semibold text-text-main text-left">
@@ -714,6 +763,19 @@ export default function LeetCodeLibrary({ problems = [], onImportProblem }) {
         )}
       </div>
 
+      <CustomListsModal
+        isOpen={isCustomListsModalOpen}
+        target={selectedQuestionForList}
+        problems={problems}
+        customLists={customLists}
+        onClose={() => {
+          setIsCustomListsModalOpen(false);
+          setSelectedQuestionForList(null);
+        }}
+        onSaveProblem={onSaveProblem}
+        onLoadCustomLists={onLoadCustomLists}
+        onRefreshProblems={onRefreshProblems}
+      />
     </div>
   );
 }

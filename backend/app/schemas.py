@@ -113,3 +113,18 @@ class CurriculumCreate(CamelModel):
 class CurriculumQuestionsUpdate(CamelModel):
     question_ids: list[str] = []
 
+
+class CustomListCreate(CamelModel):
+    name: str
+    description: str | None = None
+
+
+class CustomListUpdate(CamelModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class CustomListProblemsUpdate(CamelModel):
+    problem_ids: list[str] = []
+
+

@@ -150,3 +150,18 @@ export const addQuestionsToCurriculum = (curriculumId, questionIds) =>
 export const removeQuestionFromCurriculum = (curriculumId, leetcodeId) =>
   request(`/curriculums/${curriculumId}/questions/${leetcodeId}`, { method: 'DELETE' });
 
+
+// --- Custom Lists (Playlists) ---
+export const getCustomLists = () => request('/custom-lists');
+export const createCustomList = (body) => request('/custom-lists', { method: 'POST', body });
+export const getCustomList = (id) => request(`/custom-lists/${id}`);
+export const updateCustomList = (id, body) => request(`/custom-lists/${id}`, { method: 'PATCH', body });
+export const deleteCustomList = (id) => request(`/custom-lists/${id}`, { method: 'DELETE' });
+export const addProblemsToCustomList = (listId, problemIds) =>
+  request(`/custom-lists/${listId}/problems`, { method: 'POST', body: { problemIds } });
+export const removeProblemFromCustomList = (listId, problemId) =>
+  request(`/custom-lists/${listId}/problems/${problemId}`, { method: 'DELETE' });
+export const removeProblemsFromCustomList = (listId, problemIds) =>
+  request(`/custom-lists/${listId}/problems/remove`, { method: 'POST', body: { problemIds } });
+
+

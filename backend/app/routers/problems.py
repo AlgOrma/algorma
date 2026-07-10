@@ -73,6 +73,7 @@ def list_problems(
             selectinload(Problem.topic),
             selectinload(Problem.patterns),
             selectinload(Problem.revision),
+            selectinload(Problem.custom_lists),
         )
         .order_by(Problem.created_at.desc())
     )

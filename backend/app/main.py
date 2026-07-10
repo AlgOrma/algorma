@@ -9,6 +9,7 @@ from .config import settings
 from .db import check_setup, init_db
 from .routers import (
     curriculums,
+    custom_lists,
     flashcards,
     leetcode_questions,
     problems,
@@ -65,4 +66,5 @@ if settings.enable_flashcards:  # feature-flagged: UI not implemented yet
 app.include_router(stats.router)
 app.include_router(leetcode_questions.router)
 app.include_router(curriculums.router)
+app.include_router(custom_lists.router)
 

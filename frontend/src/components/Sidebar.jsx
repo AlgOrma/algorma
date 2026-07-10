@@ -5,6 +5,7 @@ export default function Sidebar({
   activeScreen,
   onNavigate,
   problemsCount = 142,
+  customListsCount = 0,
   templatesCount = 24,
   reviseCount = 5,
   flashcardsCount = 6,
@@ -49,6 +50,18 @@ export default function Sidebar({
           <circle cx="3.6" cy="10" r="1.1"/>
           <circle cx="3.6" cy="5.5" r="1.1"/>
           <circle cx="3.6" cy="14.5" r="1.1"/>
+        </svg>
+      )
+    },
+    {
+      id: 'custom-lists',
+      label: 'Custom Lists',
+      badge: customListsCount,
+      icon: (color) => (
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 13.5V4a1.5 1.5 0 0 1 1.5-1.5h4.5a1.5 1.5 0 0 1 1.25.75L10.5 5h6A1.5 1.5 0 0 1 18 6.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 13.5z"/>
+          <line x1="8" y1="10" x2="12" y2="10"/>
+          <line x1="10" y1="8" x2="10" y2="12"/>
         </svg>
       )
     },
