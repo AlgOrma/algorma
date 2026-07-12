@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import CustomListsModal from '../components/common/CustomListsModal';
+import LeetCodeSyncModal from '../components/common/LeetCodeSyncModal';
 import * as api from '../api';
 
 const POPULAR_TAGS = [
@@ -49,6 +50,9 @@ export default function LeetCodeLibrary({
   // Custom Lists Modal State
   const [isCustomListsModalOpen, setIsCustomListsModalOpen] = useState(false);
   const [selectedQuestionForList, setSelectedQuestionForList] = useState(null);
+
+  // LeetCode account sync modal
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [questions, setQuestions] = useState([]);
@@ -217,13 +221,23 @@ export default function LeetCodeLibrary({
     <div className="w-full h-full overflow-y-auto custom-scrollbar">
       <div className="max-w-[1140px] mx-auto px-sp-30 pt-sp-26 pb-10 flex flex-col gap-4">
         {/* Header section */}
-        <div className="text-left">
-          <div className="text-fs-21 font-bold text-text-main tracking-[-0.015em]">
-            LeetCode Library
+        <div className="flex items-start justify-between gap-4">
+          <div className="text-left">
+            <div className="text-fs-21 font-bold text-text-main tracking-[-0.015em]">
+              LeetCode Library
+            </div>
+            <div className="font-mono text-fs-12 text-text-muted mt-1">
+              {total} reference questions available to search and import
+            </div>
           </div>
-          <div className="font-mono text-fs-12 text-text-muted mt-1">
-            {total} reference questions available to search and import
-          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setIsSyncModalOpen(true)}
+            title="Import your solved LeetCode problems as Done"
+          >
+            ⟳ Sync LeetCode Account
+          </Button>
         </div>
 
         {/* Search bar & filters */}
@@ -762,6 +776,12 @@ export default function LeetCodeLibrary({
           </div>
         )}
       </div>
+
+      <LeetCodeSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSynced={onRefreshProblems}
+      />
 
       <CustomListsModal
         isOpen={isCustomListsModalOpen}

@@ -20,6 +20,9 @@ class User(SQLModel, table=True):
     timezone: str = "UTC"  # reserved for per-user "today" boundaries in stats
     daily_goal: int = 10
     bio: Optional[str] = None
+    # Remembered after a LeetCode sync so the next one can prefill it. The
+    # LEETCODE_SESSION cookie used for full syncs is never stored.
+    leetcode_username: Optional[str] = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

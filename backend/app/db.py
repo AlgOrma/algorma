@@ -40,6 +40,10 @@ def init_db() -> None:
                 "UPDATE problem SET solved_at = updated_at WHERE status = 'Done'"
             ))
             conn.commit()
+        user_columns = [c["name"] for c in inspector.get_columns("user")]
+        if "leetcode_username" not in user_columns:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN leetcode_username VARCHAR'))
+            conn.commit()
         if "leetcode_id" not in columns:
             conn.execute(text("ALTER TABLE problem ADD COLUMN leetcode_id VARCHAR"))
             conn.commit()

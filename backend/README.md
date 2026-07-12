@@ -32,7 +32,7 @@ backend/
 │   ├── serialize.py     # emits the exact JSON shape the React frontend reads
 │   ├── seed.py          # seeds global topics + holds the per-user starter template library
 │   ├── bootstrap.py     # `python -m app.bootstrap`: run migrations + all seeds in order
-│   └── routers/         # users, problems, topics, templates, flashcards, stats, leetcode_questions, curriculums
+│   └── routers/         # users, problems, topics, templates, flashcards, stats, leetcode_questions, leetcode_sync, curriculums
 ├── requirements.txt
 └── .env.example
 ```
@@ -149,6 +149,7 @@ header (the id returned by `POST /users`), except `/health`, `/users`
 | GET    | `/leetcode-questions`    | search the catalog; filters: `q,difficulty,tag,curriculum` + `page,limit` |
 | GET    | `/leetcode-questions/{id}` | one catalog question                        |
 | POST   | `/leetcode-questions/{id}/import` | import it into your problem bank     |
+| POST   | `/leetcode/sync`         | sync solved LeetCode problems into the bank as `Done` (see below) |
 | GET    | `/curriculums`           | global curriculums + the user's own           |
 | POST   | `/curriculums`           | create a curriculum (always user-owned)       |
 | GET    | `/curriculums/{id_or_slug}` | one curriculum with its questions          |
@@ -160,6 +161,25 @@ header (the id returned by `POST /users`), except `/health`, `/users`
 
 `grade` ∈ `Again | Hard | Good | Easy`. Creating a problem auto-creates its
 `Revision` (SRS) row; grading reads/updates that row and appends a `ReviewLog`.
+
+### LeetCode account sync
+
+`POST /leetcode/sync` marks everything you've solved on leetcode.com as `Done`
+here: body `{ "username": "…" }` and/or `{ "sessionCookie": "…" }`.
+
+- **`sessionCookie`** (the browser's `LEETCODE_SESSION` value) fetches your
+  **complete** accepted history via LeetCode's authenticated
+  `/api/problems/all/` endpoint. The cookie is used for that single request
+  and never stored.
+- **`username` only** uses the public `recentAcSubmissionList` GraphQL query,
+  which LeetCode caps at ~20 recent accepted submissions — fine for topping
+  up, not for the first import.
+
+Solved questions are matched against the local catalog (`leetcode_question`):
+ones already in your bank are flipped to `Done`, the rest are imported as
+`Done` problems with a `Revision` row. Repeat syncs are idempotent (they show
+up in the response's `alreadyDone` count). The resolved username is saved to
+the profile (`leetcodeUsername`) so the UI can prefill the next sync.
 
 > [!NOTE]
 > The flashcards endpoints are off by default (the UI isn't implemented yet).
