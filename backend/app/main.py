@@ -12,6 +12,7 @@ from .routers import (
     custom_lists,
     flashcards,
     leetcode_questions,
+    leetcode_sync,
     problems,
     stats,
     templates,
@@ -65,6 +66,7 @@ if settings.enable_flashcards:  # feature-flagged: UI not implemented yet
     app.include_router(flashcards.router)
 app.include_router(stats.router)
 app.include_router(leetcode_questions.router)
+app.include_router(leetcode_sync.router)
 app.include_router(curriculums.router)
 app.include_router(custom_lists.router)
 

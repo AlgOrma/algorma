@@ -140,6 +140,13 @@ export function importLeetCodeQuestion(id) {
   return request(`/leetcode-questions/${id}/import`, { method: 'POST' });
 }
 
+// Sync solved problems from a LeetCode account. Pass { username } for a
+// recent-submissions sync, or { sessionCookie } (the browser's
+// LEETCODE_SESSION value — sent once, never stored) for the full history.
+export function syncLeetCode(body) {
+  return request('/leetcode/sync', { method: 'POST', body });
+}
+
 // --- Curriculums / Study Playlists ---
 export const getCurriculums = () => request('/curriculums');
 export const createCurriculum = (body) => request('/curriculums', { method: 'POST', body });

@@ -102,6 +102,19 @@ class UserUpdate(CamelModel):
     timezone: str | None = None
     daily_goal: int | None = None
     bio: str | None = None
+    leetcode_username: str | None = None  # leetcodeUsername
+
+
+class LeetCodeSyncRequest(CamelModel):
+    """Input for POST /api/leetcode/sync — at least one field is required.
+
+    ``session_cookie`` (the browser's LEETCODE_SESSION value) unlocks the full
+    accepted-history sync; username alone only reaches recent submissions. The
+    cookie is used for the one fetch and never persisted.
+    """
+
+    username: str | None = None
+    session_cookie: str | None = None  # sessionCookie
 
 
 class CurriculumCreate(CamelModel):

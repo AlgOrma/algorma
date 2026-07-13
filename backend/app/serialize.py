@@ -42,6 +42,7 @@ def serialize_user(u: User) -> dict:
         "timezone": u.timezone,
         "dailyGoal": u.daily_goal,
         "bio": u.bio,
+        "leetcodeUsername": u.leetcode_username,
         "createdAt": _iso(u.created_at),
         "updatedAt": _iso(u.updated_at),
     }
