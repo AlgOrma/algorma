@@ -6,7 +6,7 @@ from sqlalchemy import case, func
 from sqlmodel import Session, col, or_, select
 
 from ..db import get_session
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_user_optional
 from ..models import Curriculum, CurriculumQuestionLink, LeetCodeQuestion, Problem, Revision, User
 from ..utils import utcnow
 from .problems import get_or_create_topic
@@ -48,6 +48,7 @@ def list_leetcode_questions(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
+    user: Optional[User] = Depends(get_current_user_optional),
 ):
     # Build the filter conditions once and reuse them for both the page query
     # and the total count, so the two can never drift apart.
@@ -79,6 +80,14 @@ def list_leetcode_questions(
             )
         ).first()
         if curriculum_obj:
+            # Same readability rule as GET /api/curriculums/{id_or_slug}:
+            # global curriculums are visible to everyone, private ones only to
+            # their owner. Without this, filtering the catalog by a guessed
+            # slug would reveal another user's private list membership.
+            if curriculum_obj.user_id is not None and (
+                user is None or curriculum_obj.user_id != user.id
+            ):
+                raise HTTPException(status_code=403, detail="Access denied")
             conditions.append(
                 col(LeetCodeQuestion.id).in_(
                     select(CurriculumQuestionLink.leetcode_id).where(
@@ -86,7 +95,6 @@ def list_leetcode_questions(
                     )
                 )
             )
-
 
     stmt = select(LeetCodeQuestion)
     for cond in conditions:
