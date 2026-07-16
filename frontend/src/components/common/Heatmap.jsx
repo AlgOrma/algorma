@@ -34,7 +34,7 @@ export default function Heatmap({ colorBase = '111, 191, 146', activity = null, 
     const end = toDate(endDate);
     const maxCount = Math.max(
       1,
-      ...Object.values(days).map((d) => d.reviews + d.solves)
+      ...Object.values(days).map(({ reviews = 0, solves = 0 }) => reviews + solves)
     );
 
     // Month-segmented columns: a new column starts on each Sunday and on the
