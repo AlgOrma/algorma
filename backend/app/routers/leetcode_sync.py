@@ -26,9 +26,8 @@ from ..deps import get_current_user
 from ..leetcode_client import LeetCodeAuthError, LeetCodeError
 from ..models import LeetCodeQuestion, Problem, Revision, User
 from ..schemas import LeetCodeSyncRequest
+from ..services.problems import get_or_create_topic, map_leetcode_tags_to_topic
 from ..utils import utcnow
-from .leetcode_questions import map_leetcode_tags_to_topic
-from .problems import get_or_create_topic
 
 router = APIRouter(prefix="/api/leetcode", tags=["leetcode_sync"])
 

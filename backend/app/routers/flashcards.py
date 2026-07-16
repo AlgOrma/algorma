@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
 
 from ..db import get_session
 from ..deps import get_current_user
-from ..models import Flashcard, User
-from ..revisions import get_or_create_flashcard_revision, grade_revision
+from ..models import User
 from ..schemas import GradeIn
 from ..serialize import serialize_flashcard
-from ..srs import VALID_GRADES
+from ..services import flashcards as flashcard_service
 from ..utils import utcnow
 
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
@@ -20,12 +19,8 @@ def list_flashcards(
     session: Session = Depends(get_session),
 ):
     now = utcnow()
-    stmt = (
-        select(Flashcard)
-        .where(Flashcard.user_id == user.id)
-        .order_by(Flashcard.created_at)
-    )
-    rows = [serialize_flashcard(c, c.revision, now) for c in session.exec(stmt).all()]
+    cards = flashcard_service.list_flashcards(session, user)
+    rows = [serialize_flashcard(c, c.revision, now) for c in cards]
     if due is True:
         rows = [r for r in rows if r["due"]]
     return rows
@@ -38,18 +33,7 @@ def review_flashcard(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    if payload.grade not in VALID_GRADES:
-        raise HTTPException(status_code=422, detail="Invalid grade")
-    card = session.get(Flashcard, card_id)
-    if not card or card.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Flashcard not found")
-
-    now = utcnow()
-    revision = get_or_create_flashcard_revision(session, user.id, card.id)
-    grade_revision(session, revision, payload.grade, now)
-    card.updated_at = now
-    session.add(card)
-    session.commit()
-    session.refresh(card)
-    session.refresh(revision)
+    card, revision, now = flashcard_service.review_flashcard(
+        session, user, card_id, payload.grade
+    )
     return serialize_flashcard(card, revision, now)
