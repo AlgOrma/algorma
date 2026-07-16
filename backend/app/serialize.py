@@ -15,7 +15,16 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from .models import Flashcard, Problem, Revision, TemplatePattern, User
+from .models import (
+    Curriculum,
+    Flashcard,
+    LeetCodeQuestion,
+    Problem,
+    ReviewLog,
+    Revision,
+    TemplatePattern,
+    User,
+)
 from .srs import preview_intervals
 from .utils import utcnow
 
@@ -217,6 +226,80 @@ def serialize_template_pattern(p: TemplatePattern) -> dict:
             }
             for v in sorted(p.variations, key=lambda v: v.position)
         ],
+    }
+
+
+def serialize_review_log(log: ReviewLog) -> dict:
+    return {
+        "id": log.id,
+        "grade": log.grade,
+        "intervalDays": log.interval_days,
+        "reviewedAt": log.reviewed_at.isoformat() + "Z",
+    }
+
+
+def serialize_leetcode_question(x: LeetCodeQuestion) -> dict:
+    """Full catalog-question shape for the problem-bank browser."""
+    return {
+        "id": x.id,
+        "questionId": x.question_id,
+        "title": x.title,
+        "difficulty": x.difficulty,
+        "statement": x.statement,
+        "leetcodeUrl": x.leetcode_url,
+        "topicTags": json.loads(x.topic_tags) if x.topic_tags else [],
+        "isPaidOnly": x.is_paid_only,
+        "likes": x.likes,
+        "dislikes": x.dislikes,
+        "categoryTitle": x.category_title,
+        "hints": json.loads(x.hints) if x.hints else [],
+        "solutionContent": x.solution_content,
+        "hasSolution": x.has_solution,
+        "hasVideoSolution": x.has_video_solution,
+        "similarQuestions": json.loads(x.similar_questions)
+        if x.similar_questions
+        else [],
+        "stats": json.loads(x.stats) if x.stats else {},
+    }
+
+
+def serialize_leetcode_question_brief(q: LeetCodeQuestion) -> dict:
+    """Compact catalog-question shape embedded in curriculum detail."""
+    return {
+        "id": q.id,
+        "questionId": q.question_id,
+        "title": q.title,
+        "difficulty": q.difficulty,
+        "leetcodeUrl": q.leetcode_url,
+    }
+
+
+def _curriculum_base(c: Curriculum) -> dict:
+    # createdAt/updatedAt stay raw datetimes here (FastAPI renders them without
+    # the trailing "Z"), matching what the frontend has always received.
+    return {
+        "id": c.id,
+        "name": c.name,
+        "slug": c.slug,
+        "description": c.description,
+        "userId": c.user_id,
+        "isGlobal": c.user_id is None,
+        "createdAt": c.created_at,
+        "updatedAt": c.updated_at,
+    }
+
+
+def serialize_curriculum(c: Curriculum, question_count: int) -> dict:
+    """List/summary shape: counts instead of the question rows themselves."""
+    return {**_curriculum_base(c), "questionCount": question_count}
+
+
+def serialize_curriculum_detail(
+    c: Curriculum, questions: list[LeetCodeQuestion]
+) -> dict:
+    return {
+        **_curriculum_base(c),
+        "questions": [serialize_leetcode_question_brief(q) for q in questions],
     }
 
 
