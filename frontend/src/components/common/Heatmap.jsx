@@ -30,7 +30,7 @@ export default function Heatmap({ colorBase = '111, 191, 146', activity = null, 
   const [tip, setTip] = useState(null);
 
   const grid = useMemo(() => {
-    const { startDate, endDate, days } = activity || defaultRange(weeks);
+    const { startDate, endDate, days = {} } = activity || defaultRange(weeks);
     const end = toDate(endDate);
     const maxCount = Math.max(
       1,

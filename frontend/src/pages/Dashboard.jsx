@@ -36,7 +36,7 @@ export default function Dashboard({
   const dueCount = dueList.length;
 
   const solvedDisplay = stats ? stats.totalSolved : totalSolved;
-  const dueDisplay = stats ? stats.dueToday + stats.overdue : dueCount;
+  const dueDisplay = stats ? (stats.dueToday || 0) + (stats.overdue || 0) : dueCount;
   const activityTotal = activity ? (activity.totalSolves || 0) + (activity.totalReviews || 0) : 0;
 
   const handleSearchSubmit = (e) => {

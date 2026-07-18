@@ -48,6 +48,18 @@ describe('Heatmap', () => {
       expect(opacities).toEqual(Array(28).fill(0.06));
     });
 
+    it('renders an empty grid when the payload omits the days map entirely', () => {
+      // Without a default, `Object.values(undefined)` throws and takes the
+      // whole dashboard down — a harder failure than the miscoloured cells
+      // the missing-count defaults guard against.
+      const { container } = render(
+        <Heatmap activity={{ startDate: '2026-03-01', endDate: '2026-03-28' }} />
+      );
+
+      expect(getDayCells(container)).toHaveLength(28);
+      expect(getDayCells(container).map(opacityOf)).toEqual(Array(28).fill(0.06));
+    });
+
     it('renders a day present in the payload with zero counts at the empty intensity', () => {
       const { container } = render(
         <Heatmap activity={marchActivity({ '2026-03-10': { reviews: 0, solves: 0 } })} />
