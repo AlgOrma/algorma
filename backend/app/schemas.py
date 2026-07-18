@@ -10,6 +10,18 @@ class CamelModel(BaseModel):
     )
 
 
+class RegisterIn(CamelModel):
+    name: str
+    email: str
+    password: str
+
+
+class LoginIn(CamelModel):
+    identifier: str  # email or username (the form is labeled "Email or username")
+    password: str
+    remember: bool = False
+
+
 class ProblemApproachIn(CamelModel):
     id: str | None = None
     name: str
@@ -86,14 +98,6 @@ class TemplatePatternUpdate(CamelModel):
 class ReorderIn(CamelModel):
     # Pattern ids in the new top-to-bottom display order.
     ids: list[str] = []
-
-
-class UserCreate(CamelModel):
-    name: str
-    email: str | None = None
-    timezone: str = "UTC"
-    daily_goal: int = 10  # dailyGoal
-    bio: str | None = None
 
 
 class UserUpdate(CamelModel):

@@ -1,13 +1,19 @@
+import secrets
 import warnings
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic.warnings import UnsupportedFieldAttributeWarning
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
 from .db import check_setup, init_db
+from .ratelimit import limiter
 from .routers import (
+    auth,
     curriculums,
     custom_lists,
     flashcards,
@@ -37,6 +43,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AlgOrma API", version="0.1.0", lifespan=lifespan)
 
+# Brute-force protection on login/register (slowapi). The handler keeps the
+# frontend's error shape: it reads `detail` off non-2xx JSON bodies.
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limited(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many attempts — try again in a minute."},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.web_origin],
@@ -45,6 +64,24 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Only the Authlib OAuth handshake (state + PKCE) uses this session cookie;
+# app auth rides the separate algorma_session cookie. Without an explicit
+# SESSION_SECRET each process signs with its own ephemeral key — harmless for
+# email/password, but OAuth across multiple workers needs the env var.
+if configured_oauth := auth.configured_providers():
+    if not settings.session_secret:
+        print(
+            f"WARNING: OAuth ({', '.join(configured_oauth)}) is configured but "
+            "SESSION_SECRET is not set; sign-in will break if uvicorn runs "
+            "multiple workers."
+        )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret or secrets.token_urlsafe(32),
+    same_site="lax",
+    https_only=settings.cookie_secure,
 )
 
 
@@ -58,6 +95,7 @@ def health():
     return {"ok": True}
 
 
+app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(problems.router)
 app.include_router(topics.router)

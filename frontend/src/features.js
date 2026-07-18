@@ -7,8 +7,7 @@ export const FEATURES = {
   flashcards: false,
 
   // Cookie-session authentication: the login / sign-up screen, logout, and
-  // SSO buttons. The UI is implemented against the /api/auth/* contract in
-  // AUTH_DESIGN.md but that backend hasn't landed yet, so this stays off —
-  // with the flag off the app keeps the legacy X-User-Id header flow.
-  auth: false,
+  // SSO buttons, against the /api/auth/* contract in AUTH_DESIGN.md. The
+  // backend no longer accepts the legacy X-User-Id header, so this stays on.
+  auth: true,
 };

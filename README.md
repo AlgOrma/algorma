@@ -6,9 +6,19 @@ patterns, and revise problem cards on a schedule. (Flashcards are
 feature-flagged off until implemented — see `frontend/src/features.js`.)
 
 > [!IMPORTANT]
-> AlgOrma is a **local, single-machine app**: the backend has no authentication
-> (profiles are identified by a plain `X-User-Id` header) and CORS is locked to
-> localhost. Don't deploy it to the public internet as-is.
+> **Breaking change:** AlgOrma now has real authentication (server-side
+> sessions delivered via httpOnly cookies). The old `X-User-Id` header is
+> gone. If you have an existing install, claim your profile once so you can
+> log in to your data:
+>
+> ```bash
+> cd backend && python -m app.claim_account you@example.com
+> # profile has no email yet? select it by name and attach one:
+> python -m app.claim_account you@example.com --user "Your Profile Name"
+> ```
+>
+> For any public (HTTPS) deployment set `COOKIE_SECURE=true` — see
+> [`backend/.env.example`](backend/.env.example) for all auth settings.
 
 ## Stack
 
@@ -61,9 +71,13 @@ Bypass in an emergency with `git push --no-verify`.
 ## Architecture — where data lives
 
 The React app talks to the API for all core data through the client in
-[`frontend/src/api.js`](frontend/src/api.js). There's no auth: on first run the
-app walks you through creating a profile (`POST /users`), keeps it in
-`localStorage`, and sends its id as an `X-User-Id` header on every request.
+[`frontend/src/api.js`](frontend/src/api.js). Identity comes from a
+server-side session: registering or logging in sets an httpOnly cookie, every
+API call sends it (`credentials: 'include'`), and a 401 drops the app back to
+the login screen. Google/GitHub sign-in buttons appear automatically when the
+backend has those OAuth credentials configured (see
+[`backend/.env.example`](backend/.env.example)); a bare self-hosted instance
+is email/password only, with no third-party dependencies.
 
 **Live via the API:** profiles, problems (CRUD + FSRS review grading and
 history), the template library (CRUD + drag-reordering), dashboard stats and

@@ -1,48 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from ..db import get_session
 from ..deps import get_current_user
 from ..models import User
-from ..schemas import UserCreate, UserUpdate
-from ..seed import seed_starter_patterns
+from ..schemas import UserUpdate
 from ..serialize import serialize_user
 from ..utils import utcnow
+from .auth import _normalize_email, _validate_name
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
-
-@router.get("")
-def list_users(session: Session = Depends(get_session)):
-    """All profiles — handy for a future profile switcher."""
-    users = session.exec(select(User).order_by(User.created_at)).all()
-    return [serialize_user(u) for u in users]
-
-
-@router.post("", status_code=201)
-def create_user(payload: UserCreate, session: Session = Depends(get_session)):
-    if payload.email:
-        existing = session.exec(
-            select(User).where(User.email == payload.email)
-        ).first()
-        if existing:
-            raise HTTPException(status_code=409, detail="Email already in use")
-
-    user = User(
-        name=payload.name,
-        email=payload.email,
-        timezone=payload.timezone,
-        daily_goal=payload.daily_goal,
-        bio=payload.bio,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-
-    # Give the new profile an editable starter template library.
-    seed_starter_patterns(session, user.id)
-
-    return serialize_user(user)
+# With real authentication (AUTH_DESIGN.md) this router is /me-only:
+# GET  /api/users      — removed; listing every account leaked all profiles.
+# POST /api/users      — superseded by POST /api/auth/register.
 
 
 @router.get("/me")
@@ -58,11 +30,29 @@ def update_me(
 ):
     data = payload.model_dump(exclude_unset=True)
 
-    new_email = data.get("email")
-    if new_email and new_email != user.email:
-        clash = session.exec(select(User).where(User.email == new_email)).first()
+    # Email and name are login identifiers, so edits here must uphold the same
+    # invariants register enforces: normalized lowercase email, no '@' in
+    # names, and case-insensitive uniqueness for both (a case-variant
+    # duplicate would make login's func.lower lookups ambiguous).
+    if data.get("email"):
+        email = _normalize_email(data["email"])
+        clash = session.exec(
+            select(User).where(func.lower(User.email) == email, User.id != user.id)
+        ).first()
         if clash:
             raise HTTPException(status_code=409, detail="Email already in use")
+        data["email"] = email
+
+    if data.get("name"):
+        name = _validate_name(data["name"])
+        clash = session.exec(
+            select(User).where(
+                func.lower(User.name) == name.lower(), User.id != user.id
+            )
+        ).first()
+        if clash:
+            raise HTTPException(status_code=409, detail="That username is taken")
+        data["name"] = name
 
     for key, value in data.items():
         setattr(user, key, value)

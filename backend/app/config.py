@@ -17,6 +17,26 @@ class Settings(BaseSettings):
     # Mirrors FEATURES.flashcards in frontend/src/features.js.
     enable_flashcards: bool = False
 
+    # --- Authentication (AUTH_DESIGN.md) ---
+    # Set true on any HTTPS deployment so the session cookie is Secure.
+    cookie_secure: bool = False
+    # Server-side sliding session lifetime; also the "remember me" cookie age.
+    session_ttl_days: int = 30
+    # false → /api/auth/register (and OAuth signups) return an error, turning
+    # the instance invite-only. Existing accounts keep working.
+    allow_registration: bool = True
+    # Where OAuth round-trips land back (also the ?error= redirect target).
+    frontend_url: str = "http://localhost:5199"
+    # Signs the short-lived OAuth handshake cookie (Authlib state/PKCE).
+    # Unset → a fresh secret per process: fine for email/password-only, but
+    # set it explicitly when OAuth runs with more than one worker.
+    session_secret: str = ""
+    # An OAuth provider's SSO button appears iff both of its values are set.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from .utils import utcnow
@@ -12,11 +13,14 @@ def gen_id() -> str:
 
 
 class User(SQLModel, table=True):
-    """A profile. No authentication — name + details only (see plan)."""
+    """An account (AUTH_DESIGN.md): 1:1 with the original profile rows."""
 
     id: str = Field(default_factory=gen_id, primary_key=True)
     name: str
     email: Optional[str] = Field(default=None, index=True, unique=True)
+    # Argon2id hash. None → OAuth-only account, or a pre-auth profile that
+    # hasn't been claimed yet (python -m app.claim_account).
+    password_hash: Optional[str] = None
     timezone: str = "UTC"  # reserved for per-user "today" boundaries in stats
     daily_goal: int = 10
     bio: Optional[str] = None
@@ -50,6 +54,37 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+
+class AuthSession(SQLModel, table=True):
+    """One logged-in browser session (AUTH_DESIGN.md).
+
+    Only the SHA-256 of the cookie token is stored; the raw token never
+    touches the database. Expiry slides forward on use (see deps.py).
+    """
+
+    __tablename__ = "auth_session"
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    token_hash: str = Field(index=True, unique=True)
+    user_id: str = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    expires_at: datetime = Field(index=True)  # indexed for the lazy purge
+    last_used_at: Optional[datetime] = None
+    user_agent: Optional[str] = None  # enables a future "active devices" view
+
+
+class OAuthAccount(SQLModel, table=True):
+    """Link between a user and one SSO identity; a user may link several."""
+
+    __tablename__ = "oauth_account"
+    __table_args__ = (UniqueConstraint("provider", "provider_account_id"),)
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    provider: str  # "google" | "github"
+    provider_account_id: str
+    user_id: str = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class ProblemPatternLink(SQLModel, table=True):
