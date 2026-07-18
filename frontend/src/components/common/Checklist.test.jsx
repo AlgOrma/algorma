@@ -18,8 +18,12 @@ describe('Checklist', () => {
     expect(screen.getByText('Write the code')).toBeInTheDocument();
   });
 
-  it('renders nothing for an empty checklist', () => {
+  it('renders an empty wrapper for an empty checklist', () => {
+    // Not a null render: the wrapper element is still emitted, just with no
+    // step rows inside it. Asserting on `container` instead would pass for
+    // both, hiding the difference.
     const { container } = render(<Checklist checklist={[]} />);
+    expect(container.firstChild).not.toBeNull();
     expect(container.firstChild).toBeEmptyDOMElement();
   });
 

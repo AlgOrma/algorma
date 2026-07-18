@@ -60,10 +60,21 @@ fi
 # --- Backend: pytest ---
 # `python -m pytest` (not .venv/bin/pytest): entrypoint shebangs break when the
 # project directory moves, the python binary itself does not.
+# Falls back to whatever python is on PATH, mirroring the ruff block above, so
+# contributors on conda/pyenv/system-python run the tests instead of silently
+# skipping 190 of them while still getting linted.
+PY=""
 if [ -x "$ROOT/backend/.venv/bin/python" ] \
    && "$ROOT/backend/.venv/bin/python" -c "import pytest" 2>/dev/null; then
+  PY="$ROOT/backend/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1 && python3 -c "import pytest" 2>/dev/null; then
+  PY="python3"
+elif command -v python >/dev/null 2>&1 && python -c "import pytest" 2>/dev/null; then
+  PY="python"
+fi
+if [ -n "$PY" ]; then
   echo "→ backend: pytest"
-  ( cd "$ROOT/backend" && .venv/bin/python -m pytest -q )
+  ( cd "$ROOT/backend" && "$PY" -m pytest -q )
   ran="$ran backend-tests"
 else
   echo "⚠ pytest not found — run 'pip install -r backend/requirements-dev.txt'. Skipping backend tests."
