@@ -44,6 +44,11 @@ def init_db() -> None:
         if "leetcode_username" not in user_columns:
             conn.execute(text('ALTER TABLE "user" ADD COLUMN leetcode_username VARCHAR'))
             conn.commit()
+        # Auth (AUTH_DESIGN.md): pre-auth installs get the password column;
+        # the auth_session / oauth_account tables come from create_all above.
+        if "password_hash" not in user_columns:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN password_hash VARCHAR'))
+            conn.commit()
         if "leetcode_id" not in columns:
             conn.execute(text("ALTER TABLE problem ADD COLUMN leetcode_id VARCHAR"))
             conn.commit()

@@ -1,48 +1,49 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from ..db import get_session
 from ..deps import get_current_user
 from ..models import User
-from ..schemas import UserCreate, UserUpdate
-from ..seed import seed_starter_patterns
+from ..schemas import UserUpdate
 from ..serialize import serialize_user
 from ..utils import utcnow
+from ..validation import normalize_email, validate_name
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
-
-@router.get("")
-def list_users(session: Session = Depends(get_session)):
-    """All profiles — handy for a future profile switcher."""
-    users = session.exec(select(User).order_by(User.created_at)).all()
-    return [serialize_user(u) for u in users]
+# With real authentication (AUTH_DESIGN.md) this router is /me-only:
+# GET  /api/users      — removed; listing every account leaked all profiles.
+# POST /api/users      — superseded by POST /api/auth/register.
 
 
-@router.post("", status_code=201)
-def create_user(payload: UserCreate, session: Session = Depends(get_session)):
-    if payload.email:
-        existing = session.exec(
-            select(User).where(User.email == payload.email)
-        ).first()
-        if existing:
-            raise HTTPException(status_code=409, detail="Email already in use")
+# UserUpdate types every field ``| None`` so PATCH stays sparse, but that says
+# nothing about whether the *column* accepts NULL — ``timezone`` and
+# ``daily_goal`` have defaults, not nullability. Asking the mapper instead of
+# listing names by hand means a future non-nullable column added to UserUpdate
+# is covered the day it lands, rather than silently reaching the setattr loop
+# and failing as an IntegrityError -> 500. Maps field name -> wire (camelCase)
+# name so the 400 names the key the client actually sent.
+_NOT_NULL_FIELDS = {
+    field: (info.alias or field)
+    for field, info in UserUpdate.model_fields.items()
+    if (col := User.__table__.columns.get(field)) is not None and not col.nullable
+}
 
-    user = User(
-        name=payload.name,
-        email=payload.email,
-        timezone=payload.timezone,
-        daily_goal=payload.daily_goal,
-        bio=payload.bio,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
 
-    # Give the new profile an editable starter template library.
-    seed_starter_patterns(session, user.id)
+def _require_identifier(data: dict, key: str, label: str) -> str:
+    """Reject a present-but-empty login identifier.
 
-    return serialize_user(user)
+    PATCH is sparse, so *omitting* a key means "leave it alone" — but a key
+    that is present and blank (``""``, whitespace, or ``null``) is a request to
+    clear it. Clearing isn't supported: an account with no email and no name
+    has no way back in, and blanks collide with each other under the
+    case-insensitive uniqueness checks below.
+    """
+    value = data[key]
+    if not isinstance(value, str) or not value.strip():
+        raise HTTPException(status_code=400, detail=f"Your {label} can't be empty.")
+    return value
 
 
 @router.get("/me")
@@ -58,11 +59,41 @@ def update_me(
 ):
     data = payload.model_dump(exclude_unset=True)
 
-    new_email = data.get("email")
-    if new_email and new_email != user.email:
-        clash = session.exec(select(User).where(User.email == new_email)).first()
+    # Email and name are login identifiers, so edits here must uphold the same
+    # invariants register enforces: normalized lowercase email, no '@' in
+    # names, and case-insensitive uniqueness for both (a case-variant
+    # duplicate would make login's func.lower lookups ambiguous).
+    if "email" in data:
+        email = normalize_email(_require_identifier(data, "email", "email"))
+        clash = session.exec(
+            select(User).where(func.lower(User.email) == email, User.id != user.id)
+        ).first()
         if clash:
             raise HTTPException(status_code=409, detail="Email already in use")
+        data["email"] = email
+
+    if "name" in data:
+        name = validate_name(_require_identifier(data, "name", "username"))
+        clash = session.exec(
+            select(User).where(
+                func.lower(User.name) == name.lower(), User.id != user.id
+            )
+        ).first()
+        if clash:
+            raise HTTPException(status_code=409, detail="That username is taken")
+        data["name"] = name
+
+    # Everything left is written straight through, so a null aimed at a NOT NULL
+    # column would only surface at commit as a driver IntegrityError (a 500 any
+    # authenticated user could trigger). Runs after the identity blocks above so
+    # name/email keep their more specific "can't be empty" wording; genuinely
+    # nullable fields (bio, leetcodeUsername) are absent from the set and still
+    # accept null as "clear this".
+    for key, wire_name in _NOT_NULL_FIELDS.items():
+        if key in data and data[key] is None:
+            raise HTTPException(
+                status_code=400, detail=f"Your {wire_name} can't be null."
+            )
 
     for key, value in data.items():
         setattr(user, key, value)

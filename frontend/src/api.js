@@ -1,9 +1,15 @@
 // Tiny fetch client for the AlgOrma API.
 //
-// The backend has no auth: it identifies the current profile from an
-// `X-User-Id` header. We keep the single source of truth in localStorage under
-// `dsa_user` (the full profile object, persisted by App's useLocalStorage), and
-// read the id back out of it for every request.
+// Identification depends on FEATURES.auth:
+//  - off (legacy): the backend identifies the current profile from an
+//    `X-User-Id` header. We keep the single source of truth in localStorage
+//    under `dsa_user` (the full profile object, persisted by App's
+//    useLocalStorage), and read the id back out of it for every request.
+//  - on: a server-side session cookie (httpOnly, set by /api/auth/login)
+//    carries identity; every request just sends credentials and a 401 means
+//    "not logged in".
+
+import { FEATURES } from './features';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const USER_KEY = 'dsa_user';
@@ -25,9 +31,16 @@ export function currentUserId() {
   }
 }
 
+// Called when an authenticated request comes back 401 (session expired or
+// revoked) so the app can drop to the login screen. Registered by App.
+let onUnauthorized = null;
+export function setOnUnauthorized(handler) {
+  onUnauthorized = handler;
+}
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
-  const uid = auth ? currentUserId() : null;
+  const uid = auth && !FEATURES.auth ? currentUserId() : null;
   if (uid) headers['X-User-Id'] = uid;
 
   let res;
@@ -35,6 +48,8 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
+      // Session cookie for FEATURES.auth; harmless under the legacy header flow.
+      credentials: 'include',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -42,6 +57,11 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   }
 
   if (!res.ok) {
+    // `auth: false` marks pre-auth endpoints (login itself returns 401 on a
+    // wrong password), so only session-backed requests trigger the handler.
+    if (res.status === 401 && auth && FEATURES.auth && onUnauthorized) {
+      onUnauthorized();
+    }
     let detail;
     try {
       detail = (await res.json())?.detail;
@@ -61,21 +81,40 @@ function withQuery(path, params = {}) {
   return `${path}?${qs}`;
 }
 
+// --- Auth (FEATURES.auth) ---
+// Session-cookie endpoints per AUTH_DESIGN.md. Pre-auth calls pass
+// `auth: false` so their own 401s (e.g. a wrong password) never trip the
+// global logged-out handler.
+
+// Configured SSO providers, e.g. ["google", "github"] — drives which buttons
+// the auth screen renders. [] (or a 404 from a backend without auth) → none.
+export const getAuthProviders = () => request('/auth/providers', { auth: false });
+
+// `{ name, email, password }` — creates the account AND the session (the
+// backend sets the cookie in the same response). Resolves to the new user in
+// the /api/users/me shape. 409 → email already registered.
+export const register = (body) => request('/auth/register', { method: 'POST', body, auth: false });
+
+// `{ identifier, password, remember }` — identifier matches a user's email OR
+// name; `remember: true` asks for a persistent ~30-day cookie, false for a
+// session cookie. Resolves to the logged-in user (/api/users/me shape);
+// 401 → invalid credentials. Exact wire contract: AUTH_DESIGN.md.
+export const login = (body) => request('/auth/login', { method: 'POST', body, auth: false });
+
+// Delete the server-side session and clear the cookie.
+export const logout = () => request('/auth/logout', { method: 'POST', auth: false });
+
+// OAuth begins with a full-page redirect (the server then round-trips to the
+// provider and back to the frontend), so this is a URL, not a fetch.
+export const oauthAuthorizeUrl = (provider) =>
+  `${API_URL}/auth/${encodeURIComponent(provider)}/authorize`;
+
 // --- Users ---
-// Creating a profile is the one call that doesn't carry an X-User-Id yet.
-export function createUser(payload) {
-  return request('/users', { method: 'POST', body: payload, auth: false });
-}
+// /me-only: POST /api/users is superseded by /auth/register, and GET
+// /api/users was removed outright (it listed every account).
 
 export function getMe() {
   return request('/users/me');
-}
-
-// All profiles on the server. Used to recover an existing account when the
-// browser has no stored profile (e.g. localStorage was cleared). Not user-scoped,
-// so it carries no X-User-Id header.
-export function getUsers() {
-  return request('/users', { auth: false });
 }
 
 export function updateUser(payload) {
