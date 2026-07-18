@@ -99,8 +99,11 @@ describe('Button', () => {
       </Button>
     );
 
-    expect(screen.getByRole('button', { name: 'Ghost small' })).toHaveClass(
-      'btn-3d-sm'
-    );
+    const button = screen.getByRole('button', { name: 'Ghost small' });
+    expect(button).toHaveClass('btn-3d-sm');
+    // Ghost must still opt out of the 3D chrome. Asserting only the size class
+    // would also pass if ghost became additive over the default base classes,
+    // which would restyle every ghost button in the app.
+    expect(button).not.toHaveClass('btn-3d');
   });
 });
