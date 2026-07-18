@@ -4,6 +4,11 @@ There is no authentication (by design). During first-run onboarding the frontend
 creates a profile via ``POST /api/users``, then sends its id on every request as
 an ``X-User-Id`` header. User-scoped endpoints require that header — there is no
 default/fallback profile, so a fresh install starts with an empty users table.
+
+Endpoints that are readable anonymously (the LeetCode catalog) use
+``get_current_user_optional`` instead: an absent header means "anonymous", but a
+header naming a nonexistent profile is still a 404, so a stale client id fails
+loudly rather than silently downgrading to an anonymous view.
 """
 
 from typing import Optional
