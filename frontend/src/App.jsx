@@ -9,6 +9,7 @@ import ProblemDetail from './pages/ProblemDetail';
 import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
 import ProfileSetup from './pages/ProfileSetup';
+import Auth from './pages/Auth';
 import LeetCodeLibrary from './pages/LeetCodeLibrary';
 import CustomLists from './pages/CustomLists';
 import { FEATURES } from './features';
@@ -57,6 +58,10 @@ function App() {
   const [streakDays] = useLocalStorage('dsa_streak', 0);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
+  // With auth on, nothing renders until the first getMe() settles, so a valid
+  // session never flashes the login screen (and vice versa). The legacy flow
+  // has no such gate.
+  const [authChecked, setAuthChecked] = useState(!FEATURES.auth);
 
   // A feature-flagged-off screen can still be remembered in localStorage from
   // before the flag flipped — fall back to the dashboard.
@@ -198,7 +203,13 @@ function App() {
     setScreen('detail');
   };
 
-  // On load, reconcile the profile with the backend. Two cases:
+  // On load, reconcile the profile with the backend.
+  //
+  // Auth on: the session cookie decides. getMe() succeeding refreshes the
+  // cached profile; any failure (401, or a backend that predates auth) drops
+  // to the login screen. The locally cached user is never trusted on its own.
+  //
+  // Legacy (auth off), two cases:
   //  - A profile is stored locally: refresh its fields, or — if the server
   //    doesn't know that id (e.g. an old client-only profile) — clear it so
   //    first-run setup runs again.
@@ -208,6 +219,13 @@ function App() {
   //    when the server genuinely has no users.
   // Network/other errors are ignored so the app still works offline.
   useEffect(() => {
+    if (FEATURES.auth) {
+      api.getMe()
+        .then((fresh) => setUser(fresh))
+        .catch(() => setUser(null))
+        .finally(() => setAuthChecked(true));
+      return;
+    }
     if (user?.id) {
       api.getMe()
         .then((fresh) => setUser(fresh))
@@ -226,6 +244,28 @@ function App() {
     // Runs once on mount; setUser is stable and user is only the initial value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Session expiry mid-use: any 401 on a session-backed call routes back to
+  // the login screen.
+  useEffect(() => {
+    if (!FEATURES.auth) return undefined;
+    api.setOnUnauthorized(() => setUser(null));
+    return () => api.setOnUnauthorized(null);
+    // setUser is a stable useState setter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // End the server-side session; drop to the login screen regardless (a dead
+  // session should never trap the user in the app shell).
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      /* session already gone (expired or server unreachable) — proceed */
+    } finally {
+      setUser(null);
+    }
+  };
 
   // Load the template library once we know the current profile (templates are
   // user-scoped). On failure (offline / no server) we fall back to an empty
@@ -347,10 +387,15 @@ function App() {
   // whenever the problem list changes so status updates show up.
   const [serverTopics, setServerTopics] = useState(null);
 
-  // Clear the previous user's mastery the moment the user changes (logout or
-  // switch), so a failed or slow refetch never shows another user's data.
+  // Clear the previous user's data the moment the user changes (logout or
+  // switch), so a failed or slow refetch never shows another user's problems,
+  // lists, templates, or mastery to whoever logs in next.
   useEffect(() => {
     setServerTopics(null);
+    setProblems([]);
+    setCustomLists([]);
+    setTemplatePatterns([]);
+    setRevisionProblems(null);
   }, [user?.id]);
 
   // Refetch whenever the user or problem list changes. The cancelled flag drops
@@ -513,6 +558,25 @@ function App() {
 
   const dueReviseCount = problems.filter(p => p.due).length;
 
+  // Blank (black, matching the app shell) while the session check is in
+  // flight, then the login / sign-up screen until the server knows who we are.
+  if (FEATURES.auth && !authChecked) {
+    return <div className="h-screen bg-bg-main" />;
+  }
+  if (FEATURES.auth && !user) {
+    return (
+      <div
+        className="h-screen bg-bg-main text-text-main overflow-hidden"
+        style={{
+          '--theme-accent': themeAccent,
+          '--theme-secondary': themeSecondary
+        }}
+      >
+        <Auth onAuthed={setUser} />
+      </div>
+    );
+  }
+
   // First-run setup: no profile yet, or the user chose to edit their profile.
   // Rendered full-screen without the sidebar, matching the design.
   if (!user || isEditingProfile) {
@@ -554,6 +618,7 @@ function App() {
         streakDays={streakDays}
         user={user}
         onEditProfile={() => setIsEditingProfile(true)}
+        onLogout={FEATURES.auth ? handleLogout : undefined}
         themeColor={themeAccent}
         themeColorSecondary={themeSecondary}
       />
