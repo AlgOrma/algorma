@@ -192,9 +192,22 @@ export default function Auth({ onAuthed }) {
     setError('');
     setSubmitting(true);
     try {
-      onAuthed(await call());
+      const authed = await call();
+      // What normally ends a submit is onAuthed unmounting this screen, so a
+      // 2xx that carries no usable profile (a proxy swallowing the body,
+      // contract drift) would strand the form disabled with nothing shown.
+      // Treat it as a failure instead of trusting the status code.
+      if (!authed?.id) {
+        setError('The server didn’t return your profile. Please try again.');
+        return;
+      }
+      onAuthed(authed);
     } catch (err) {
       setError(err?.message || 'Something went wrong. Please try again.');
+    } finally {
+      // Released even on success: the re-enable is invisible in the frame
+      // before onAuthed unmounts us, and it's the only guarantee the form
+      // can't wedge.
       setSubmitting(false);
     }
   };

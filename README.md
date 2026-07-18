@@ -17,8 +17,17 @@ feature-flagged off until implemented — see `frontend/src/features.js`.)
 > python -m app.claim_account you@example.com --user "Your Profile Name"
 > ```
 >
-> For any public (HTTPS) deployment set `COOKIE_SECURE=true` — see
-> [`backend/.env.example`](backend/.env.example) for all auth settings.
+> Also breaking: the API no longer accepts requests from arbitrary
+> `http://localhost:<port>` origins, because those requests now carry a session
+> cookie. If you run the frontend anywhere other than the default
+> `http://localhost:5199`, list its origin in `WEB_ORIGIN` (comma-separated).
+>
+> For any public (HTTPS) deployment set `COOKIE_SECURE=true`, point
+> `WEB_ORIGIN` at your frontend, and — if a reverse proxy sits in front of
+> Uvicorn — run it with `--proxy-headers --forwarded-allow-ips="<proxy-ip>"`,
+> or login rate limiting and OAuth redirects both break (see
+> [`backend/README.md`](backend/README.md#deploying-behind-a-reverse-proxy)).
+> [`backend/.env.example`](backend/.env.example) documents every auth setting.
 
 ## Stack
 

@@ -29,8 +29,7 @@ from .db import engine, init_db
 from .models import User
 from .security import hash_password
 from .utils import utcnow
-
-_MIN_PASSWORD = 8  # same policy as /api/auth/register
+from .validation import MAX_PASSWORD, MIN_PASSWORD
 
 
 def _fail(message: str) -> "None":
@@ -42,21 +41,34 @@ def _pick_user(session: Session, email: str, selector: str | None) -> User:
     user = session.exec(
         select(User).where(func.lower(User.email) == email)
     ).first()
-    if user is not None:
-        return user
 
     if selector:
-        user = session.exec(
+        selected = session.exec(
             select(User).where((User.id == selector) | (User.name == selector))
         ).first()
-        if user is None:
-            _fail(f"no profile with id or name {selector!r}")
-        if user.email and user.email.lower() != email:
+        # Preferring either side here would set a password on a profile the
+        # operator didn't name — the one failure mode this CLI must not have,
+        # since the whole point is claiming a specific pre-auth account.
+        if user is not None and selected is not None and selected.id != user.id:
             _fail(
-                f"profile {user.name!r} already has email {user.email!r}; "
-                "pass that email instead"
+                f"email {email!r} is on profile {user.name!r}, but --user "
+                f"{selector!r} selects profile {selected.name!r}; drop --user "
+                f"to claim {user.name!r}, or claim {selected.name!r} with its "
+                "own email"
             )
-        user.email = email  # attaching the email is part of the claim
+        if user is not None:
+            return user
+        if selected is None:
+            _fail(f"no profile with id or name {selector!r}")
+        if selected.email and selected.email.lower() != email:
+            _fail(
+                f"profile {selected.name!r} already has email "
+                f"{selected.email!r}; pass that email instead"
+            )
+        selected.email = email  # attaching the email is part of the claim
+        return selected
+
+    if user is not None:
         return user
 
     print(f"No profile has the email {email!r}.", file=sys.stderr)
@@ -93,9 +105,20 @@ def main(argv: list[str] | None = None) -> None:
     with Session(engine) as session:
         user = _pick_user(session, email, args.user)
 
-        password = getpass.getpass(f"New password for {user.name!r} (min {_MIN_PASSWORD} chars): ")
-        if len(password) < _MIN_PASSWORD:
-            _fail(f"password needs at least {_MIN_PASSWORD} characters")
+        password = getpass.getpass(
+            f"New password for {user.name!r} "
+            f"({MIN_PASSWORD}-{MAX_PASSWORD} chars): "
+        )
+        if len(password) < MIN_PASSWORD:
+            _fail(f"password needs at least {MIN_PASSWORD} characters")
+        # Login truncates to MAX_PASSWORD before hashing (bounding the Argon2
+        # work an unauthenticated body can buy) and fails anything longer, so a
+        # password stored past the cap here would hash fine and then never
+        # authenticate — a claim that reports success and locks the operator
+        # out. This is the only other writer of password_hash besides
+        # /api/auth/register, so it has to hold register's bounds exactly.
+        if len(password) > MAX_PASSWORD:
+            _fail(f"password is capped at {MAX_PASSWORD} characters")
         if password != getpass.getpass("Repeat password: "):
             _fail("passwords don't match")
 

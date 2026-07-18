@@ -88,6 +88,40 @@ command in advance:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ```
 
+### Deploying behind a reverse proxy
+
+Anything past local dev — TLS via Caddy/nginx/Traefik, or a PaaS router — puts a
+proxy in front of Uvicorn. Three settings are then mandatory; all are in
+[`.env.example`](.env.example).
+
+```bash
+COOKIE_SECURE=true          # session cookie gets the Secure flag
+WEB_ORIGIN=https://algorma.example.com   # comma-separated allow-list
+
+uvicorn app.main:app --proxy-headers --forwarded-allow-ips="<proxy-ip>"
+```
+
+> [!IMPORTANT]
+> The `--proxy-headers` flag is a security requirement, not a nicety. Without
+> it every request appears to come from the proxy's IP, and two things break:
+>
+> 1. **Rate limiting collapses into one bucket.** `slowapi` keys on the client
+>    IP, so the whole instance shares one login limiter — an attacker burning
+>    10 failed logins in a minute locks *every* user out of `/auth/login`. A
+>    trivially cheap denial of service.
+> 2. **OAuth redirects break.** `request.url_for` generates an `http://`
+>    `redirect_uri` behind TLS termination; Google and GitHub reject it as a
+>    redirect-URI mismatch.
+>
+> Set `--forwarded-allow-ips` to the proxy's actual IP — `"*"` trusts
+> `X-Forwarded-For` from anyone who can reach the port, which hands the
+> rate limiter back to the attacker.
+
+`WEB_ORIGIN` is an explicit allow-list of browser origins permitted to send the
+session cookie. Arbitrary `http://localhost:<port>` origins are **not** trusted
+(any other local process could otherwise ride a logged-in session), so a
+frontend on a non-default port must be listed there.
+
 ## Database & migrations
 
 There's no Alembic. Setup has two layers, both idempotent and both driven by

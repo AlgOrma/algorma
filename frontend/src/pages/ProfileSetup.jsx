@@ -38,8 +38,16 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
       setNameError('Please enter a name to continue.');
       return;
     }
+    // Email is a login identifier, not a nicety: PATCH /api/users/me rejects a
+    // present-but-blank one (400 "Your email can't be empty."), and an account
+    // that cleared it would have no way back in. Check it here so clearing the
+    // field fails inline instead of costing a round trip.
     const email = (form.email || '').trim();
-    if (email && !EMAIL_RE.test(email)) {
+    if (!email) {
+      setEmailError('Please enter an email to continue.');
+      return;
+    }
+    if (!EMAIL_RE.test(email)) {
       setEmailError('That email doesn’t look right.');
       return;
     }
@@ -49,7 +57,7 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
     try {
       await onSubmit({
         name,
-        email: email || null,
+        email,
         timezone: user?.timezone || 'UTC',
         dailyGoal: form.dailyGoal || 10,
         bio: (form.bio || '').trim() || null
@@ -111,7 +119,7 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
           {/* Email */}
           <div className="flex flex-col gap-sp-7">
             <label className="font-mono text-fs-10 tracking-[0.06em] text-text-muted">
-              EMAIL <span className="text-border-accent">· optional</span>
+              EMAIL <span className="text-accent">*</span>
             </label>
             <input
               type="email"

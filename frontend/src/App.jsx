@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import * as api from './api';
 import Sidebar from './components/Sidebar';
+import Button from './components/common/Button';
 import Dashboard from './pages/Dashboard';
 import ProblemBank from './pages/ProblemBank';
 import Templates from './pages/Templates';
@@ -52,10 +53,11 @@ function App() {
   const [problemsLoading, setProblemsLoading] = useState(true);
   const [customLists, setCustomLists] = useState([]);
   const [customListsLoading, setCustomListsLoading] = useState(true);
-  // Read-only for now: cards are graded via the API once flashcards ship, the
-  // streak comes from the backend heatmap, and there's no theme switcher yet.
-  const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
-  const [streakDays] = useLocalStorage('dsa_streak', 0);
+  // Nothing writes these during normal use (cards are graded via the API once
+  // flashcards ship, the streak comes from the backend heatmap, and there's no
+  // theme switcher yet) — the setters exist only for the per-user reset below.
+  const [cards, setCards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
+  const [streakDays, setStreakDays] = useLocalStorage('dsa_streak', 0);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
   // With auth on, nothing renders until the first getMe() settles, so a valid
@@ -203,27 +205,38 @@ function App() {
     setScreen('detail');
   };
 
+  // Auth on: the session cookie decides who we are. getMe() succeeding
+  // refreshes the cached profile, a 401 means logged out. The locally cached
+  // user is never trusted on its own.
+  //
+  // An unreachable API (ApiError status 0) is deliberately *not* treated as
+  // logged out: a valid cookie plus a backend blip would otherwise dump the
+  // user on the login screen, where logging in fails too — a dead end that
+  // reads as "my account broke". Show a retry instead and re-run the check.
+  const [sessionUnreachable, setSessionUnreachable] = useState(false);
+  const checkSession = React.useCallback(() => {
+    setAuthChecked(false);
+    setSessionUnreachable(false);
+    api.getMe()
+      .then((fresh) => setUser(fresh))
+      .catch((err) => {
+        if (err?.status === 0) setSessionUnreachable(true);
+        else setUser(null);
+      })
+      .finally(() => setAuthChecked(true));
+    // setUser is a stable useState setter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // On load, reconcile the profile with the backend.
   //
-  // Auth on: the session cookie decides. getMe() succeeding refreshes the
-  // cached profile; any failure (401, or a backend that predates auth) drops
-  // to the login screen. The locally cached user is never trusted on its own.
-  //
-  // Legacy (auth off), two cases:
-  //  - A profile is stored locally: refresh its fields, or — if the server
-  //    doesn't know that id (e.g. an old client-only profile) — clear it so
-  //    first-run setup runs again.
-  //  - No profile stored (e.g. localStorage was cleared): the backend has no
-  //    auth, so recover an existing account instead of forcing re-onboarding —
-  //    adopt the first profile the server knows about. Onboarding only shows
-  //    when the server genuinely has no users.
-  // Network/other errors are ignored so the app still works offline.
+  // Legacy (auth off): a locally stored profile has its fields refreshed, or —
+  // if the server doesn't know that id (e.g. an old client-only profile) — is
+  // cleared so first-run setup runs again. Network/other errors are ignored so
+  // the app still works offline.
   useEffect(() => {
     if (FEATURES.auth) {
-      api.getMe()
-        .then((fresh) => setUser(fresh))
-        .catch(() => setUser(null))
-        .finally(() => setAuthChecked(true));
+      checkSession();
       return;
     }
     if (user?.id) {
@@ -231,14 +244,6 @@ function App() {
         .then((fresh) => setUser(fresh))
         .catch((err) => {
           if (err?.status === 404) setUser(null);
-        });
-    } else {
-      api.getUsers()
-        .then((users) => {
-          if (users?.length) setUser(users[0]);
-        })
-        .catch(() => {
-          /* offline or no server — fall through to onboarding */
         });
     }
     // Runs once on mount; setUser is stable and user is only the initial value.
@@ -335,12 +340,12 @@ function App() {
     }
   };
 
-  // Save profile from first-run setup or the edit-profile screen. Persists to the
-  // backend; throws to the caller (ProfileSetup) on failure so it can surface it.
+  // Save profile edits. Persists to the backend; throws to the caller
+  // (ProfileSetup) on failure so it can surface it. Account *creation* is
+  // /auth/register's job — there is no unauthenticated profile-create endpoint
+  // any more.
   const handleSaveProfile = async (formPayload) => {
-    const saved = user?.id
-      ? await api.updateUser(formPayload)
-      : await api.createUser(formPayload);
+    const saved = await api.updateUser(formPayload);
     setUser(saved);
     setIsEditingProfile(false);
   };
@@ -396,6 +401,42 @@ function App() {
     setCustomLists([]);
     setTemplatePatterns([]);
     setRevisionProblems(null);
+    // Otherwise a session that expires with the profile editor open drops the
+    // next user straight into it instead of the dashboard.
+    setIsEditingProfile(false);
+  }, [user?.id]);
+
+  // Same idea for the client state we persist: `dsa_screen`, `dsa_selected_id`,
+  // `dsa_streak` and `dsa_cards` are per-user, so without this the next person
+  // to log in on this browser inherits the previous one's landing screen,
+  // selected problem and streak. `dsa_theme` is a device preference and stays.
+  //
+  // Compared against the last *signed-in* id, not the live `user?.id`, because
+  // every account change routes through null — logout, an expired session, a
+  // page load — so a null→X transition on its own can't tell "someone else
+  // logged in" from "the same person re-authenticated". Holding the previous
+  // account across the null (and across a reload, hence localStorage rather
+  // than a ref) keeps a re-login a no-op, so a session that expires on
+  // /problems/<id> comes back to that problem instead of the dashboard, while
+  // A→B still resets. Logout records nothing: the account that was signed in
+  // stays the one to compare the next login against.
+  const [lastUserId, setLastUserId] = useLocalStorage('dsa_last_user_id', null);
+  useEffect(() => {
+    const nextId = user?.id ?? null;
+    if (nextId === null || nextId === lastUserId) return;
+    const switchedAccounts = lastUserId !== null;
+    setLastUserId(nextId);
+    // First account this browser has seen: there's no earlier user's state to
+    // clear, and resetting here would clobber the remembered screen (and the
+    // deep link the URL effect just adopted) on an ordinary page load.
+    if (!switchedAccounts) return;
+    setScreen('dashboard');
+    setSelectedId(null);
+    setStreakDays(0);
+    setCards(INITIAL_CARDS);
+    // The setters are stable, and `lastUserId` is only ever written here, so
+    // the closure always sees the value from the render that changed the id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Refetch whenever the user or problem list changes. The cancelled flag drops
@@ -562,6 +603,20 @@ function App() {
   // flight, then the login / sign-up screen until the server knows who we are.
   if (FEATURES.auth && !authChecked) {
     return <div className="h-screen bg-bg-main" />;
+  }
+  // Couldn't tell whether the session is valid — offer a retry rather than the
+  // login screen, which would only fail again against the same dead backend.
+  if (FEATURES.auth && sessionUnreachable) {
+    return (
+      <div className="h-screen bg-bg-main text-text-main overflow-hidden flex flex-col items-center justify-center gap-4 px-8 text-center">
+        <div className="font-mono text-fs-12 text-text-muted">
+          Can’t reach the server. Check your connection, then try again.
+        </div>
+        <Button variant="primary" onClick={checkSession}>
+          Retry
+        </Button>
+      </div>
+    );
   }
   if (FEATURES.auth && !user) {
     return (

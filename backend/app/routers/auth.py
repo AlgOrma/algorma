@@ -9,6 +9,13 @@ Security notes (kept deliberately boring):
   account exists.
 - OAuth linking requires a *provider-verified* email; otherwise anyone could
   register the victim's address at a provider and take over their account.
+- Accepted residual risk, the mirror of the above: local emails are *not*
+  verified yet, so on a public instance with open registration an attacker who
+  registers the victim's address before their first SSO sign-in captures that
+  sign-in into an account the attacker holds the password for. Refusing to
+  auto-link when a password is already set would close it, but would also break
+  the common "registered with a password, now signing in with Google" journey;
+  email verification (milestone 2) is the real fix. See AUTH_DESIGN.md.
 - CSRF: the session cookie is SameSite=Lax and CORS restricts credentialed
   origins, which together cover these JSON POST endpoints.
 """
@@ -19,10 +26,10 @@ from datetime import timedelta
 from typing import Optional
 
 from authlib.integrations.starlette_client import OAuth, OAuthError
-from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, func
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from ..config import settings
@@ -35,55 +42,20 @@ from ..security import generate_token, hash_password, hash_token, verify_passwor
 from ..seed import seed_starter_patterns
 from ..serialize import serialize_user
 from ..utils import utcnow
+from ..validation import (
+    MAX_NAME,
+    MAX_PASSWORD,
+    normalize_email,
+    validate_name,
+    validate_password,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 PROVIDERS = ("google", "github")
 
-# NIST 800-63B: length is the policy — no composition rules. The cap only
-# bounds Argon2 hashing cost. The frontend enforces the same minimum.
-_MIN_PASSWORD = 8
-_MAX_PASSWORD = 128
-_MAX_NAME = 50
 
-
-# --- validation helpers -----------------------------------------------------
-
-
-def _normalize_email(raw: str) -> str:
-    """Syntax-validate and lowercase, so lookups are case-insensitive."""
-    try:
-        return validate_email(raw.strip(), check_deliverability=False).normalized.lower()
-    except EmailNotValidError:
-        raise HTTPException(status_code=400, detail="That email doesn't look right.")
-
-
-def _validate_password(password: str) -> None:
-    if len(password) < _MIN_PASSWORD:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Your password needs at least {_MIN_PASSWORD} characters.",
-        )
-    if len(password) > _MAX_PASSWORD:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Passwords are capped at {_MAX_PASSWORD} characters.",
-        )
-
-
-def _validate_name(raw: str) -> str:
-    name = raw.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Pick a username to continue.")
-    if len(name) > _MAX_NAME:
-        raise HTTPException(
-            status_code=400, detail=f"Usernames are capped at {_MAX_NAME} characters."
-        )
-    if "@" in name:
-        # Login accepts "email or username"; keeping '@' out of usernames
-        # keeps that lookup unambiguous.
-        raise HTTPException(status_code=400, detail="Usernames can't contain '@'.")
-    return name
+# --- uniqueness helpers ------------------------------------------------------
 
 
 def _email_taken(session: Session, email: str) -> bool:
@@ -163,9 +135,9 @@ def register(
             status_code=403, detail="Registration is disabled on this instance."
         )
 
-    name = _validate_name(payload.name)
-    email = _normalize_email(payload.email)
-    _validate_password(payload.password)
+    name = validate_name(payload.name)
+    email = normalize_email(payload.email)
+    validate_password(payload.password)
 
     if _email_taken(session, email):
         raise HTTPException(status_code=409, detail="Email already in use")
@@ -174,7 +146,15 @@ def register(
 
     user = User(name=name, email=email, password_hash=hash_password(payload.password))
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # The checks above are advisory: two concurrent signups for the same
+        # address both pass them, and only the unique index on user.email
+        # arbitrates. The loser reports the same 409 the check would have,
+        # rather than surfacing the driver error as a 500.
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Email already in use")
     session.refresh(user)
 
     # Same starter library POST /api/users used to seed (register supersedes it).
@@ -194,6 +174,15 @@ def login(
 ):
     identifier = payload.identifier.strip()
 
+    # A blank identifier is nobody's login. The PATCH /me guard (users.py) stops
+    # new blank-name rows being created, but rows that acquired one before that
+    # guard existed are still matched by the func.lower(name) == "" lookup
+    # below, so the read path has to refuse them too. Like `oversized` this is
+    # folded into the single failure check instead of returning early: a fast
+    # path here would answer before the Argon2 verification and hand back a
+    # timing signal — the exact oracle the uniform 401 exists to deny.
+    blank = not identifier
+
     user: Optional[User] = None
     if "@" in identifier:
         user = session.exec(
@@ -208,12 +197,21 @@ def login(
         if len(matches) == 1:
             user = matches[0]
 
+    # An over-length password can't be anyone's (register and the claim CLI are
+    # the only writers of password_hash, and both cap it), but it is
+    # rejected by *truncating the Argon2 input*, not by returning early: a
+    # short-circuit here would answer faster than a real credential check and
+    # hand back a distinguishable "too long" signal. Truncating bounds the
+    # hashing work an unauthenticated body can buy while still spending
+    # exactly one verification, and `oversized` forces the failure even if the
+    # truncated prefix happens to match a stored hash.
+    oversized = len(payload.password) > MAX_PASSWORD
+    candidate = payload.password[:MAX_PASSWORD]
+
     # Always verify — unknown users burn the same Argon2 work as wrong
     # passwords, and the 401 message never says which case it was.
-    authenticated = verify_password(
-        payload.password, user.password_hash if user else None
-    )
-    if not user or not authenticated:
+    authenticated = verify_password(candidate, user.password_hash if user else None)
+    if not user or blank or oversized or not authenticated:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     _start_session(session, user, request, response, persistent=payload.remember)
@@ -348,10 +346,10 @@ async def _fetch_identity(provider: str, client, request: Request) -> OAuthIdent
 
 def _unique_name(session: Session, base: str) -> str:
     """A username for an OAuth signup that won't collide with existing ones."""
-    base = base.strip().replace("@", "")[:_MAX_NAME] or "user"
+    base = base.strip().replace("@", "")[:MAX_NAME] or "user"
     name = base
     while _name_taken(session, name):
-        name = f"{base[: _MAX_NAME - 5]}-{secrets.randbelow(10000):04d}"
+        name = f"{base[: MAX_NAME - 5]}-{secrets.randbelow(10000):04d}"
     return name
 
 
@@ -420,17 +418,39 @@ async def oauth_callback(
                 password_hash=None,
             )
             session.add(user)
-            session.commit()
-            session.refresh(user)
-            seed_starter_patterns(session, user.id)
+            try:
+                session.commit()
+            except IntegrityError:
+                # Same race as register, but here losing is recoverable: the
+                # concurrent callback created the account for this verified
+                # address, so adopt it and link to it instead of erroring.
+                session.rollback()
+                user = session.exec(
+                    select(User).where(func.lower(User.email) == email)
+                ).first()
+                if user is None:
+                    return _error_redirect("oauth_failed")
+            else:
+                session.refresh(user)
+                seed_starter_patterns(session, user.id)
+        user_id = user.id  # read before any rollback expires the instance
         session.add(
             OAuthAccount(
                 provider=provider,
                 provider_account_id=identity.provider_account_id,
-                user_id=user.id,
+                user_id=user_id,
             )
         )
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            # Unique (provider, provider_account_id): a concurrent callback for
+            # the same SSO identity already wrote this link. It is the link we
+            # were about to create, so continue into the session below.
+            session.rollback()
+            user = session.get(User, user_id)
+            if user is None:
+                return _error_redirect("oauth_failed")
 
     redirect = RedirectResponse(settings.frontend_url)
     _start_session(session, user, request, redirect, persistent=True)

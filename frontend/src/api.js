@@ -110,20 +110,11 @@ export const oauthAuthorizeUrl = (provider) =>
   `${API_URL}/auth/${encodeURIComponent(provider)}/authorize`;
 
 // --- Users ---
-// Creating a profile is the one call that doesn't carry an X-User-Id yet.
-export function createUser(payload) {
-  return request('/users', { method: 'POST', body: payload, auth: false });
-}
+// /me-only: POST /api/users is superseded by /auth/register, and GET
+// /api/users was removed outright (it listed every account).
 
 export function getMe() {
   return request('/users/me');
-}
-
-// All profiles on the server. Used to recover an existing account when the
-// browser has no stored profile (e.g. localStorage was cleared). Not user-scoped,
-// so it carries no X-User-Id header.
-export function getUsers() {
-  return request('/users', { auth: false });
 }
 
 export function updateUser(payload) {

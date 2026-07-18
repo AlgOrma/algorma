@@ -6,10 +6,14 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./algorma.db"
 
-    # Extra allowed CORS origin, for a deployed (non-localhost) frontend.
-    # Any localhost port is already accepted via the regex in main.py, so
-    # local dev works regardless of this value. The API port itself comes
-    # from the uvicorn --port flag, not from settings.
+    # Comma-separated allow-list of the browser origins permitted to call this
+    # API with the session cookie, parsed by _allowed_origins() in main.py.
+    # Nothing outside it is trusted, including other ports on the same machine:
+    # arbitrary localhost origins would let any other local process ride a
+    # logged-in session. Each loopback entry implies its localhost/127.0.0.1
+    # counterpart on the SAME port. Empty means no cross-origin browser access,
+    # which is correct when one process serves both the API and the built UI.
+    # The API port itself comes from the uvicorn --port flag, not from settings.
     web_origin: str = "http://localhost:5199"
 
     # Feature flags. Flashcards aren't implemented in the UI yet, so the API
