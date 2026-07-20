@@ -436,7 +436,7 @@ export default function LeetCodeLibrary({
                             setSelectedQuestionForList(q);
                             setIsCustomListsModalOpen(true);
                           }}
-                          style={{ padding: '0 8px', minWidth: '32px' }}
+                          style={{ minWidth: '32px' }}
                         >
                           <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="3.5" y1="6" x2="16.5" y2="6"/>
