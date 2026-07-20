@@ -190,9 +190,16 @@ the profile (`leetcodeUsername`) so the UI can prefill the next sync.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest        # unit tests: FSRS scheduling, SM-2 replay, stats bucketing
+pytest        # full suite: every router over HTTP, serializers, FSRS scheduling, SM-2 replay
 ruff check app/ tests/
 ```
+
+Tests run against an in-memory SQLite database (see `tests/conftest.py`) — no
+setup, no network, and the dev `algorma.db` is never touched. Router tests go
+over real HTTP via the `client` fixture (routing, validation, and the camelCase
+serialization are all exercised); pure logic (FSRS, serializers, slugify) is
+unit-tested directly. Both suites also run from the repo's pre-push hook
+(`git config core.hooksPath .githooks`).
 
 ## Frontend contract
 
