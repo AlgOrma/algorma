@@ -3,10 +3,13 @@
 REST API for the AlgOrma DSA tracker. **FastAPI + SQLModel + SQLite**, with an
 FSRS spaced-repetition scheduler shared by problem reviews and flashcards.
 
-Data is **per-user** (no authentication): each request is scoped to the current
-profile, resolved from an `X-User-Id` header. A fresh install has an **empty
-users table** — the first profile is created through onboarding (`POST /users`),
-and user-scoped endpoints require the header (there is no default profile).
+Data is **per-user**, behind real authentication:
+server-side sessions in SQLite, delivered via an httpOnly cookie set by
+`POST /api/auth/register` / `login`, with optional Google/GitHub OAuth that
+appears when the env credentials are set. A fresh install has an **empty users
+table** — the first account is created through the sign-up screen. Existing
+pre-auth installs claim their profile once with
+`python -m app.claim_account <email>` (the old `X-User-Id` header is gone).
 Problems, flashcards, and the template library belong to a user (each new
 profile gets its own editable copy of the starter templates); topics,
 problem-pattern tags, and the LeetCode question catalog are shared global
@@ -21,10 +24,13 @@ replayed).
 ```
 backend/
 ├── app/
-│   ├── main.py          # FastAPI app, CORS, router wiring, DB init on startup
+│   ├── main.py          # FastAPI app, CORS, rate limiting, router wiring, DB init on startup
 │   ├── config.py        # settings from .env (pydantic-settings)
 │   ├── db.py            # engine + session dependency
-│   ├── deps.py          # get_current_user (requires X-User-Id header → User)
+│   ├── deps.py          # get_current_user (session cookie → AuthSession → User)
+│   ├── security.py      # Argon2 password hashing + opaque session tokens
+│   ├── ratelimit.py     # shared slowapi limiter (login/register)
+│   ├── claim_account.py # `python -m app.claim_account`: set a password on a pre-auth profile
 │   ├── models.py        # tables: User, Topic, Pattern, Problem (+ approaches), TemplatePattern/Variation, Flashcard, Revision, ReviewLog, LeetCodeQuestion, Curriculum
 │   ├── revisions.py     # per-user SRS state: get-or-create + grading (incl. SM-2 → FSRS replay)
 │   ├── schemas.py       # request bodies (camelCase, matches the frontend)
@@ -32,7 +38,7 @@ backend/
 │   ├── serialize.py     # emits the exact JSON shape the React frontend reads
 │   ├── seed.py          # seeds global topics + holds the per-user starter template library
 │   ├── bootstrap.py     # `python -m app.bootstrap`: run migrations + all seeds in order
-│   └── routers/         # users, problems, topics, templates, flashcards, stats, leetcode_questions, leetcode_sync, curriculums
+│   └── routers/         # auth, users, problems, topics, templates, flashcards, stats, leetcode_questions, leetcode_sync, curriculums
 ├── requirements.txt
 └── .env.example
 ```
@@ -82,6 +88,40 @@ command in advance:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ```
 
+### Deploying behind a reverse proxy
+
+Anything past local dev — TLS via Caddy/nginx/Traefik, or a PaaS router — puts a
+proxy in front of Uvicorn. Three settings are then mandatory; all are in
+[`.env.example`](.env.example).
+
+```bash
+COOKIE_SECURE=true          # session cookie gets the Secure flag
+WEB_ORIGIN=https://algorma.example.com   # comma-separated allow-list
+
+uvicorn app.main:app --proxy-headers --forwarded-allow-ips="<proxy-ip>"
+```
+
+> [!IMPORTANT]
+> The `--proxy-headers` flag is a security requirement, not a nicety. Without
+> it every request appears to come from the proxy's IP, and two things break:
+>
+> 1. **Rate limiting collapses into one bucket.** `slowapi` keys on the client
+>    IP, so the whole instance shares one login limiter — an attacker burning
+>    10 failed logins in a minute locks *every* user out of `/auth/login`. A
+>    trivially cheap denial of service.
+> 2. **OAuth redirects break.** `request.url_for` generates an `http://`
+>    `redirect_uri` behind TLS termination; Google and GitHub reject it as a
+>    redirect-URI mismatch.
+>
+> Set `--forwarded-allow-ips` to the proxy's actual IP — `"*"` trusts
+> `X-Forwarded-For` from anyone who can reach the port, which hands the
+> rate limiter back to the attacker.
+
+`WEB_ORIGIN` is an explicit allow-list of browser origins permitted to send the
+session cookie. Arbitrary `http://localhost:<port>` origins are **not** trusted
+(any other local process could otherwise ride a logged-in session), so a
+frontend on a non-default port must be listed there.
+
 ## Database & migrations
 
 There's no Alembic. Setup has two layers, both idempotent and both driven by
@@ -117,18 +157,21 @@ never changes**. To apply new migrations after `git pull`, just re-run
 
 Base URL: `http://localhost:8000/api` · Interactive docs at `/docs`.
 
-All routes are scoped to the current user and **require** an `X-User-Id: <id>`
-header (the id returned by `POST /users`), except `/health`, `/users`
-(create/list), and the read-only LeetCode catalog (`GET /leetcode-questions`,
-`GET /leetcode-questions/{id}`). Requests without it get
-`400 Missing X-User-Id header`.
+All routes are scoped to the current user and **require the session cookie**
+set by register/login, except `/health`, the `/auth/*` endpoints themselves,
+and the read-only LeetCode catalog (`GET /leetcode-questions`,
+`GET /leetcode-questions/{id}`). Requests without a valid session get `401`.
 
 | Method | Path                     | Description                                   |
 | ------ | ------------------------ | --------------------------------------------- |
 | GET    | `/health`                | liveness check                                |
-| GET    | `/users`                 | list profiles (profile recovery / future switcher) |
-| POST   | `/users`                 | create a profile → returns `id`               |
-| GET    | `/users/me`              | the current profile (from `X-User-Id`)        |
+| POST   | `/auth/register`         | `{ name, email, password }` → account + session cookie; 409 duplicate email; 403 if `ALLOW_REGISTRATION=false`; rate-limited |
+| POST   | `/auth/login`            | `{ identifier, password, remember }` — identifier is email **or** username; vague 401 on failure; rate-limited |
+| POST   | `/auth/logout`           | delete the server-side session, clear the cookie |
+| GET    | `/auth/providers`        | configured OAuth providers, e.g. `["google"]` — drives the SSO buttons |
+| GET    | `/auth/{provider}/authorize` | full-page redirect into the OAuth flow    |
+| GET    | `/auth/{provider}/callback`  | OAuth return; links by provider-verified email or creates the account, then redirects to `FRONTEND_URL` (`?error=<code>` on failure) |
+| GET    | `/users/me`              | the current account (from the session cookie) |
 | PATCH  | `/users/me`              | update name / email / timezone / dailyGoal / bio |
 | GET    | `/stats`                 | dashboard summary (solved, due, streak, …); `tzOffset` buckets days in local time |
 | GET    | `/stats/activity`        | daily review counts for the heatmap; params: `weeks`, `tzOffset` |

@@ -11,7 +11,8 @@ export default function Sidebar({
   flashcardsCount = 6,
   streakDays = 12,
   user = null,
-  onEditProfile
+  onEditProfile,
+  onLogout
 }) {
 
   const userInitial = (user?.name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -189,6 +190,21 @@ export default function Sidebar({
           <div className="w-sp-7 h-sp-14 rounded-sm bg-accent" />
         </div>
       </div>
+
+      {/* Logout — only rendered when the app runs with real auth */}
+      {onLogout && (
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-sp-10 px-2.5 py-2 rounded-card-sm bg-transparent text-fs-12-5 font-medium text-text-muted cursor-pointer transition-colors hover:text-white hover:bg-white/5"
+        >
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.5 6.5V4.8a1.3 1.3 0 0 0-1.3-1.3H5.3A1.3 1.3 0 0 0 4 4.8v10.4a1.3 1.3 0 0 0 1.3 1.3h5.9a1.3 1.3 0 0 0 1.3-1.3v-1.7" />
+            <path d="M8.5 10H17" />
+            <path d="M14.5 7.5L17 10l-2.5 2.5" />
+          </svg>
+          Log out
+        </button>
+      )}
 
       </div>
     </div>

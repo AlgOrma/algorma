@@ -170,6 +170,13 @@ button {
   border: none;
 }
 
+/* The reset above hides focus entirely; restore a ring for keyboard users. */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* Custom interactive animation for spoilers */
 .blur-transition {
   transition: filter 0.3s ease, background 0.3s ease;
@@ -183,6 +190,75 @@ button {
 /* Smooth transitions */
 .hover-glow {
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+/* ── Auth screen ────────────────────────────────────────────────────── */
+
+/* The form panel eases in on login ⇄ sign-up switches (remounted via key). */
+@keyframes auth-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.auth-fade {
+  animation: auth-fade-in 0.35s ease both;
+}
+
+.auth-input::placeholder {
+  color: #555555;
+}
+.auth-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+/* SSO buttons. Plain CSS like .btn-3d — the un-layered `button { border: none }`
+   reset above overrides Tailwind's layered border utilities, so the 3D bottom
+   border has to be declared here. */
+.auth-sso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.2s ease;
+}
+.auth-sso:active {
+  transform: translateY(3px);
+  border-bottom-width: 1px;
+}
+.auth-sso-google {
+  background: #ffffff;
+  color: #1a1a1a;
+  border-bottom: 4px solid #c8c8c8;
+}
+.auth-sso-google:hover:not(:active) {
+  background: #f2f2f2;
+}
+.auth-sso-github {
+  background: #1f1f1f;
+  color: #ffffff;
+  border: 1px solid #2a2a2a;
+  border-bottom: 4px solid #111111;
+}
+.auth-sso-github:hover:not(:active) {
+  background: #2a2a2a;
+}
+
+/* Keep browser-autofilled fields on the dark input background. */
+.auth-input:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff;
+  -webkit-box-shadow: 0 0 0 40px var(--color-bg-code) inset;
+  caret-color: #ffffff;
+}
+.auth-input:-webkit-autofill:focus {
+  -webkit-box-shadow:
+    0 0 0 40px var(--color-bg-code) inset,
+    0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 /* ── LeetCode library search animations ─────────────────────────────── */
@@ -232,6 +308,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .lc-expand { animation: none; }
   .lc-skeleton::after { animation: none; }
+  .auth-fade { animation: none; }
 }
 
 /* ── 3D Duolingo Button Styles ──────────────────────────────────────── */

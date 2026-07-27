@@ -5,4 +5,9 @@ export const FEATURES = {
   // it's actually implemented. The backend side is gated separately via the
   // ENABLE_FLASHCARDS env var (see backend/app/config.py).
   flashcards: false,
+
+  // Cookie-session authentication: the login / sign-up screen, logout, and
+  // SSO buttons, against the /api/auth/* contract in AUTH_DESIGN.md. The
+  // backend no longer accepts the legacy X-User-Id header, so this stays on.
+  auth: true,
 };
