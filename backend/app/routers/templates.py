@@ -1,42 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, Response
+from sqlmodel import Session
 
 from ..db import get_session
 from ..deps import get_current_user
-from ..models import TemplatePattern, TemplateVariation, User
-from ..schemas import (
-    ReorderIn,
-    TemplatePatternCreate,
-    TemplatePatternUpdate,
-    VariationIn,
-)
+from ..models import User
+from ..schemas import ReorderIn, TemplatePatternCreate, TemplatePatternUpdate
 from ..serialize import serialize_template_pattern
-from ..utils import utcnow
+from ..services import templates as template_service
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
-
-
-def _build_variations(items: list[VariationIn]) -> list[TemplateVariation]:
-    """Map the frontend's variation payloads to ordered DB rows."""
-    return [
-        TemplateVariation(
-            name=v.name,
-            description=v.desc,
-            language=v.lang,
-            code=v.code,
-            position=i,
-        )
-        for i, v in enumerate(items)
-    ]
-
-
-def _get_owned_pattern(
-    session: Session, user: User, pattern_id: str
-) -> TemplatePattern:
-    pattern = session.get(TemplatePattern, pattern_id)
-    if not pattern or pattern.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Pattern not found")
-    return pattern
 
 
 @router.get("")
@@ -45,15 +17,10 @@ def list_patterns(
     session: Session = Depends(get_session),
 ):
     """This user's template library: patterns (ordered) nested with variations."""
-    stmt = (
-        select(TemplatePattern)
-        .where(TemplatePattern.user_id == user.id)
-        .order_by(TemplatePattern.position, TemplatePattern.created_at)
-    )
-    rows = session.exec(stmt).all()
     # No backfill here: the starter library is seeded once at profile creation
     # (see routers/users.py). Re-seeding an empty list would resurrect a library
     # the user deliberately emptied, so we honour the empty state instead.
+    rows = template_service.list_patterns(session, user)
     return [serialize_template_pattern(p) for p in rows]
 
 
@@ -63,26 +30,7 @@ def create_pattern(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    # New patterns sort to the top, mirroring the page's "prepend" behaviour.
-    positions = session.exec(
-        select(TemplatePattern.position).where(TemplatePattern.user_id == user.id)
-    ).all()
-    top = (min(positions) - 1) if positions else 0
-
-    now = utcnow()
-    pattern = TemplatePattern(
-        user_id=user.id,
-        name=payload.name,
-        topic=payload.topic,
-        description=payload.description,
-        position=top,
-        variations=_build_variations(payload.variations),
-        created_at=now,
-        updated_at=now,
-    )
-    session.add(pattern)
-    session.commit()
-    session.refresh(pattern)
+    pattern = template_service.create_pattern(session, user, payload)
     return serialize_template_pattern(pattern)
 
 
@@ -98,33 +46,7 @@ def reorder_patterns(
     user's are ignored; any owned pattern the client omits keeps its relative
     order after the listed ones (defensive against a stale client list).
     """
-    rows = session.exec(
-        select(TemplatePattern)
-        .where(TemplatePattern.user_id == user.id)
-        .order_by(TemplatePattern.position, TemplatePattern.created_at)
-    ).all()
-    by_id = {p.id: p for p in rows}
-
-    now = utcnow()
-    ordered_ids = [pid for pid in payload.ids if pid in by_id]
-    seen = set(ordered_ids)
-    # Listed patterns first (in the given order), then any unlisted owned ones.
-    final_order = ordered_ids + [p.id for p in rows if p.id not in seen]
-
-    for position, pid in enumerate(final_order):
-        pattern = by_id[pid]
-        if pattern.position != position:
-            pattern.position = position
-            pattern.updated_at = now
-            session.add(pattern)
-
-    session.commit()
-
-    rows = session.exec(
-        select(TemplatePattern)
-        .where(TemplatePattern.user_id == user.id)
-        .order_by(TemplatePattern.position, TemplatePattern.created_at)
-    ).all()
+    rows = template_service.reorder_patterns(session, user, payload.ids)
     return [serialize_template_pattern(p) for p in rows]
 
 
@@ -138,26 +60,7 @@ def reorder_variations(
     """Reorder one pattern's variations in place (ids preserved, unlike a full
     update which replaces the set). Body: variation ids in display order; ids
     not in this pattern are ignored, omitted ones keep their relative order."""
-    pattern = _get_owned_pattern(session, user, pattern_id)
-    by_id = {v.id: v for v in pattern.variations}
-
-    ordered_ids = [vid for vid in payload.ids if vid in by_id]
-    seen = set(ordered_ids)
-    current = sorted(pattern.variations, key=lambda v: v.position)
-    final_order = ordered_ids + [v.id for v in current if v.id not in seen]
-
-    now = utcnow()
-    for position, vid in enumerate(final_order):
-        variation = by_id[vid]
-        if variation.position != position:
-            variation.position = position
-            variation.updated_at = now
-            session.add(variation)
-
-    pattern.updated_at = now
-    session.add(pattern)
-    session.commit()
-    session.refresh(pattern)
+    pattern = template_service.reorder_variations(session, user, pattern_id, payload.ids)
     return serialize_template_pattern(pattern)
 
 
@@ -168,22 +71,7 @@ def update_pattern(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    pattern = _get_owned_pattern(session, user, pattern_id)
-
-    data = payload.model_dump(exclude_unset=True)
-    for field in ("name", "topic", "description"):
-        if field in data:
-            setattr(pattern, field, data[field])
-
-    # A provided `variations` fully replaces the set (cascade deletes the old
-    # rows); omitting it leaves variations untouched.
-    if payload.variations is not None:
-        pattern.variations = _build_variations(payload.variations)
-
-    pattern.updated_at = utcnow()
-    session.add(pattern)
-    session.commit()
-    session.refresh(pattern)
+    pattern = template_service.update_pattern(session, user, pattern_id, payload)
     return serialize_template_pattern(pattern)
 
 
@@ -193,7 +81,5 @@ def delete_pattern(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    pattern = _get_owned_pattern(session, user, pattern_id)
-    session.delete(pattern)  # cascades to its variations
-    session.commit()
+    template_service.delete_pattern(session, user, pattern_id)
     return Response(status_code=204)
