@@ -10,11 +10,7 @@ export default function Button({
   ...props 
 }) {
   let baseClasses = "btn-3d font-sans text-fs-13 font-bold select-none cursor-pointer outline-none transition-all duration-100 ease-out";
-  
-  if (size === 'sm') {
-    baseClasses += " btn-3d-sm";
-  }
-  
+
   let variantClasses = "";
   if (variant === 'primary') {
     variantClasses = "btn-3d-primary";
@@ -31,6 +27,10 @@ export default function Button({
   } else if (variant === 'ghost') {
     baseClasses = "font-sans text-fs-13 font-bold cursor-pointer inline-flex items-center justify-center gap-2 select-none transition-all duration-150 outline-none rounded-lg py-2 px-3.5";
     variantClasses = "text-text-muted bg-transparent border-none hover:text-text-main hover:bg-bg-element-hover";
+  }
+
+  if (size === 'sm') {
+    baseClasses += " btn-3d-sm";
   }
 
   return (
