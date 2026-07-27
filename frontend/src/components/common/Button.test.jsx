@@ -89,19 +89,21 @@ describe('Button', () => {
     );
   });
 
-  it('drops the small size class for the ghost variant (current behavior)', () => {
-    // Characterization, suspected bug: the ghost branch reassigns baseClasses
-    // AFTER the size check, wiping btn-3d-sm. ConfirmationModal renders
-    // variant="ghost" size="sm" for its Cancel button next to a size="sm"
-    // confirm button, so the pair renders at different sizes.
+  it('keeps the small size class for the ghost variant', () => {
+    // ConfirmationModal renders variant="ghost" size="sm" for its Cancel
+    // button next to a size="sm" confirm button; both must get btn-3d-sm so
+    // the pair renders at the same size.
     render(
       <Button variant="ghost" size="sm">
         Ghost small
       </Button>
     );
 
-    expect(screen.getByRole('button', { name: 'Ghost small' })).not.toHaveClass(
-      'btn-3d-sm'
-    );
+    const button = screen.getByRole('button', { name: 'Ghost small' });
+    expect(button).toHaveClass('btn-3d-sm');
+    // Ghost must still opt out of the 3D chrome. Asserting only the size class
+    // would also pass if ghost became additive over the default base classes,
+    // which would restyle every ghost button in the app.
+    expect(button).not.toHaveClass('btn-3d');
   });
 });

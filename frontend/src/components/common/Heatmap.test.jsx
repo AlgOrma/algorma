@@ -48,6 +48,18 @@ describe('Heatmap', () => {
       expect(opacities).toEqual(Array(28).fill(0.06));
     });
 
+    it('renders an empty grid when the payload omits the days map entirely', () => {
+      // Without a default, `Object.values(undefined)` throws and takes the
+      // whole dashboard down — a harder failure than the miscoloured cells
+      // the missing-count defaults guard against.
+      const { container } = render(
+        <Heatmap activity={{ startDate: '2026-03-01', endDate: '2026-03-28' }} />
+      );
+
+      expect(getDayCells(container)).toHaveLength(28);
+      expect(getDayCells(container).map(opacityOf)).toEqual(Array(28).fill(0.06));
+    });
+
     it('renders a day present in the payload with zero counts at the empty intensity', () => {
       const { container } = render(
         <Heatmap activity={marchActivity({ '2026-03-10': { reviews: 0, solves: 0 } })} />
@@ -231,7 +243,7 @@ describe('Heatmap', () => {
       expect(screen.queryByText('4 reviews')).not.toBeInTheDocument();
     });
 
-    it('treats a missing count field as zero in the tooltip text', async () => {
+    it('treats a missing count field as zero in cell coloring and tooltip text', async () => {
       const user = userEvent.setup();
       const { container } = render(
         <Heatmap
@@ -243,11 +255,12 @@ describe('Heatmap', () => {
         />
       );
 
-      // The cell loses its computed color when a count field is missing (the
-      // max-count reduction yields NaN), so address it by grid position.
-      const cell = getColumns(container)[0][1]; // Mar 2, Monday row
-      await user.hover(cell);
+      // Mar 2 is the range's only (and thus busiest) day, so it takes the
+      // top intensity bucket despite the missing `reviews` field.
+      const cell = getDayCells(container)[1]; // Mar 2
+      expect(opacityOf(cell)).toBe(0.88);
 
+      await user.hover(cell);
       expect(screen.getByText('3 solved')).toBeInTheDocument();
     });
   });
