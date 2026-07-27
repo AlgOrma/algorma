@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import case, func
 from sqlmodel import Session, col, or_, select
 
-from ..models import Curriculum, CurriculumQuestionLink, LeetCodeQuestion
+from ..models import Curriculum, CurriculumQuestionLink, LeetCodeQuestion, User
 
 
 def get_question(session: Session, question_id: str) -> LeetCodeQuestion:
@@ -21,12 +21,15 @@ def search_questions(
     difficulty: str | None = None,
     tag: str | None = None,
     curriculum: str | None = None,
+    user: User | None = None,
     page: int = 1,
     limit: int = 50,
 ) -> tuple[list[LeetCodeQuestion], int]:
     """Filtered, relevance-ranked catalog search.
 
-    Returns one page of questions plus the total match count.
+    Returns one page of questions plus the total match count. ``user`` is the
+    caller (``None`` when anonymous) and is only consulted to decide whether a
+    curriculum filter is readable.
     """
     # Build the filter conditions once and reuse them for both the page query
     # and the total count, so the two can never drift apart.
@@ -58,6 +61,14 @@ def search_questions(
             )
         ).first()
         if curriculum_obj:
+            # Same readability rule as GET /api/curriculums/{id_or_slug}:
+            # global curriculums are visible to everyone, private ones only to
+            # their owner. Without this, filtering the catalog by a guessed
+            # slug would reveal another user's private list membership.
+            if curriculum_obj.user_id is not None and (
+                user is None or curriculum_obj.user_id != user.id
+            ):
+                raise HTTPException(status_code=403, detail="Access denied")
             conditions.append(
                 col(LeetCodeQuestion.id).in_(
                     select(CurriculumQuestionLink.leetcode_id).where(

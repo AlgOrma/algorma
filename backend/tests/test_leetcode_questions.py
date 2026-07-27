@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from sqlmodel import select
 
 from app.models import (
@@ -59,8 +60,12 @@ def seed_catalog(session):
     )
 
 
-def make_curriculum(session, question_ids, slug="blind-75", name="Blind 75"):
-    cur = Curriculum(name=name, slug=slug)
+def make_curriculum(
+    session, question_ids, slug="blind-75", name="Blind 75", user_id=None
+):
+    """A curriculum with the given questions linked. ``user_id=None`` makes it
+    global (readable by everyone); passing an owner makes it private."""
+    cur = Curriculum(name=name, slug=slug, user_id=user_id)
     session.add(cur)
     session.commit()
     for qid in question_ids:
@@ -72,6 +77,25 @@ def make_curriculum(session, question_ids, slug="blind-75", name="Blind 75"):
 
 def titles(body):
     return [item["title"] for item in body["items"]]
+
+
+@pytest.fixture
+def other_user(session):
+    u = User(name="Other User")
+    session.add(u)
+    session.commit()
+    session.refresh(u)
+    return u
+
+
+@pytest.fixture
+def anon_client(client):
+    """The shared ``client`` presets an ``X-User-Id`` header; this one sends no
+    such header at all, which is the request the catalog leak allowed. Distinct
+    from sending an empty value: only a truly absent header proves the endpoint
+    treats "anonymous" as a real case rather than a falsy-string accident."""
+    client.headers.pop("X-User-Id", None)
+    return client
 
 
 # --- listing / search ---
@@ -219,6 +243,100 @@ def test_filters_combine(client, session):
 
     assert [x["id"] for x in body["items"]] == ["4"]
     assert body["total"] == 1
+
+
+# --- curriculum filter ownership ---
+#
+# Same readability rule as GET /api/curriculums/{id_or_slug}: global lists are
+# visible to everyone, private ones only to their owner. Without it, filtering
+# the catalog by a guessed slug leaks another user's private list membership.
+#
+# These drive the real app rather than calling the handler directly, so the
+# Depends(get_current_user_optional) wiring is itself under test: deleting it
+# from the signature must fail these.
+
+
+def seed_private(session, owner):
+    seed_catalog(session)
+    return make_curriculum(
+        session, ["2"], slug="my-plan", name="My Plan", user_id=owner.id
+    )
+
+
+def test_global_curriculum_filter_readable_by_anyone(client, anon_client, session):
+    seed_catalog(session)
+    make_curriculum(session, ["1"])
+
+    # Signed-in and anonymous callers both see a global list's contents.
+    for c in (client, anon_client):
+        res = c.get("/api/leetcode-questions", params={"curriculum": "blind-75"})
+        assert res.status_code == 200
+        assert [x["id"] for x in res.json()["items"]] == ["1"]
+
+
+def test_owner_may_filter_by_private_curriculum(client, session, user):
+    cur = seed_private(session, user)
+
+    # By slug and by id alike — both resolve to the same curriculum.
+    for key in (cur.slug, cur.id):
+        res = client.get("/api/leetcode-questions", params={"curriculum": key})
+        assert res.status_code == 200
+        assert [x["id"] for x in res.json()["items"]] == ["2"]
+
+
+def test_stranger_is_denied_private_curriculum(client, session, user, other_user):
+    cur = seed_private(session, user)
+
+    for key in (cur.slug, cur.id):
+        res = client.get(
+            "/api/leetcode-questions",
+            params={"curriculum": key},
+            headers={"X-User-Id": other_user.id},
+        )
+        assert res.status_code == 403
+        assert res.json()["detail"] == "Access denied"
+
+
+def test_anonymous_is_denied_private_curriculum(anon_client, session, user):
+    cur = seed_private(session, user)
+
+    res = anon_client.get(
+        "/api/leetcode-questions", params={"curriculum": cur.slug}
+    )
+    assert res.status_code == 403
+
+
+def test_anonymous_browsing_still_works(anon_client, session, user):
+    seed_private(session, user)
+    make_curriculum(session, ["1"])
+
+    # Catalog browsing stays public: unfiltered, and filtered by a global list.
+    assert anon_client.get("/api/leetcode-questions").status_code == 200
+
+    res = anon_client.get(
+        "/api/leetcode-questions", params={"curriculum": "blind-75"}
+    )
+    assert res.status_code == 200
+    assert [x["id"] for x in res.json()["items"]] == ["1"]
+
+
+def test_unknown_user_id_is_rejected(client, session, user):
+    seed_private(session, user)
+
+    # A header naming a nonexistent profile is an error, not silent anonymity —
+    # a stale client id fails loudly rather than downgrading to anonymous.
+    res = client.get(
+        "/api/leetcode-questions", headers={"X-User-Id": "no-such-profile"}
+    )
+    assert res.status_code == 404
+
+
+def test_empty_user_id_header_is_anonymous(client, session, user):
+    seed_private(session, user)
+
+    # An empty header is absent, not a bogus id — public browsing still works.
+    res = client.get("/api/leetcode-questions", headers={"X-User-Id": ""})
+    assert res.status_code == 200
 
 
 # --- pagination ---

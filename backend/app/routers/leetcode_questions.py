@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
 from ..db import get_session
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_user_optional
 from ..models import User
 from ..serialize import serialize_leetcode_question, serialize_problem
 from ..services import leetcode_questions as leetcode_service
@@ -22,6 +22,7 @@ def list_leetcode_questions(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
+    user: Optional[User] = Depends(get_current_user_optional),
 ):
     questions, total = leetcode_service.search_questions(
         session,
@@ -29,6 +30,7 @@ def list_leetcode_questions(
         difficulty=difficulty,
         tag=tag,
         curriculum=curriculum,
+        user=user,
         page=page,
         limit=limit,
     )
