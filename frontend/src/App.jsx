@@ -343,13 +343,17 @@ function App() {
     );
   };
 
-  // Update a single problem in local state and database
+  // Update a single problem in local state and database. Rethrows so callers
+  // that report save state to the user (ProblemDetail's autosave) can tell a
+  // completed write from a failed one instead of silently showing "saved".
   const handleUpdateProblem = async (updatedProblem) => {
     try {
       const res = await api.updateProblem(updatedProblem.id, updatedProblem);
       applyProblemUpdate(res);
+      return res;
     } catch (err) {
       console.error('Failed to update problem in database:', err.message);
+      throw err;
     }
   };
 

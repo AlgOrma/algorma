@@ -52,6 +52,79 @@ const SPLIT_MIN = 26;
 const SPLIT_MAX = 72;
 const SPLIT_DEFAULT = 46;
 
+// How long the workspace sits still before it writes itself back. Short enough
+// that leaving the page never costs you a thought, long enough that a burst of
+// typing is one request rather than thirty.
+const AUTOSAVE_DELAY_MS = 1200;
+
+const NEW_APPROACH_CODE = '// Add your code solution here';
+
+const StatusDot = ({ className = '', filled = true }) => (
+  <svg width="7" height="7" viewBox="0 0 8 8" className={className} aria-hidden="true">
+    <circle
+      cx="4"
+      cy="4"
+      r="2.9"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.3"
+    />
+  </svg>
+);
+
+// Replaces the old Save button. Small, monospace, in the header's data voice —
+// it should be legible at a glance and invisible the rest of the time.
+function SaveStatus({ state, onRetry }) {
+  if (state === 'error') {
+    return (
+      <div className="flex items-center gap-2 font-mono text-fs-11 text-[#ff6b6b]" role="status">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5" />
+          <line x1="10" y1="6.2" x2="10" y2="10.8" />
+          <line x1="10" y1="13.7" x2="10" y2="13.8" />
+        </svg>
+        <span>Couldn’t save</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="font-mono text-fs-11 underline underline-offset-2 bg-transparent border-none text-[#ff6b6b] hover:text-text-main cursor-pointer p-0"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const variants = {
+    clean: { label: 'Autosave on', className: 'text-text-muted', dot: <StatusDot filled={false} /> },
+    dirty: { label: 'Unsaved changes', className: 'text-text-muted', dot: <StatusDot filled={false} /> },
+    saving: { label: 'Saving…', className: 'text-text-hover', dot: <StatusDot className="text-accent save-pulse" /> },
+    saved: {
+      label: 'Auto-saved',
+      className: 'text-accent-green',
+      dot: (
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="17 5.5 8 15 3 10.2" />
+        </svg>
+      )
+    }
+  };
+
+  const variant = variants[state] || variants.clean;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      title="Your code, notes and approaches save themselves a moment after you stop typing."
+      className={`flex items-center gap-1.5 font-mono text-fs-11 select-none whitespace-nowrap ${variant.className}`}
+    >
+      {variant.dot}
+      {variant.label}
+    </div>
+  );
+}
+
 export default function ProblemDetail({
   problem,
   onBack,
@@ -89,6 +162,34 @@ export default function ProblemDetail({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
   const menuRef = useDismissOnOutside(isMenuOpen, closeMenu);
+
+  // Autosave: 'clean' before anything is touched, then dirty → saving → saved,
+  // or 'error' when the write failed and the user's work is only in the tab.
+  const [saveState, setSaveState] = useState('clean');
+
+  // Latest values, mirrored into refs so a flush triggered by unmount, a
+  // background tab, or the Back button writes what is on screen right now
+  // rather than whatever was current when the timer was scheduled.
+  const workspaceRef = useRef({ approaches: [], notes: '' });
+  const problemRef = useRef(problem);
+  const saveTimerRef = useRef(null);
+  const pendingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    workspaceRef.current = { approaches, notes };
+  }, [approaches, notes]);
+
+  useEffect(() => {
+    problemRef.current = problem;
+  }, [problem]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Split pane. The user's chosen ratio outlives the session because the right
   // width depends on their monitor, not on the problem.
@@ -130,6 +231,95 @@ export default function ProblemDetail({
   const nudgeSplit = (delta) =>
     setSplitPct((p) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, p + delta)));
 
+  // Write the workspace back. `overrides` carries deliberate changes (status,
+  // checklist) that must win over what the current problem row says.
+  const persist = useCallback(
+    async (overrides = {}) => {
+      const current = problemRef.current;
+      if (!current) return false;
+
+      const { approaches: liveApproaches, notes: liveNotes } = workspaceRef.current;
+      const primary = liveApproaches[0] || {};
+
+      const payload = {
+        ...current,
+        approach: primary.approach || '',
+        solution: primary.code || '',
+        notes: liveNotes,
+        approaches: liveApproaches,
+        ...overrides
+      };
+
+      pendingRef.current = false;
+      if (mountedRef.current) setSaveState('saving');
+      try {
+        await onUpdateProblem(payload);
+        if (mountedRef.current) setSaveState('saved');
+        return true;
+      } catch {
+        // Keep it dirty: the retry affordance and the next edit both re-arm.
+        pendingRef.current = true;
+        if (mountedRef.current) setSaveState('error');
+        return false;
+      }
+    },
+    [onUpdateProblem]
+  );
+
+  // Every edit path funnels through here, so there is exactly one place that
+  // decides when a write happens.
+  const markDirty = useCallback(() => {
+    pendingRef.current = true;
+    setSaveState('dirty');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      void persist();
+    }, AUTOSAVE_DELAY_MS);
+  }, [persist]);
+
+  // Write immediately instead of waiting out the debounce.
+  const flushNow = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (!pendingRef.current) return;
+    void persist();
+  }, [persist]);
+
+  // Leaving the tab, hiding the window, or unmounting all cut the debounce
+  // short so a pending edit can never be the thing that gets lost.
+  useEffect(() => {
+    const handleHide = () => {
+      if (document.visibilityState === 'hidden') flushNow();
+    };
+    document.addEventListener('visibilitychange', handleHide);
+    window.addEventListener('pagehide', flushNow);
+    return () => {
+      document.removeEventListener('visibilitychange', handleHide);
+      window.removeEventListener('pagehide', flushNow);
+    };
+  }, [flushNow]);
+
+  // Unmount is the last chance to write, so it must fire on unmount and
+  // nothing else. `persist` is rebuilt whenever App hands down a new
+  // onUpdateProblem (every save does), so depending on it here would run this
+  // teardown mid-life and defeat the debounce — read it through a ref and keep
+  // the dependency list empty.
+  const persistRef = useRef(persist);
+  useEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
+
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (pendingRef.current) void persistRef.current();
+    },
+    []
+  );
+
   // Load problem details into local states
   useEffect(() => {
     if (problem) {
@@ -142,16 +332,17 @@ export default function ProblemDetail({
               complexityTime: '',
               complexitySpace: '',
               approach: problem.approach || '',
-              code: problem.solution || '// Add your code solution here',
+              code: problem.solution || NEW_APPROACH_CODE,
               lang: 'Python'
             }
           ];
-      
+
       setApproaches(defaultApproaches);
       setNotes(problem.notes || '');
       setActiveApproachIdx(0);
       setRevealedEditorial(false);
       setRevealedHints({});
+      setSaveState('clean');
     }
     // Re-initialize only when switching to a different problem. Depending on
     // `problem` itself would clobber in-progress edits (and re-hide spoilers)
@@ -177,6 +368,7 @@ export default function ProblemDetail({
     setApproaches((prev) =>
       prev.map((appr, idx) => (idx === activeApproachIdx ? { ...appr, [field]: value } : appr))
     );
+    markDirty();
   };
 
   // Add a new solution approach variation
@@ -188,11 +380,12 @@ export default function ProblemDetail({
       complexityTime: '',
       complexitySpace: '',
       approach: '',
-      code: '// Add your code solution here',
+      code: NEW_APPROACH_CODE,
       lang: 'Python'
     };
     setApproaches((prev) => [...prev, newApproach]);
     setActiveApproachIdx(approaches.length);
+    markDirty();
   };
 
   // Delete an approach variation
@@ -208,6 +401,12 @@ export default function ProblemDetail({
     setApproaches(updated);
     setActiveApproachIdx((prev) => (prev >= updated.length ? updated.length - 1 : prev));
     setApproachToDeleteIdx(null);
+    markDirty();
+  };
+
+  const handleUpdateNotes = (value) => {
+    setNotes(value);
+    markDirty();
   };
 
   // Horizontal scroll for approaches tab bar on mouse wheel scroll
@@ -217,42 +416,26 @@ export default function ProblemDetail({
     e.currentTarget.scrollLeft += e.deltaY;
   };
 
-  // Save changes locally and trigger backend callback
-  const handleSave = () => {
-    // Sync back flat structure for compatibility, picking the first approach
-    const primaryApproach = approaches[0] || {};
-    
-    const updated = {
-      ...problem,
-      approach: primaryApproach.approach || '',
-      solution: primaryApproach.code || '',
-      notes: notes,
-      approaches: approaches
-    };
-    
-    onUpdateProblem(updated);
-    
-    // Show smooth feedback
-    setToastMessage('Workspace saved successfully!');
-    setTimeout(() => setToastMessage(''), 2500);
+  // Save any pending edit before the workspace unmounts, so the trip back to
+  // the bank is never the thing that costs you a keystroke.
+  const handleBack = () => {
+    flushNow();
+    onBack();
   };
 
   const handleMarkComplete = () => {
-    const primaryApproach = approaches[0] || {};
-    const updated = {
-      ...problem,
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    void persist({
       status: 'Done',
       due: false,
       lastRevised: 'just now',
       nextLabel: 'in 6 days',
-      revisions: (problem.revisions || 0) + 1,
-      approach: primaryApproach.approach || '',
-      solution: primaryApproach.code || '',
-      notes: notes,
-      approaches: approaches
-    };
-    onUpdateProblem(updated);
-    
+      revisions: (problem.revisions || 0) + 1
+    });
+
     setToastMessage('Problem completed!');
     setTimeout(() => setToastMessage(''), 2500);
   };
@@ -315,17 +498,11 @@ export default function ProblemDetail({
       newStatus = 'Not started';
     }
 
-    const primaryApproach = approaches[0] || {};
-    onUpdateProblem({
-      ...problem,
-      status: newStatus,
-      due: isDue,
-      checklistProgress: currentProgress,
-      approach: primaryApproach.approach || '',
-      solution: primaryApproach.code || '',
-      notes: notes,
-      approaches: approaches
-    });
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    void persist({ status: newStatus, due: isDue, checklistProgress: currentProgress });
   };
 
   const activeApproach = approaches[activeApproachIdx] || {};
@@ -337,7 +514,7 @@ export default function ProblemDetail({
       <div className="flex items-center justify-between px-6 py-3 bg-bg-card border-b border-border-main shrink-0">
         <div className="flex items-center gap-4 min-w-0">
           <button 
-            onClick={onBack} 
+            onClick={handleBack}
             className="flex items-center justify-center p-1.5 rounded bg-[#111] hover:bg-[#222] border border-border-muted text-text-muted hover:text-text-main transition-colors cursor-pointer"
             title="Back to Problems"
           >
@@ -349,7 +526,7 @@ export default function ProblemDetail({
           
           <div className="flex items-center gap-3 truncate">
             <span 
-              onClick={onBack}
+              onClick={handleBack}
               className="font-mono text-fs-12 text-text-muted hover:text-text-main cursor-pointer transition-colors"
             >
               {problem.topic}
@@ -378,13 +555,8 @@ export default function ProblemDetail({
               LeetCode ↗
             </a>
           )}
-          <Button 
-            variant="secondary" 
-            onClick={handleSave}
-            className="cursor-pointer"
-          >
-            Save Solution
-          </Button>
+          <SaveStatus state={saveState} onRetry={() => void persist()} />
+
           <Button 
             onClick={handleMarkComplete}
             disabled={problem.status === 'Done'}
@@ -397,6 +569,8 @@ export default function ProblemDetail({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-haspopup="menu"
+              aria-expanded={isMenuOpen}
               className="flex items-center justify-center p-2.5 dropdown-trigger-3d text-text-muted hover:text-text-main cursor-pointer"
               title="More Actions"
             >
@@ -467,7 +641,7 @@ export default function ProblemDetail({
         
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#10b981] text-black text-fs-12 font-bold px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-bounce">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-accent-green text-black text-fs-12 font-bold px-4 py-2 rounded-md shadow-modal flex items-center gap-2 animate-fade-in">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -774,7 +948,7 @@ export default function ProblemDetail({
                   </label>
                   <textarea
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    onChange={(e) => handleUpdateNotes(e.target.value)}
                     rows={12}
                     placeholder="Write your learnings, core concepts, or pitfalls here. These notes are shared across all approaches."
                     className="bg-bg-code border border-border-main rounded-xl p-4 text-[#ffffff] font-sans text-fs-13.5 leading-[1.6] outline-none w-full focus:border-accent transition-colors resize-y select-text"

@@ -592,6 +592,17 @@ select:active {
   height: auto;
 }
 
+/* ── Autosave indicator ─────────────────────────────────────────────────
+   A slow breath on the dot while a write is in flight — the only motion in
+   the workspace header, so "saving" reads without stealing attention. */
+@keyframes save-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.save-pulse {
+  animation: save-pulse 1.1s ease-in-out infinite;
+}
 
-
-
+@media (prefers-reduced-motion: reduce) {
+  .save-pulse { animation: none; }
+}
