@@ -4,12 +4,12 @@ import { FEATURES } from '../features';
 export default function Sidebar({
   activeScreen,
   onNavigate,
-  problemsCount = 142,
+  problemsCount = 0,
   customListsCount = 0,
-  templatesCount = 24,
-  reviseCount = 5,
-  flashcardsCount = 6,
-  streakDays = 12,
+  templatesCount = 0,
+  reviseCount = 0,
+  flashcardsCount = 0,
+  streakDays = null,
   user = null,
   onEditProfile
 }) {
@@ -80,7 +80,7 @@ export default function Sidebar({
       id: 'revise',
       label: 'Revise',
       badge: reviseCount,
-      badgeColor: 'text-accent',
+      badgeColor: 'text-accent-text',
       icon: (color) => (
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 7.5a6 6 0 1 0 1 5"/>
@@ -93,7 +93,7 @@ export default function Sidebar({
       hidden: !FEATURES.flashcards,
       label: 'Flashcards',
       badge: flashcardsCount,
-      badgeColor: 'text-accent',
+      badgeColor: 'text-accent-text',
       icon: (color) => (
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="5.5" width="11" height="9" rx="1.6"/>
@@ -118,15 +118,18 @@ export default function Sidebar({
       {/* Nav List */}
       {navItems.filter((item) => !item.hidden).map((item) => {
         const isActive = activeScreen === item.id || (item.id === 'problems' && activeScreen === 'detail');
-        const color = isActive ? 'var(--color-text-main)' : 'var(--color-text-muted)';
+        // Active nav is "powered on" — accent-colored per DESIGN.md's nav spec.
+        const color = isActive ? 'var(--color-accent-text)' : 'var(--color-text-muted)';
 
         return (
-          <div
+          <a
             key={item.id}
-            onClick={() => onNavigate(item.id)}
+            href={`/${item.id}`}
+            onClick={(e) => { e.preventDefault(); onNavigate(item.id); }}
+            aria-current={isActive ? 'page' : undefined}
             className={`flex items-center gap-sp-11 px-sp-11 py-2.5 rounded-card-btn text-fs-14 font-medium cursor-pointer transition-all duration-150 border ${
-              isActive 
-                ? 'bg-white/10 border-white/5 text-white' 
+              isActive
+                ? 'bg-white/10 border-white/5 text-accent-text'
                 : 'bg-transparent border-transparent text-text-muted hover:text-white hover:bg-white/5'
             }`}
           >
@@ -137,56 +140,48 @@ export default function Sidebar({
                 {item.badge}
               </span>
             )}
-          </div>
+          </a>
         );
       })}
 
       {/* Bottom group: profile card + streak widget */}
       <div className="mt-auto flex flex-col gap-sp-10">
 
-      {/* Profile card — opens the edit-profile screen */}
-      <div
+      {/* Profile card — opens the edit-profile screen. Ring instead of border:
+          the global button reset strips border utilities on <button>. */}
+      <button
+        type="button"
         onClick={onEditProfile}
         title="Edit profile"
-        className="flex items-center gap-sp-10 px-2.5 py-sp-9 rounded-card-sm bg-bg-card border border-border-card cursor-pointer transition-colors hover:border-border-btn-hover"
+        className="flex items-center gap-sp-10 px-2.5 py-sp-9 rounded-card-sm bg-bg-card ring-1 ring-border-card cursor-pointer transition-shadow hover:ring-border-btn-hover w-full text-left"
       >
-        <div className="w-[30px] h-[30px] flex-none rounded-md bg-accent flex items-center justify-center font-bold text-fs-13 text-white">
+        <span className="w-[30px] h-[30px] flex-none rounded-md bg-accent flex items-center justify-center font-bold text-fs-13 text-white">
           {userInitial}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-fs-13 font-semibold text-text-main whitespace-nowrap overflow-hidden text-ellipsis">
+        </span>
+        <span className="min-w-0 flex-1 block">
+          <span className="block text-fs-13 font-semibold text-text-main whitespace-nowrap overflow-hidden text-ellipsis">
             {user?.name || 'Your profile'}
-          </div>
-          <div className="font-mono text-fs-10 text-text-muted mt-sp-1">
+          </span>
+          <span className="block font-mono text-fs-10 text-text-muted mt-sp-1">
             goal · {user?.dailyGoal ?? 10}/day
-          </div>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--color-border-accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          </span>
+        </span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12.5 4.5l3 3" />
           <path d="M4 16.5l-.7.2.2-.7L13 6.5l.5-.5 3 3-.5.5-8.5 8.5z" />
         </svg>
-      </div>
+      </button>
 
-      {/* Current Streak Widget */}
+      {/* Current Streak Widget — server stats; em dash while loading/offline */}
       <div className="p-3.5 rounded-card-sm bg-bg-card border border-border-card">
         <div className="font-mono text-fs-10-5 text-text-muted tracking-[0.05em]">
           CURRENT STREAK
         </div>
         <div className="flex items-baseline gap-1.5 mt-sp-5">
           <span className="font-mono text-fs-23 font-semibold text-text-main">
-            {streakDays}
+            {streakDays ?? '—'}
           </span>
-          <span className="text-fs-12 text-text-muted">days</span>
-        </div>
-        <div className="flex gap-sp-4 mt-2.5 items-center">
-          {/* Mock active streak visualizer */}
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-bg-dot-empty" />
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-bg-dot-fill" />
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-accent-secondary/30" />
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-accent/60" />
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-accent" />
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-accent" />
-          <div className="w-sp-7 h-sp-14 rounded-sm bg-accent" />
+          <span className="text-fs-12 text-text-muted">{streakDays === 1 ? 'day' : 'days'}</span>
         </div>
       </div>
 
