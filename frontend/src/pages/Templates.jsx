@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import SyntaxHighlighter from '../components/common/SyntaxHighlighter';
 import CodeEditor from '../components/common/CodeEditor';
 import Button from '../components/common/Button';
+import useDismissOnOutside from '../hooks/useDismissOnOutside';
 
 // A two-level, editable template library (mirrors the claude.ai/design screen).
 // A parent "pattern" holds shared guidance (description) plus named code
@@ -25,6 +26,31 @@ const TrashIcon = ({ size = 14, className = '' }) => (
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     <line x1="10" y1="11" x2="10" y2="17" />
     <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+const PencilIcon = ({ size = 14, className = '' }) => (
+  <svg
+    className={className}
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+);
+
+const MoreIcon = ({ size = 15, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+    <circle cx="4" cy="10" r="1.7" />
+    <circle cx="10" cy="10" r="1.7" />
+    <circle cx="16" cy="10" r="1.7" />
   </svg>
 );
 
@@ -63,6 +89,12 @@ export default function Templates({
   const [varDragOverId, setVarDragOverId] = useState(null);
 
   const query = search.trim().toLowerCase();
+
+  // Only one row menu is ever open, so a single wrapper ref is enough — it is
+  // attached to whichever card owns `menuId`. Clicking anywhere else on the
+  // page (or pressing Escape) closes it.
+  const closeMenu = useCallback(() => setMenuId(null), []);
+  const menuRef = useDismissOnOutside(menuId !== null, closeMenu);
 
   // --- pattern-list mutations (persisted through the API via App) ---
   const toggle = (id) =>
@@ -385,29 +417,42 @@ export default function Templates({
                     >
                       + Variation
                     </Button>
-                    <div className="relative">
+                    <div className="relative" ref={menuId === p.id ? menuRef : null}>
                       <button
+                        type="button"
+                        aria-haspopup="menu"
+                        aria-expanded={menuId === p.id}
+                        aria-label={`Actions for ${src.name}`}
                         onClick={() =>
                           setMenuId((m) => (m === p.id ? null : p.id))
                         }
-                        className="w-[30px] h-[30px] flex items-center justify-center text-text-muted bg-transparent border border-transparent rounded-card-xs cursor-pointer text-fs-16 hover:bg-bg-btn-sec transition-colors duration-200"
+                        className={`w-[30px] h-[30px] flex items-center justify-center bg-transparent border border-transparent rounded-card-xs cursor-pointer transition-colors duration-200 hover:bg-bg-btn-sec hover:text-text-main ${
+                          menuId === p.id ? 'text-text-main bg-bg-btn-sec' : 'text-text-muted'
+                        }`}
                       >
-                        ⋯
+                        <MoreIcon />
                       </button>
                       {menuId === p.id && (
-                        <div className="absolute right-0 top-[34px] z-[5] bg-bg-element-hover border border-border-btn rounded-card-md p-1.5 w-[152px] shadow-[0_14px_34px_-12px_rgba(0,0,0,0.7)]">
-                          <div
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-[34px] z-[5] bg-bg-element-hover border border-border-btn rounded-card-md p-1.5 w-[152px] shadow-[0_14px_34px_-12px_rgba(0,0,0,0.7)]"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
                             onClick={() => startEdit(p.id)}
-                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-text-main cursor-pointer hover:bg-bg-btn-sec-hover transition-colors duration-150"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-text-main text-left bg-transparent border-none cursor-pointer hover:bg-bg-btn-sec-hover transition-colors duration-150"
                           >
-                            ✎ Edit
-                          </div>
-                          <div
+                            <PencilIcon className="flex-none" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
                             onClick={() => deletePattern(p.id)}
-                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-accent-red-hover cursor-pointer hover:bg-accent-red-hover/[0.12] transition-colors duration-150"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-accent-red-hover text-left bg-transparent border-none cursor-pointer hover:bg-accent-red-hover/[0.12] transition-colors duration-150"
                           >
                             <TrashIcon className="flex-none" /> Delete
-                          </div>
+                          </button>
                         </div>
                       )}
                     </div>
