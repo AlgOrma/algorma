@@ -50,6 +50,10 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    decks: list["Deck"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class ProblemPatternLink(SQLModel, table=True):
@@ -227,11 +231,30 @@ class TemplateVariation(SQLModel, table=True):
     pattern: Optional[TemplatePattern] = Relationship(back_populates="variations")
 
 
+class Deck(SQLModel, table=True):
+    """A user's flashcard deck."""
+
+    id: str = Field(default_factory=gen_id, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    user: Optional["User"] = Relationship(back_populates="decks")
+    flashcards: list["Flashcard"] = Relationship(
+        back_populates="deck",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
 class Flashcard(SQLModel, table=True):
     id: str = Field(default_factory=gen_id, primary_key=True)
     user_id: str = Field(foreign_key="user.id", index=True)
-    type: str  # "concept" | "problem"
-    tag: str
+    deck_id: Optional[str] = Field(default=None, foreign_key="deck.id", index=True)
+    type: str = "concept"  # "concept" | "problem"
+    tag: str = "General"
     front: str
     back: str
 
@@ -239,6 +262,7 @@ class Flashcard(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
     user: Optional[User] = Relationship(back_populates="flashcards")
+    deck: Optional[Deck] = Relationship(back_populates="flashcards")
     revision: Optional["Revision"] = Relationship(
         back_populates="flashcard",
         sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"},

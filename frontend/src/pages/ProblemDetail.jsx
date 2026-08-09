@@ -82,6 +82,44 @@ export default function ProblemDetail({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
+  // Flashcard modal state
+  const [isFlashcardModalOpen, setIsFlashcardModalOpen] = useState(false);
+  const [flashcardDecks, setFlashcardDecks] = useState([]);
+  const [targetDeckId, setTargetDeckId] = useState('');
+
+  const handleOpenFlashcardModal = async () => {
+    try {
+      const decks = await api.getDecks();
+      setFlashcardDecks(decks || []);
+      if (decks && decks.length > 0) setTargetDeckId(decks[0].id);
+    } catch {
+      // offline or error fallback
+    }
+    setIsFlashcardModalOpen(true);
+  };
+
+  const handleCreateFlashcardFromProblem = async () => {
+    if (!problem) return;
+    const primaryApproach = approaches[0] || {};
+    const frontText = `[${problem.topic}] ${problem.title}\n\n${problem.statement ? problem.statement.slice(0, 300) : ''}`;
+    const backText = `Approach: ${primaryApproach.name || 'Main Solution'}\n\nTime: ${primaryApproach.complexityTime || 'N/A'} | Space: ${primaryApproach.complexitySpace || 'N/A'}\n\n${primaryApproach.approach || ''}\n\n\`\`\`${primaryApproach.lang || 'python'}\n${primaryApproach.code || ''}\n\`\`\``;
+
+    try {
+      await api.createFlashcard({
+        front: frontText,
+        back: backText,
+        deck_id: targetDeckId || null,
+        tag: problem.topic || 'General',
+        type: 'problem',
+      });
+      setIsFlashcardModalOpen(false);
+      setToastMessage('Flashcard created successfully!');
+      setTimeout(() => setToastMessage(''), 3000);
+    } catch (err) {
+      alert(err.message || 'Failed to create flashcard');
+    }
+  };
+
   // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event) {
@@ -401,6 +439,20 @@ export default function ProblemDetail({
                     <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
                   </svg>
                   Force Revision
+                </button>
+                <div className="border-t border-border-muted my-1"></div>
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleOpenFlashcardModal();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-fs-13 text-text-hover hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                >
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="5.5" width="11" height="9" rx="1.6"/>
+                    <path d="M6 5.5V4.2A1.2 1.2 0 0 1 7.2 3H17v8.5"/>
+                  </svg>
+                  Create Flashcard
                 </button>
                 <div className="border-t border-border-muted my-1"></div>
                 <button
@@ -942,6 +994,59 @@ export default function ProblemDetail({
         onLoadCustomLists={onLoadCustomLists}
         onRefreshProblems={onRefreshProblems}
       />
+
+      {isFlashcardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+          <div className="bg-bg-card-grad-start border border-border-btn rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-fs-18 font-bold text-text-main">
+                Create Flashcard from Problem
+              </h3>
+              <button
+                onClick={() => setIsFlashcardModalOpen(false)}
+                className="text-text-muted hover:text-text-main"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-fs-12 font-mono text-text-muted mb-1">Select Deck</label>
+                <select
+                  value={targetDeckId}
+                  onChange={(e) => setTargetDeckId(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-bg-track border border-border-btn rounded-xl text-fs-13 text-text-main focus:outline-none focus:border-accent"
+                >
+                  <option value="">(No Deck / General)</option>
+                  {flashcardDecks.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-3 bg-bg-track/60 rounded-xl border border-border-btn/60 text-fs-12">
+                <div className="text-text-muted mb-1 font-mono">PREVIEW CARD:</div>
+                <div className="font-semibold text-text-main">{problem.title}</div>
+                <div className="text-text-muted text-fs-11 font-mono mt-1">
+                  Tag: {problem.topic} · Type: problem
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3">
+                <Button variant="secondary" onClick={() => setIsFlashcardModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFlashcardFromProblem}>
+                  Add to Flashcard Deck
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

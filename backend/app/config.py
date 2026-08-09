@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Feature flags. Flashcards aren't implemented in the UI yet, so the API
     # surface stays off by default (set ENABLE_FLASHCARDS=true to expose it).
     # Mirrors FEATURES.flashcards in frontend/src/features.js.
-    enable_flashcards: bool = False
+    enable_flashcards: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

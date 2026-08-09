@@ -57,8 +57,8 @@ def test_list_returns_cards_oldest_first_with_fresh_srs_defaults(session, user):
     assert row["type"] == "concept"
     assert row["tag"] == "arrays"
     assert row["back"] == "A."
-    # Never reviewed: no revision row, so serializer falls back to defaults.
-    assert row["due"] is False
+    # Never reviewed: no revision row, so serializer marks due=True (new card ready for study).
+    assert row["due"] is True
     assert row["reviewCount"] == 0
     assert row["easeFactor"] == 2.5
     assert row["intervalDays"] == 0
@@ -100,9 +100,8 @@ def test_due_filter_keeps_only_overdue_and_due_today(session, user):
     due_rows = list_flashcards(due=True, user=user, session=session)
 
     assert {r["front"] for r in all_rows} == {"overdue", "today", "future", "fresh"}
-    assert [r["front"] for r in due_rows] == ["overdue", "today"]
+    assert set(r["front"] for r in due_rows) == {"overdue", "today", "fresh"}
     assert all(r["due"] is True for r in due_rows)
-    assert fresh.id not in {r["id"] for r in due_rows}
 
 
 def test_list_excludes_other_users_cards(session, user):

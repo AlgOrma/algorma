@@ -10,6 +10,7 @@ from .db import check_setup, init_db
 from .routers import (
     curriculums,
     custom_lists,
+    decks,
     flashcards,
     leetcode_questions,
     leetcode_sync,
@@ -62,7 +63,8 @@ app.include_router(users.router)
 app.include_router(problems.router)
 app.include_router(topics.router)
 app.include_router(templates.router)
-if settings.enable_flashcards:  # feature-flagged: UI not implemented yet
+if settings.enable_flashcards:
+    app.include_router(decks.router)
     app.include_router(flashcards.router)
 app.include_router(stats.router)
 app.include_router(leetcode_questions.router)

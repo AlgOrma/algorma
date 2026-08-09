@@ -107,7 +107,20 @@ export const getProblems = (params) => request(withQuery('/problems', params));
 export const getProblem = (id) => request(`/problems/${id}`);
 // Grading history for one problem (oldest first) — the revision-history panel.
 export const getProblemReviews = (id) => request(`/problems/${id}/reviews`);
+
+// --- Decks ---
+export const getDecks = () => request('/decks');
+export const createDeck = (body) => request('/decks', { method: 'POST', body });
+export const getDeck = (id) => request(`/decks/${id}`);
+export const updateDeck = (id, body) => request(`/decks/${id}`, { method: 'PATCH', body });
+export const deleteDeck = (id) => request(`/decks/${id}`, { method: 'DELETE' });
+
+// --- Flashcards ---
 export const getFlashcards = (params) => request(withQuery('/flashcards', params));
+export const createFlashcard = (body) => request('/flashcards', { method: 'POST', body });
+export const getFlashcard = (id) => request(`/flashcards/${id}`);
+export const updateFlashcard = (id, body) => request(`/flashcards/${id}`, { method: 'PATCH', body });
+export const deleteFlashcard = (id) => request(`/flashcards/${id}`, { method: 'DELETE' });
 
 // --- Writes ---
 export const createProblem = (body) => request('/problems', { method: 'POST', body });
@@ -118,6 +131,7 @@ export const reviewProblem = (id, grade) =>
   request(`/problems/${id}/review`, { method: 'POST', body: { grade } });
 export const reviewFlashcard = (id, grade) =>
   request(`/flashcards/${id}/review`, { method: 'POST', body: { grade } });
+
 
 // --- LeetCode Questions ---
 

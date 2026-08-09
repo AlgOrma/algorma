@@ -4,5 +4,5 @@ export const FEATURES = {
   // on localStorage mock cards (not the backend API), so it stays hidden until
   // it's actually implemented. The backend side is gated separately via the
   // ENABLE_FLASHCARDS env var (see backend/app/config.py).
-  flashcards: false,
+  flashcards: true,
 };

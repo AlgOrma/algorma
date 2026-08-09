@@ -8,12 +8,12 @@ import Templates from './pages/Templates';
 import ProblemDetail from './pages/ProblemDetail';
 import RevisionSession from './pages/RevisionSession';
 import FlashcardSession from './pages/FlashcardSession';
+import FlashcardDeckManager from './pages/FlashcardDeckManager';
+import FlashcardCardEditor from './pages/FlashcardCardEditor';
 import ProfileSetup from './pages/ProfileSetup';
 import LeetCodeLibrary from './pages/LeetCodeLibrary';
 import CustomLists from './pages/CustomLists';
 import { FEATURES } from './features';
-
-import { INITIAL_CARDS } from './data/initialData';
 
 // URL path for each screen, so pages are shareable endpoints (e.g. /revise).
 // Feature-flagged screens are left out entirely, so their URLs don't resolve.
@@ -24,7 +24,13 @@ const SCREEN_PATHS = {
   'custom-lists': '/custom-lists',
   templates: '/templates',
   revise: '/revise',
-  ...(FEATURES.flashcards ? { flashcards: '/flashcards' } : {})
+  ...(FEATURES.flashcards
+    ? {
+        flashcards: '/flashcards',
+        'flashcards-study': '/flashcards/study',
+        'flashcards-editor': '/flashcards/editor',
+      }
+    : {})
 };
 
 // '/problems/<id>' opens that problem's detail screen directly.
@@ -34,6 +40,8 @@ function screenFromPath(pathname) {
   const detailMatch = pathname.match(/^\/problems\/([^/]+)$/);
   if (detailMatch) return { screen: 'detail', id: detailMatch[1] };
   if (/^\/revise\/[^/]+$/.test(pathname)) return { screen: 'revise', id: null };
+  if (/^\/flashcards\/study$/.test(pathname)) return { screen: 'flashcards-study', id: null };
+  if (/^\/flashcards\/editor$/.test(pathname)) return { screen: 'flashcards-editor', id: null };
   const entry = Object.entries(SCREEN_PATHS).find(([, path]) => path === pathname);
   return entry ? { screen: entry[0], id: null } : null;
 }
@@ -51,9 +59,6 @@ function App() {
   const [problemsLoading, setProblemsLoading] = useState(true);
   const [customLists, setCustomLists] = useState([]);
   const [customListsLoading, setCustomListsLoading] = useState(true);
-  // Read-only for now: cards are graded via the API once flashcards ship, the
-  // streak comes from the backend heatmap, and there's no theme switcher yet.
-  const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
   const [streakDays] = useLocalStorage('dsa_streak', 0);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
@@ -172,6 +177,21 @@ function App() {
 
   // State to hold specific problems forced for revision
   const [revisionProblems, setRevisionProblems] = useState(null);
+  const [studyDeckId, setStudyDeckId] = useState(null);
+  const [editorCardId, setEditorCardId] = useState(null);
+  const [editorPresetDeckId, setEditorPresetDeckId] = useState(null);
+  const [flashcardsDueCount, setFlashcardsDueCount] = useState(0);
+
+  const loadFlashcardsDue = React.useCallback(() => {
+    if (!user?.id || !FEATURES.flashcards) return;
+    api.getFlashcards({ due: true })
+      .then((data) => setFlashcardsDueCount(data?.length || 0))
+      .catch(() => {});
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadFlashcardsDue();
+  }, [loadFlashcardsDue, screen]);
 
   // Navigation controller
   const handleNavigate = (targetScreen, params = {}) => {
@@ -179,6 +199,19 @@ function App() {
       setInitialSearchQuery(params.query);
     } else {
       setInitialSearchQuery('');
+    }
+    if (params.deckId !== undefined) {
+      setStudyDeckId(params.deckId);
+    }
+    if (params.cardId !== undefined) {
+      setEditorCardId(params.cardId);
+    } else {
+      setEditorCardId(null);
+    }
+    if (params.presetDeckId !== undefined) {
+      setEditorPresetDeckId(params.presetDeckId);
+    } else {
+      setEditorPresetDeckId(null);
     }
     if (targetScreen !== 'revise') {
       setRevisionProblems(null);
@@ -492,14 +525,32 @@ function App() {
           />
         );
       case 'flashcards':
-        // Flag off: render nothing for the frame before the fallback effect
-        // switches the screen to the dashboard.
+        if (!FEATURES.flashcards) return null;
+        return (
+          <FlashcardDeckManager
+            onNavigate={handleNavigate}
+            onStartStudy={({ deckId }) => {
+              setStudyDeckId(deckId || null);
+              handleNavigate('flashcards-study');
+            }}
+          />
+        );
+      case 'flashcards-study':
         if (!FEATURES.flashcards) return null;
         return (
           <FlashcardSession
-            cards={cards}
+            deckId={studyDeckId}
             onNavigate={handleNavigate}
-            themeColor={themeAccent}
+          />
+        );
+      case 'flashcards-editor':
+        if (!FEATURES.flashcards) return null;
+        return (
+          <FlashcardCardEditor
+            cardId={editorCardId}
+            presetDeckId={editorPresetDeckId}
+            onNavigate={handleNavigate}
+            onSaveSuccess={() => handleNavigate('flashcards')}
           />
         );
       default:
@@ -550,7 +601,7 @@ function App() {
         customListsCount={customLists.length}
         templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
-        flashcardsCount={cards.length}
+        flashcardsCount={flashcardsDueCount}
         streakDays={streakDays}
         user={user}
         onEditProfile={() => setIsEditingProfile(true)}

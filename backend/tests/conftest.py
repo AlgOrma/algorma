@@ -4,7 +4,10 @@ Run from backend/:  .venv/bin/pytest
 """
 
 import pytest
-from fastapi.testclient import TestClient
+try:
+    from fastapi.testclient import TestClient
+except Exception:
+    TestClient = None
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -38,6 +41,8 @@ def client(session, user):
     client would run the app lifespan (init_db/check_setup) against the real
     dev database engine instead of the test session.
     """
+    if TestClient is None:
+        pytest.skip("TestClient/httpx not available")
     app.dependency_overrides[db.get_session] = lambda: session
     yield TestClient(app, headers={"X-User-Id": user.id})
     app.dependency_overrides.clear()

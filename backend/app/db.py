@@ -60,6 +60,12 @@ def init_db() -> None:
             """))
             conn.commit()
 
+        if inspector.has_table("flashcard"):
+            card_columns = [c["name"] for c in inspector.get_columns("flashcard")]
+            if "deck_id" not in card_columns:
+                conn.execute(text("ALTER TABLE flashcard ADD COLUMN deck_id VARCHAR"))
+                conn.commit()
+
     # 2. Migrate existing flat approaches / solutions to problem_approach table
     with Session(engine) as session:
         from .models import Problem, ProblemApproach

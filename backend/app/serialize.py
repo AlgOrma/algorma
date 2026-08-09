@@ -17,6 +17,7 @@ from typing import Optional
 
 from .models import (
     Curriculum,
+    Deck,
     Flashcard,
     LeetCodeQuestion,
     Problem,
@@ -303,12 +304,37 @@ def serialize_curriculum_detail(
     }
 
 
+def serialize_deck(
+    deck: Deck, cards: Optional[list[Flashcard]] = None, now: Optional[datetime] = None
+) -> dict:
+    now = now or utcnow()
+    cards_list = cards if cards is not None else deck.flashcards or []
+    card_count = len(cards_list)
+    due_count = 0
+    for card in cards_list:
+        rev = card.revision
+        due_at = rev.due_at if rev else None
+        if rev is None or (due_at is not None and _days_delta(due_at, now) <= 0):
+            due_count += 1
+
+    return {
+        "id": deck.id,
+        "name": deck.name,
+        "description": deck.description,
+        "color": deck.color,
+        "cardCount": card_count,
+        "dueCount": due_count,
+        "createdAt": _iso(deck.created_at),
+        "updatedAt": _iso(deck.updated_at),
+    }
+
+
 def serialize_flashcard(
     c: Flashcard, revision: Optional[Revision] = None, now: Optional[datetime] = None
 ) -> dict:
     now = now or utcnow()
     due_at = revision.due_at if revision else None
-    due = due_at is not None and _days_delta(due_at, now) <= 0
+    due = (revision is None) or (due_at is not None and _days_delta(due_at, now) <= 0)
     review_count = revision.review_count if revision else 0
     last_reviewed_at = revision.last_reviewed_at if revision else None
     stability = revision.stability if revision else None
@@ -321,6 +347,8 @@ def serialize_flashcard(
 
     return {
         "id": c.id,
+        "deckId": c.deck_id,
+        "deckName": c.deck.name if c.deck else None,
         "type": c.type,
         "tag": c.tag,
         "front": c.front,
@@ -336,3 +364,4 @@ def serialize_flashcard(
         "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
     }
+

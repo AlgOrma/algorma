@@ -141,3 +141,32 @@ class CustomListProblemsUpdate(CamelModel):
     problem_ids: list[str] = []
 
 
+class DeckCreate(CamelModel):
+    name: str
+    description: str | None = None
+    color: str | None = None
+
+
+class DeckUpdate(CamelModel):
+    name: str | None = None
+    description: str | None = None
+    color: str | None = None
+
+
+class FlashcardCreate(CamelModel):
+    front: str
+    back: str
+    deck_id: str | None = None
+    type: str = "concept"
+    tag: str = "General"
+
+
+class FlashcardUpdate(CamelModel):
+    front: str | None = None
+    back: str | None = None
+    deck_id: str | None = None
+    type: str | None = None
+    tag: str | None = None
+
+
+
