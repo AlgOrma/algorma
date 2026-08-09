@@ -2,11 +2,15 @@
 
 import pytest
 from fastapi import HTTPException
-from sqlmodel import select
 
-from app.models import Deck, Flashcard, User
+from app.models import User
 from app.routers.decks import create_deck, delete_deck, get_deck, list_decks, update_deck
-from app.routers.flashcards import create_flashcard, delete_flashcard, get_flashcard, list_flashcards, update_flashcard
+from app.routers.flashcards import (
+    create_flashcard,
+    delete_flashcard,
+    list_flashcards,
+    update_flashcard,
+)
 from app.schemas import DeckCreate, DeckUpdate, FlashcardCreate, FlashcardUpdate
 
 

@@ -16,7 +16,7 @@ def list_flashcards(
     session: Session, user: User, deck_id: Optional[str] = None
 ) -> list[Flashcard]:
     query = select(Flashcard).where(Flashcard.user_id == user.id)
-    if deck_id is not None:
+    if deck_id:
         query = query.where(Flashcard.deck_id == deck_id)
     return session.exec(query.order_by(Flashcard.created_at)).all()
 

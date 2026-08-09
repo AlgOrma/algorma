@@ -4,6 +4,7 @@ Run from backend/:  .venv/bin/pytest
 """
 
 import pytest
+
 try:
     from fastapi.testclient import TestClient
 except Exception:

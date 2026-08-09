@@ -529,11 +529,13 @@ def test_flashcard_without_revision_exact_defaults():
     )
     assert serialize_flashcard(card, None, NOW) == {
         "id": "f1",
+        "deckId": None,
+        "deckName": None,
         "type": "concept",
         "tag": "arrays",
         "front": "What is a heap?",
         "back": "A tree-based priority structure.",
-        "due": False,
+        "due": True,
         "easeFactor": 2.5,
         "intervalDays": 0,
         "repetitions": 0,
@@ -575,6 +577,8 @@ def test_flashcard_with_overdue_revision(session, user):
 
     assert serialize_flashcard(card, rev, NOW) == {
         "id": "f2",
+        "deckId": None,
+        "deckName": None,
         "type": "problem",
         "tag": "dp",
         "front": "Climbing stairs?",

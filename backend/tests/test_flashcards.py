@@ -75,7 +75,7 @@ def test_due_filter_keeps_only_overdue_and_due_today(session, user):
     overdue = make_card(session, user, front="overdue")
     today = make_card(session, user, front="today")
     future = make_card(session, user, front="future")
-    fresh = make_card(session, user, front="fresh")  # no revision at all
+    _fresh = make_card(session, user, front="fresh")  # no revision at all
 
     def seed_revision(card, due_at, last_reviewed_at):
         session.add(

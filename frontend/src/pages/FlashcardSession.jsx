@@ -10,7 +10,13 @@ export default function FlashcardSession({ deckId, onNavigate }) {
   const [error, setError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [reviewStats, setReviewStats] = useState({ reviewedCount: 0, againCount: 0, goodCount: 0 });
+  const [reviewStats, setReviewStats] = useState({
+    reviewedCount: 0,
+    againCount: 0,
+    hardCount: 0,
+    goodCount: 0,
+    easyCount: 0,
+  });
 
   const loadCards = useCallback(async () => {
     try {
@@ -48,15 +54,18 @@ export default function FlashcardSession({ deckId, onNavigate }) {
 
     try {
       await api.reviewFlashcard(currentCard.id, gradeObj.key);
-      setReviewStats((prev) => ({
-        ...prev,
-        reviewedCount: prev.reviewedCount + 1,
-        againCount: gradeObj.key === 'Again' ? prev.againCount + 1 : prev.againCount,
-        goodCount: gradeObj.key === 'Good' || gradeObj.key === 'Easy' ? prev.goodCount + 1 : prev.goodCount,
-      }));
     } catch (err) {
       console.error('Failed to record review grade:', err);
     }
+
+    setReviewStats((prev) => ({
+      ...prev,
+      reviewedCount: prev.reviewedCount + 1,
+      againCount: gradeObj.key === 'Again' ? prev.againCount + 1 : prev.againCount,
+      hardCount: gradeObj.key === 'Hard' ? prev.hardCount + 1 : prev.hardCount,
+      goodCount: gradeObj.key === 'Good' ? prev.goodCount + 1 : prev.goodCount,
+      easyCount: gradeObj.key === 'Easy' ? prev.easyCount + 1 : prev.easyCount,
+    }));
 
     setFlipped(false);
     setCurrentIndex((prev) => prev + 1);
@@ -250,9 +259,12 @@ export default function FlashcardSession({ deckId, onNavigate }) {
     );
   }
 
+  const recalledWellCount = reviewStats.goodCount + reviewStats.easyCount;
+  const needsPracticeCount = reviewStats.againCount + reviewStats.hardCount;
+
   // Completion Summary View
   return (
-    <div className="w-full h-full flex items-center justify-center p-6">
+    <div className="w-full h-full flex items-center justify-center p-6 text-left">
       <div className="max-w-md w-full text-center bg-bg-card-grad-start border border-border-btn rounded-2xl p-8 shadow-2xl">
         <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-5 text-emerald-400">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -267,12 +279,18 @@ export default function FlashcardSession({ deckId, onNavigate }) {
 
         <div className="grid grid-cols-2 gap-3 my-6 p-4 rounded-xl bg-bg-track border border-border-btn/60">
           <div>
-            <div className="font-mono text-fs-18 font-bold text-emerald-400">{reviewStats.goodCount}</div>
+            <div className="font-mono text-fs-18 font-bold text-emerald-400">{recalledWellCount}</div>
             <div className="font-mono text-fs-10 text-text-muted uppercase">Recalled Well</div>
+            <div className="font-mono text-fs-10 text-text-muted/70 mt-1">
+              Good: {reviewStats.goodCount} · Easy: {reviewStats.easyCount}
+            </div>
           </div>
           <div>
-            <div className="font-mono text-fs-18 font-bold text-amber-400">{reviewStats.againCount}</div>
+            <div className="font-mono text-fs-18 font-bold text-amber-400">{needsPracticeCount}</div>
             <div className="font-mono text-fs-10 text-text-muted uppercase">Needs Practice</div>
+            <div className="font-mono text-fs-10 text-text-muted/70 mt-1">
+              Again: {reviewStats.againCount} · Hard: {reviewStats.hardCount}
+            </div>
           </div>
         </div>
 
@@ -282,6 +300,7 @@ export default function FlashcardSession({ deckId, onNavigate }) {
             onClick={() => {
               setCurrentIndex(0);
               setFlipped(false);
+              setReviewStats({ reviewedCount: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 });
               loadCards();
             }}
           >
