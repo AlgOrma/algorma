@@ -58,6 +58,12 @@ function App() {
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
+  // Mirror the active profile into the API client during render, so it is set
+  // before any child's mount effect can fire its first request. Doing this in
+  // an effect would be too late: children run their effects first, and the
+  // localStorage write this would otherwise race is a parent effect.
+  api.setCurrentUserId(user?.id ?? null);
+
   // A feature-flagged-off screen can still be remembered in localStorage from
   // before the flag flipped — fall back to the dashboard.
   useEffect(() => {
@@ -401,6 +407,7 @@ function App() {
             problems={problems}
             topics={topics}
             userName={user?.name}
+            userId={user?.id}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
             themeColor={themeAccent}

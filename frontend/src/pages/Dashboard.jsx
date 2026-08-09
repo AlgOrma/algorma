@@ -14,6 +14,7 @@ export default function Dashboard({
   problems = [],
   topics = [],
   userName,
+  userId,
   onNavigate,
   onOpenProblem
 }) {
@@ -21,14 +22,21 @@ export default function Dashboard({
 
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState(null);
+
+  // Both endpoints are user-scoped, so they wait for a profile and refetch when
+  // it changes. The cancelled flag drops a previous profile's response if one
+  // is still in flight, so a switch can't leave someone else's numbers on screen.
   useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
     getStats()
-      .then(setStats)
-      .catch((err) => console.warn('Could not load stats:', err.message));
+      .then((data) => { if (!cancelled) setStats(data); })
+      .catch((err) => { if (!cancelled) console.warn('Could not load stats:', err.message); });
     getActivity()
-      .then(setActivity)
-      .catch((err) => console.warn('Could not load activity:', err.message));
-  }, []);
+      .then((data) => { if (!cancelled) setActivity(data); })
+      .catch((err) => { if (!cancelled) console.warn('Could not load activity:', err.message); });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // Derived (fallback) statistics
   const totalSolved = problems.filter(p => p.status === 'Done').length;
