@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import SyntaxHighlighter from '../components/common/SyntaxHighlighter';
 import CodeEditor from '../components/common/CodeEditor';
 import Button from '../components/common/Button';
+import useDismissOnOutside from '../hooks/useDismissOnOutside';
 
 // A two-level, editable template library (mirrors the claude.ai/design screen).
 // A parent "pattern" holds shared guidance (description) plus named code
@@ -25,6 +26,31 @@ const TrashIcon = ({ size = 14, className = '' }) => (
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     <line x1="10" y1="11" x2="10" y2="17" />
     <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+const PencilIcon = ({ size = 14, className = '' }) => (
+  <svg
+    className={className}
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+);
+
+const MoreIcon = ({ size = 15, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+    <circle cx="4" cy="10" r="1.7" />
+    <circle cx="10" cy="10" r="1.7" />
+    <circle cx="16" cy="10" r="1.7" />
   </svg>
 );
 
@@ -61,8 +87,15 @@ export default function Templates({
   // Variation drag is scoped to its parent pattern (no cross-pattern moves).
   const [varDrag, setVarDrag] = useState(null); // { patternId, varId } | null
   const [varDragOverId, setVarDragOverId] = useState(null);
+  const [copiedVarId, setCopiedVarId] = useState(null); // brief "copied!" feedback
 
   const query = search.trim().toLowerCase();
+
+  // Only one row menu is ever open, so a single wrapper ref is enough — it is
+  // attached to whichever card owns `menuId`. Clicking anywhere else on the
+  // page (or pressing Escape) closes it.
+  const closeMenu = useCallback(() => setMenuId(null), []);
+  const menuRef = useDismissOnOutside(menuId !== null, closeMenu);
 
   // --- pattern-list mutations (persisted through the API via App) ---
   const toggle = (id) =>
@@ -278,7 +311,7 @@ export default function Templates({
         {isEmpty && (
           <div className="bg-bg-card border border-dashed border-border-btn rounded-[14px] py-12 px-6 flex flex-col items-center text-center gap-1.5">
             <div className="w-[46px] h-[46px] rounded-card-md bg-accent/10 border border-accent/22 flex items-center justify-center mb-1.5">
-              <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="var(--color-accent-blue)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="var(--color-accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3.5" y="3.5" width="13" height="13" rx="2.5" />
                 <line x1="10" y1="7" x2="10" y2="13" />
                 <line x1="7" y1="10" x2="13" y2="10" />
@@ -369,10 +402,10 @@ export default function Templates({
                     <span className="text-fs-16 font-bold text-text-main tracking-[-0.01em] whitespace-nowrap overflow-hidden text-ellipsis">
                       {src.name}
                     </span>
-                    <span className="font-mono text-fs-10-5 text-accent-blue bg-accent/10 border border-accent/22 px-sp-9 py-sp-2 rounded-md whitespace-nowrap flex-none">
+                    <span className="font-mono text-fs-10-5 text-accent-text bg-accent/10 border border-accent/22 px-sp-9 py-sp-2 rounded-md whitespace-nowrap flex-none">
                       {src.topic}
                     </span>
-                    <span className="font-mono text-fs-10-5 text-border-accent flex-none">
+                    <span className="font-mono text-fs-10-5 text-text-muted flex-none">
                       {src.variations.length} var
                     </span>
                   </div>
@@ -385,29 +418,42 @@ export default function Templates({
                     >
                       + Variation
                     </Button>
-                    <div className="relative">
+                    <div className="relative" ref={menuId === p.id ? menuRef : null}>
                       <button
+                        type="button"
+                        aria-haspopup="menu"
+                        aria-expanded={menuId === p.id}
+                        aria-label={`Actions for ${src.name}`}
                         onClick={() =>
                           setMenuId((m) => (m === p.id ? null : p.id))
                         }
-                        className="w-[30px] h-[30px] flex items-center justify-center text-text-muted bg-transparent border border-transparent rounded-card-xs cursor-pointer text-fs-16 hover:bg-bg-btn-sec transition-colors duration-200"
+                        className={`w-[30px] h-[30px] flex items-center justify-center bg-transparent border border-transparent rounded-card-xs cursor-pointer transition-colors duration-200 hover:bg-bg-btn-sec hover:text-text-main ${
+                          menuId === p.id ? 'text-text-main bg-bg-btn-sec' : 'text-text-muted'
+                        }`}
                       >
-                        ⋯
+                        <MoreIcon />
                       </button>
                       {menuId === p.id && (
-                        <div className="absolute right-0 top-[34px] z-[5] bg-bg-element-hover border border-border-btn rounded-card-md p-1.5 w-[152px] shadow-[0_14px_34px_-12px_rgba(0,0,0,0.7)]">
-                          <div
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-[34px] z-[5] bg-bg-element-hover border border-border-btn rounded-card-md p-1.5 w-[152px] shadow-[0_14px_34px_-12px_rgba(0,0,0,0.7)]"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
                             onClick={() => startEdit(p.id)}
-                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-text-main cursor-pointer hover:bg-bg-btn-sec-hover transition-colors duration-150"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-text-main text-left bg-transparent border-none cursor-pointer hover:bg-bg-btn-sec-hover transition-colors duration-150"
                           >
-                            ✎ Edit
-                          </div>
-                          <div
+                            <PencilIcon className="flex-none" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
                             onClick={() => deletePattern(p.id)}
-                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-accent-red-hover cursor-pointer hover:bg-accent-red-hover/[0.12] transition-colors duration-150"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-accent-red-text text-left bg-transparent border-none cursor-pointer hover:bg-badge-hard-bg transition-colors duration-150"
                           >
                             <TrashIcon className="flex-none" /> Delete
-                          </div>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -449,7 +495,7 @@ export default function Templates({
                                 e.stopPropagation();
                                 dropOnVariation(p.id, v.id);
                               }}
-                              className={`border border-l-2 rounded-card-md bg-[#1f1c19] py-sp-13 px-sp-14 transition-[border-color,opacity] duration-150 ${
+                              className={`border border-l-2 rounded-card-md bg-bg-element-dark py-sp-13 px-sp-14 transition-[border-color,opacity] duration-150 ${
                                 varDrag?.varId === v.id
                                   ? 'opacity-40 border-border-muted border-l-accent/40'
                                   : varDragOverId === v.id && varDrag
@@ -494,7 +540,7 @@ export default function Templates({
                                     deleteVariation(p.id, v.id);
                                   }}
                                   title="Delete variation"
-                                  className="w-[26px] h-[26px] flex-none flex items-center justify-center text-accent-red-hover bg-transparent border border-transparent rounded-card-xs cursor-pointer hover:bg-accent-red-hover/[0.14] transition-colors duration-150"
+                                  className="w-[26px] h-[26px] flex-none flex items-center justify-center text-accent-red-text bg-transparent border border-transparent rounded-card-xs cursor-pointer hover:bg-badge-hard-bg transition-colors duration-150"
                                 >
                                   <TrashIcon />
                                 </button>
@@ -509,16 +555,20 @@ export default function Templates({
                                   )}
                                   <div className="mt-2.5 ml-[31px] bg-bg-panel-dark border border-border-muted rounded-card-btn overflow-hidden">
                                     <div className="flex items-center justify-between px-3 py-[7px] border-b border-border-subtle">
-                                      <span className="font-mono text-fs-9-5 text-border-accent tracking-[0.05em]">
+                                      <span className="font-mono text-fs-9-5 text-text-muted tracking-[0.05em]">
                                         TEMPLATE · {v.lang}
                                       </span>
                                       <span
-                                        onClick={() =>
-                                          navigator.clipboard?.writeText(v.code)
-                                        }
+                                        onClick={() => {
+                                          navigator.clipboard?.writeText(v.code);
+                                          setCopiedVarId(v.id);
+                                          setTimeout(() => {
+                                            setCopiedVarId((cur) => (cur === v.id ? null : cur));
+                                          }, 2000);
+                                        }}
                                         className="font-mono text-fs-10 text-text-muted cursor-pointer hover:text-text-hover transition-colors duration-150"
                                       >
-                                        copy
+                                        {copiedVarId === v.id ? 'copied!' : 'copy'}
                                       </span>
                                     </div>
                                     <pre className="m-0 py-3 px-3.5 font-mono text-fs-11-5 leading-[1.6] text-text-code whitespace-pre overflow-x-auto custom-scrollbar">
@@ -556,7 +606,7 @@ export default function Templates({
                                 <input
                                   value={draft.topic}
                                   onChange={(e) => draftSet('topic', e.target.value)}
-                                  className="w-full box-border bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-accent-blue font-mono text-fs-12 outline-none focus:border-accent"
+                                  className="w-full box-border bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-accent-text font-mono text-fs-12 outline-none focus:border-accent"
                                 />
                               </div>
                             </div>
@@ -578,7 +628,7 @@ export default function Templates({
                         {draft.variations.map((v, i) => (
                           <div
                             key={v.id}
-                            className="border border-border-muted border-l-2 border-l-accent/40 rounded-card-md bg-[#1f1c19] py-sp-13 px-sp-14 flex flex-col gap-2.5"
+                            className="border border-border-muted border-l-2 border-l-accent/40 rounded-card-md bg-bg-element-dark py-sp-13 px-sp-14 flex flex-col gap-2.5"
                           >
                             <div className="flex items-center gap-2.5">
                               <input
@@ -590,9 +640,9 @@ export default function Templates({
                               <select
                                 value={v.lang}
                                 onChange={(e) => draftVarSet(i, 'lang', e.target.value)}
-                                className="w-[105px] flex-none bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-accent-blue font-mono text-fs-11-5 outline-none focus:border-accent cursor-pointer appearance-none"
+                                className="w-[105px] flex-none bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-accent-text font-mono text-fs-11-5 outline-none focus:border-accent cursor-pointer appearance-none"
                                 style={{
-                                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238CABF4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
                                   backgroundRepeat: 'no-repeat',
                                   backgroundPosition: 'right 8px center',
                                   backgroundSize: '12px',
@@ -609,7 +659,7 @@ export default function Templates({
                               <button
                                 onClick={() => draftRemoveVar(i)}
                                 title="Remove variation"
-                                className="w-[30px] h-[30px] flex-none flex items-center justify-center text-accent-red-hover bg-accent-red-hover/10 border border-accent-red-hover/20 rounded-card-btn cursor-pointer hover:bg-accent-red-hover/[0.18] transition-colors duration-150"
+                                className="w-[30px] h-[30px] flex-none flex items-center justify-center text-accent-red-text bg-badge-hard-bg border border-badge-hard-border rounded-card-btn cursor-pointer hover:bg-accent-red/20 transition-colors duration-150"
                               >
                                 <TrashIcon />
                               </button>
@@ -621,7 +671,7 @@ export default function Templates({
                               className="bg-bg-panel-dark border border-border-main rounded-card-btn px-2.5 py-2 text-text-mid text-fs-12-5 outline-none focus:border-accent"
                             />
                             <div className="bg-bg-panel-dark border border-border-muted rounded-card-btn overflow-hidden">
-                              <div className="flex items-center px-3 py-[7px] border-b border-border-subtle font-mono text-fs-9-5 text-border-accent tracking-[0.05em]">
+                              <div className="flex items-center px-3 py-[7px] border-b border-border-subtle font-mono text-fs-9-5 text-text-muted tracking-[0.05em]">
                                 TEMPLATE
                               </div>
                               <CodeEditor

@@ -34,6 +34,19 @@ export default function CustomLists({
 
   // Deletion modals
   const [customListToDelete, setCustomListToDelete] = useState(null);
+  const [problemToRemove, setProblemToRemove] = useState(null);
+
+  // Transient feedback for failed operations (replaces window.alert).
+  // Stored as an object so a repeated identical message is still a new state
+  // value — a bare string would bail out of the re-render and the dismiss
+  // timer would never re-arm.
+  const [toast, setToast] = useState(null);
+  const showToast = (msg) => setToast({ msg });
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   // Fetch custom list details
   const fetchCustomListDetail = async (id) => {
@@ -46,7 +59,7 @@ export default function CustomLists({
       setEditDesc(data.description || '');
     } catch (err) {
       if (id !== currentSelectedIdRef.current) return;
-      alert(err.message || 'Failed to load list details');
+      showToast(err.message || 'Failed to load list details');
       setSelectedCustomListId(null);
     } finally {
       if (id === currentSelectedIdRef.current) {
@@ -80,7 +93,7 @@ export default function CustomLists({
       // Auto open detail view of the new list
       setSelectedCustomListId(newList.id);
     } catch (err) {
-      alert(err.message || 'Failed to create list');
+      showToast(err.message || 'Failed to create list');
     } finally {
       setIsCreating(false);
     }
@@ -102,7 +115,7 @@ export default function CustomLists({
       setIsEditing(false);
       if (onLoadCustomLists) onLoadCustomLists();
     } catch (err) {
-      alert(err.message || 'Failed to save changes');
+      showToast(err.message || 'Failed to save changes');
     } finally {
       setIsSavingEdit(false);
     }
@@ -118,32 +131,57 @@ export default function CustomLists({
       }
       if (onLoadCustomLists) onLoadCustomLists();
     } catch (err) {
-      alert(err.message || 'Failed to delete list');
+      showToast(err.message || 'Failed to delete list');
     }
   };
 
-  const handleRemoveProblem = async (problemId) => {
-    if (!confirm('Remove this problem from the list?')) return;
+  const handleRemoveProblem = async () => {
+    if (!problemToRemove) return;
     try {
-      await api.removeProblemFromCustomList(customListDetail.id, problemId);
+      await api.removeProblemFromCustomList(customListDetail.id, problemToRemove.id);
+      setProblemToRemove(null);
       // Refresh details
       fetchCustomListDetail(customListDetail.id);
       if (onLoadCustomLists) onLoadCustomLists();
     } catch (err) {
-      alert(err.message || 'Failed to remove problem');
+      setProblemToRemove(null);
+      showToast(err.message || 'Failed to remove problem');
     }
   };
+
+  // Quiet, on-system replacement for window.alert: a hairline card that names
+  // the problem, floating over whichever view is active.
+  const toastBanner = toast && (
+    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[2100] bg-bg-card border border-badge-hard-border text-accent-red-text text-fs-12 font-medium px-4 py-2.5 rounded-lg shadow-modal flex items-center gap-2 animate-fade-in">
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <circle cx="10" cy="10" r="8" />
+        <line x1="10" y1="6.5" x2="10" y2="10.5" />
+        <circle cx="10" cy="13.5" r="0.8" fill="currentColor" stroke="none" />
+      </svg>
+      {toast.msg}
+    </div>
+  );
 
   // Render detail view
   if (selectedCustomListId) {
     return (
       <div className="w-full h-full overflow-y-auto custom-scrollbar">
+        {toastBanner}
+        <ConfirmationModal
+          isOpen={!!problemToRemove}
+          title="Remove Problem"
+          message={`Remove "${problemToRemove?.title}" from this list? It stays in your problem bank.`}
+          confirmLabel="Remove"
+          confirmVariant="red"
+          onConfirm={handleRemoveProblem}
+          onCancel={() => setProblemToRemove(null)}
+        />
         <div className="max-w-[1140px] mx-auto px-sp-30 pt-sp-26 pb-10 flex flex-col gap-5">
           {/* Back Navigation */}
           <div className="text-left">
             <button
               onClick={() => setSelectedCustomListId(null)}
-              className="flex items-center gap-1.5 text-fs-12 font-mono text-text-muted hover:text-accent transition-colors bg-transparent border-none cursor-pointer p-0"
+              className="flex items-center gap-1.5 text-fs-12 font-mono text-text-muted hover:text-accent-text transition-colors bg-transparent border-none cursor-pointer p-0"
             >
               ← BACK TO CUSTOM LISTS
             </button>
@@ -191,7 +229,7 @@ export default function CustomLists({
                       </h1>
                       <button
                         onClick={() => setIsEditing(true)}
-                        className="bg-transparent border-none text-text-muted hover:text-accent font-mono text-fs-10.5 cursor-pointer"
+                        className="bg-transparent border-none text-text-muted hover:text-accent-text font-mono text-fs-10-5 cursor-pointer"
                       >
                         [EDIT]
                       </button>
@@ -200,7 +238,7 @@ export default function CustomLists({
                       {customListDetail.description || 'No description provided.'}
                     </p>
                     <div className="font-mono text-fs-11 text-text-muted/60 mt-3">
-                      Created: {new Date(customListDetail.createdAt).toLocaleDateString()} · {customListDetail.problems?.length || 0} problems
+                      Created: {new Date(customListDetail.createdAt).toLocaleDateString()} · {customListDetail.problems?.length || 0} {(customListDetail.problems?.length || 0) === 1 ? 'problem' : 'problems'}
                     </div>
                   </div>
                 )}
@@ -225,7 +263,7 @@ export default function CustomLists({
 
                 <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
                   {/* Header */}
-                  <div className="grid grid-cols-[50px_2.5fr_1fr_1fr_1fr_120px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left">
+                  <div className="grid grid-cols-[50px_2.5fr_1fr_1fr_1fr_120px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-text-muted tracking-[0.06em] text-left">
                     <span>#</span>
                     <span>TITLE</span>
                     <span>TOPIC</span>
@@ -249,7 +287,7 @@ export default function CustomLists({
                         <span className="font-mono text-fs-12 text-text-muted">
                           {idx + 1}.
                         </span>
-                        <span className="text-fs-13.5 text-text-main font-medium truncate">
+                        <span className="text-fs-13-5 text-text-main font-medium truncate">
                           {p.title}
                         </span>
                         <span className="text-fs-13 text-text-hover truncate">
@@ -263,8 +301,8 @@ export default function CustomLists({
                         </div>
                         <div className="text-right" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleRemoveProblem(p.id)}
-                            className="bg-transparent border-none text-red-400 hover:text-red-300 font-mono text-fs-11 cursor-pointer transition-colors"
+                            onClick={() => setProblemToRemove(p)}
+                            className="bg-transparent border-none text-accent-red-text hover:text-text-main font-mono text-fs-11 cursor-pointer transition-colors"
                           >
                             Remove
                           </button>
@@ -284,6 +322,7 @@ export default function CustomLists({
   // Render Lists Grid View
   return (
     <div className="w-full h-full overflow-y-auto custom-scrollbar">
+      {toastBanner}
       <div className="max-w-[1140px] mx-auto px-sp-30 pt-sp-26 pb-10 flex flex-col gap-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
@@ -292,7 +331,7 @@ export default function CustomLists({
               Custom Lists
             </h1>
             <p className="font-mono text-fs-12 text-text-muted mt-1 m-0">
-              {customLists.length} custom lists · group and filter your problems
+              {customLists.length} custom {customLists.length === 1 ? 'list' : 'lists'} · group and filter your problems
             </p>
           </div>
 
@@ -313,7 +352,7 @@ export default function CustomLists({
             
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 flex flex-col gap-1.5">
-                <label className="font-mono text-[10px] text-border-accent">LIST NAME</label>
+                <label className="font-mono text-[10px] text-text-muted">LIST NAME</label>
                 <input
                   type="text"
                   placeholder="E.g., NeetCode 150, Arrays Study List..."
@@ -326,7 +365,7 @@ export default function CustomLists({
               </div>
               
               <div className="flex-[2] flex flex-col gap-1.5">
-                <label className="font-mono text-[10px] text-border-accent">DESCRIPTION (OPTIONAL)</label>
+                <label className="font-mono text-[10px] text-text-muted">DESCRIPTION (OPTIONAL)</label>
                 <input
                   type="text"
                   placeholder="Describe the focus of this list..."
@@ -374,7 +413,7 @@ export default function CustomLists({
               >
                 <div>
                   <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-fs-16 font-bold text-text-main tracking-tight mt-0 mb-1.5 truncate flex-1 group-hover:text-accent transition-colors">
+                    <h3 className="text-fs-16 font-bold text-text-main tracking-tight mt-0 mb-1.5 truncate flex-1 group-hover:text-accent-text transition-colors">
                       {list.name}
                     </h3>
                     <button
@@ -382,23 +421,23 @@ export default function CustomLists({
                         e.stopPropagation();
                         setCustomListToDelete(list);
                       }}
-                      className="opacity-0 group-hover:opacity-100 bg-transparent border-none text-text-muted hover:text-red-400 font-mono text-fs-11 cursor-pointer transition-opacity p-1"
+                      className="opacity-0 group-hover:opacity-100 bg-transparent border-none text-text-muted hover:text-accent-red-text font-mono text-fs-11 cursor-pointer transition-opacity p-1"
                       title="Delete list"
                     >
                       ✕
                     </button>
                   </div>
-                  <p className="text-fs-12.5 text-text-muted leading-relaxed line-clamp-2 mt-0">
+                  <p className="text-fs-12-5 text-text-muted leading-relaxed line-clamp-2 mt-0">
                     {list.description || 'No description provided.'}
                   </p>
                 </div>
 
                 <div className="flex justify-between items-center border-t border-border-subtle/50 pt-3.5 mt-4">
-                  <span className="font-mono text-[10px] text-border-accent tracking-wider uppercase font-semibold">
+                  <span className="font-mono text-[10px] text-text-muted tracking-wider uppercase font-semibold">
                     {list.problemCount} {list.problemCount === 1 ? 'problem' : 'problems'}
                   </span>
                   
-                  <span className="text-fs-11 text-accent font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  <span className="text-fs-11 text-accent-text font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
                     View Problems →
                   </span>
                 </div>
