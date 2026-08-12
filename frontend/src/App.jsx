@@ -51,12 +51,17 @@ function App() {
   const [problemsLoading, setProblemsLoading] = useState(true);
   const [customLists, setCustomLists] = useState([]);
   const [customListsLoading, setCustomListsLoading] = useState(true);
-  // Read-only for now: cards are graded via the API once flashcards ship, the
-  // streak comes from the backend heatmap, and there's no theme switcher yet.
+  // Read-only for now: cards are graded via the API once flashcards ship, and
+  // there's no theme switcher yet.
   const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
-  const [streakDays] = useLocalStorage('dsa_streak', 0);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
+
+  // Mirror the active profile into the API client during render, so it is set
+  // before any child's mount effect can fire its first request. Doing this in
+  // an effect would be too late: children run their effects first, and the
+  // localStorage write this would otherwise race is a parent effect.
+  api.setCurrentUserId(user?.id ?? null);
 
   // A feature-flagged-off screen can still be remembered in localStorage from
   // before the flag flipped — fall back to the dashboard.
@@ -166,9 +171,45 @@ function App() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
+  // Focus view: opening a problem drops the nav to an icon rail so the
+  // statement and the editor get the width, and leaving the problem screen
+  // restores it. Within a screen the choice is the user's — the rail's chevron
+  // or ⌘B / Ctrl+B — and is not overridden until they navigate again.
+  const [navCollapsed, setNavCollapsed] = useState(screen === 'detail');
+  const lastScreenRef = useRef(screen);
+  useEffect(() => {
+    if (lastScreenRef.current === screen) return;
+    const leftDetail = lastScreenRef.current === 'detail';
+    lastScreenRef.current = screen;
+    if (screen === 'detail') setNavCollapsed(true);
+    else if (leftDetail) setNavCollapsed(false);
+  }, [screen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setNavCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Theme settings mapping
   const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
   const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
+
+  // The theme variables must live on <html>: Tailwind's @theme tokens
+  // (--color-accent etc.) are declared at :root and resolve their var()
+  // references there, so descendants inherit the *resolved* color. Setting
+  // --theme-accent on an inner div never reaches them — the violet theme
+  // silently rendered blue everywhere until this moved to the root.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--theme-accent', themeAccent);
+    root.style.setProperty('--theme-secondary', themeSecondary);
+  }, [themeAccent, themeSecondary]);
 
   // State to hold specific problems forced for revision
   const [revisionProblems, setRevisionProblems] = useState(null);
@@ -312,13 +353,18 @@ function App() {
     );
   };
 
-  // Update a single problem in local state and database
-  const handleUpdateProblem = async (updatedProblem) => {
+  // Update a single problem in local state and database. Rethrows so callers
+  // that report save state to the user (ProblemDetail's autosave) can tell a
+  // completed write from a failed one instead of silently showing "saved".
+  // `opts.keepalive` is passed through for writes flushed during page unload.
+  const handleUpdateProblem = async (updatedProblem, opts = {}) => {
     try {
-      const res = await api.updateProblem(updatedProblem.id, updatedProblem);
+      const res = await api.updateProblem(updatedProblem.id, updatedProblem, opts);
       applyProblemUpdate(res);
+      return res;
     } catch (err) {
       console.error('Failed to update problem in database:', err.message);
+      throw err;
     }
   };
 
@@ -341,6 +387,26 @@ function App() {
   const handleSaveProblem = (newProblem) => {
     setProblems(prevProblems => [newProblem, ...prevProblems]);
   };
+
+  // Streak for the sidebar widget. The backend computes it from the review
+  // heatmap; the old localStorage value was never written, so the sidebar
+  // permanently claimed "0 days" while the dashboard stat showed the truth.
+  const [serverStats, setServerStats] = useState(null);
+
+  useEffect(() => {
+    setServerStats(null);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    api.getStats()
+      .then((data) => { if (!cancelled) setServerStats(data); })
+      .catch((err) => {
+        if (!cancelled) console.warn('Could not load stats:', err.message);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, problems]);
 
   // Topic mastery. The backend is the source of truth (/api/topics: solved out
   // of total per topic, so the bar always matches the fraction); refetched
@@ -401,6 +467,7 @@ function App() {
             problems={problems}
             topics={topics}
             userName={user?.name}
+            userId={user?.id}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
             themeColor={themeAccent}
@@ -517,13 +584,7 @@ function App() {
   // Rendered full-screen without the sidebar, matching the design.
   if (!user || isEditingProfile) {
     return (
-      <div
-        className="h-screen bg-bg-main text-text-main overflow-hidden"
-        style={{
-          '--theme-accent': themeAccent,
-          '--theme-secondary': themeSecondary
-        }}
-      >
+      <div className="h-screen bg-bg-main text-text-main overflow-hidden">
         <ProfileSetup
           user={user}
           isEditing={isEditingProfile && !!user}
@@ -535,13 +596,7 @@ function App() {
   }
 
   return (
-    <div
-      className="flex h-screen bg-bg-main text-text-main overflow-hidden relative"
-      style={{
-        '--theme-accent': themeAccent,
-        '--theme-secondary': themeSecondary
-      }}
-    >
+    <div className="flex h-screen bg-bg-main text-text-main overflow-hidden relative">
       {/* Sidebar Navigation */}
       <Sidebar
         activeScreen={screen}
@@ -551,11 +606,13 @@ function App() {
         templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}
-        streakDays={streakDays}
+        streakDays={serverStats?.streakDays ?? 0}
         user={user}
         onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
         themeColorSecondary={themeSecondary}
+        collapsed={navCollapsed}
+        onToggleCollapse={() => setNavCollapsed((c) => !c)}
       />
 
       {/* Main View Container */}

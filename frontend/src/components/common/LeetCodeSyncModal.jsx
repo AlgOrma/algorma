@@ -75,11 +75,11 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
             <div className="flex flex-col gap-3">
               <div className="text-text-main text-fs-14 font-semibold">
                 Synced {result.matched} solved problem{result.matched === 1 ? '' : 's'} for{' '}
-                <span className="text-accent">{result.username}</span>
+                <span className="text-accent-text">{result.username}</span>
               </div>
               <div className="grid grid-cols-3 gap-2 font-mono text-fs-11-5">
                 <div className="bg-bg-card border border-border-main rounded-lg p-3 text-center">
-                  <div className="text-fs-18 text-green-400 font-bold">{result.imported}</div>
+                  <div className="text-fs-18 text-accent-green font-bold">{result.imported}</div>
                   <div className="mt-1">imported as Done</div>
                 </div>
                 <div className="bg-bg-card border border-border-main rounded-lg p-3 text-center">
@@ -99,7 +99,7 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
                 </div>
               )}
               {result.mode === 'recent' && (
-                <div className="text-fs-12 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg p-3">
+                <div className="text-fs-12 bg-badge-medium-bg border border-badge-medium-border text-accent-orange rounded-lg p-3">
                   Username sync only covers your most recent accepted submissions (~20). To pull
                   in your full solve history, sync again with a LEETCODE_SESSION cookie.
                 </div>
@@ -113,7 +113,7 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
               </p>
 
               <label className="flex flex-col gap-1.5">
-                <span className="font-mono text-[10px] text-border-accent tracking-[0.05em]">
+                <span className="font-mono text-[10px] text-text-muted tracking-[0.05em]">
                   LEETCODE USERNAME
                 </span>
                 <input
@@ -129,7 +129,7 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="font-mono text-[10px] text-border-accent tracking-[0.05em]">
+                <span className="font-mono text-[10px] text-text-muted tracking-[0.05em]">
                   LEETCODE_SESSION COOKIE — FULL HISTORY (OPTIONAL)
                 </span>
                 <input
@@ -142,7 +142,7 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
                 <button
                   type="button"
                   onClick={() => setShowCookieHelp((v) => !v)}
-                  className="bg-transparent border-none p-0 text-left text-fs-11 text-accent cursor-pointer hover:underline"
+                  className="bg-transparent border-none p-0 text-left text-fs-11 text-accent-text cursor-pointer hover:underline"
                 >
                   {showCookieHelp ? '▲ Hide' : '▼ How do I find this?'}
                 </button>
@@ -166,7 +166,7 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
               </label>
 
               {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-fs-12">
+                <div className="p-3 bg-badge-hard-bg border border-badge-hard-border text-accent-red-text rounded-lg text-fs-12">
                   {error}
                 </div>
               )}
@@ -175,7 +175,7 @@ export default function LeetCodeSyncModal({ isOpen, onClose, onSynced }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#080808] border-t border-border-subtle flex justify-end gap-3">
+        <div className="px-6 py-4 bg-bg-card border-t border-border-subtle flex justify-end gap-3">
           <Button variant="ghost" onClick={onClose} size="sm">
             {result ? 'Close' : 'Cancel'}
           </Button>

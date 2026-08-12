@@ -1,9 +1,9 @@
 // Tiny fetch client for the AlgOrma API.
 //
 // The backend has no auth: it identifies the current profile from an
-// `X-User-Id` header. We keep the single source of truth in localStorage under
-// `dsa_user` (the full profile object, persisted by App's useLocalStorage), and
-// read the id back out of it for every request.
+// `X-User-Id` header. The durable copy is the `dsa_user` profile object in
+// localStorage (persisted by App's useLocalStorage); App also mirrors the id
+// here in memory, and that mirror wins — see setCurrentUserId.
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const USER_KEY = 'dsa_user';
@@ -16,8 +16,25 @@ export class ApiError extends Error {
   }
 }
 
-// Current profile id, read from the persisted user object (or null on first run).
+// `undefined` until App syncs it — that's what makes the localStorage read
+// below a fallback rather than a competing source of truth.
+let activeUserId;
+
+// Keep the client's identity in step with the profile App is rendering.
+//
+// Adopting a profile (first run on a fresh browser, or after localStorage is
+// cleared) sets React state one effect-flush before useLocalStorage writes
+// `dsa_user` — and React runs child effects before parent ones, so a page's
+// mount fetch would read the not-yet-written key and send no header at all.
+// Mirroring the id in memory during render closes that window.
+export function setCurrentUserId(id) {
+  activeUserId = id || null;
+}
+
+// Current profile id: the in-memory mirror once App has synced it, otherwise
+// the persisted profile (first tick, and any non-App consumer).
 export function currentUserId() {
+  if (activeUserId !== undefined) return activeUserId;
   try {
     return JSON.parse(localStorage.getItem(USER_KEY))?.id || null;
   } catch {
@@ -25,7 +42,7 @@ export function currentUserId() {
   }
 }
 
-async function request(path, { method = 'GET', body, auth = true } = {}) {
+async function request(path, { method = 'GET', body, auth = true, keepalive = false } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   const uid = auth ? currentUserId() : null;
   if (uid) headers['X-User-Id'] = uid;
@@ -36,6 +53,10 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      // Lets a write started during pagehide outlive the document (tab close,
+      // navigation). Opt-in per call: keepalive caps the body at ~64KB, so it
+      // must not be the default for ordinary saves.
+      keepalive: keepalive || undefined,
     });
   } catch {
     throw new ApiError('Cannot reach the server. Is the API running?', 0);
@@ -111,8 +132,8 @@ export const getFlashcards = (params) => request(withQuery('/flashcards', params
 
 // --- Writes ---
 export const createProblem = (body) => request('/problems', { method: 'POST', body });
-export const updateProblem = (id, body) =>
-  request(`/problems/${id}`, { method: 'PATCH', body });
+export const updateProblem = (id, body, { keepalive = false } = {}) =>
+  request(`/problems/${id}`, { method: 'PATCH', body, keepalive });
 export const deleteProblem = (id) => request(`/problems/${id}`, { method: 'DELETE' });
 export const reviewProblem = (id, grade) =>
   request(`/problems/${id}/review`, { method: 'POST', body: { grade } });
