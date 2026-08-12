@@ -1,19 +1,33 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import * as api from './api';
 import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import ProblemBank from './pages/ProblemBank';
-import Templates from './pages/Templates';
-import ProblemDetail from './pages/ProblemDetail';
-import RevisionSession from './pages/RevisionSession';
-import FlashcardSession from './pages/FlashcardSession';
-import ProfileSetup from './pages/ProfileSetup';
-import LeetCodeLibrary from './pages/LeetCodeLibrary';
-import CustomLists from './pages/CustomLists';
 import { FEATURES } from './features';
 
 import { INITIAL_CARDS } from './data/initialData';
+
+// Each screen loads as its own chunk so opening the app costs one small
+// bundle, not the whole editor. The CodeMirror stack (used by ProblemDetail,
+// Templates and RevisionSession) is the bulk of the app's JavaScript — kept
+// out of the initial load, the dashboard paints without ever downloading it.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ProblemBank = lazy(() => import('./pages/ProblemBank'));
+const Templates = lazy(() => import('./pages/Templates'));
+const ProblemDetail = lazy(() => import('./pages/ProblemDetail'));
+const RevisionSession = lazy(() => import('./pages/RevisionSession'));
+const FlashcardSession = lazy(() => import('./pages/FlashcardSession'));
+const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
+const LeetCodeLibrary = lazy(() => import('./pages/LeetCodeLibrary'));
+const CustomLists = lazy(() => import('./pages/CustomLists'));
+
+// Quiet pane-level fallback in the app's own data voice, matching the
+// existing deep-link loading state. Screen chunks resolve in milliseconds
+// after the first visit, so this rarely appears for more than a frame.
+const screenFallback = (
+  <div className="flex-1 flex items-center justify-center font-mono text-fs-12 text-text-muted">
+    Loading…
+  </div>
+);
 
 // URL path for each screen, so pages are shareable endpoints (e.g. /revise).
 // Feature-flagged screens are left out entirely, so their URLs don't resolve.
@@ -397,6 +411,19 @@ function App() {
     setServerStats(null);
   }, [user?.id]);
 
+  // Stats and topic mastery only move when a problem is added or removed, or a
+  // review-relevant field changes — not on every save. ProblemDetail autosaves
+  // the workspace every 1.2s while typing, and each save hands App a new
+  // problems array; keying these effects on the array identity fired two API
+  // calls per keystroke-burst. This signature ignores notes/code-only writes.
+  const problemsReviewSignature = useMemo(
+    () =>
+      problems
+        .map((p) => `${p.id}|${p.status}|${p.due}|${p.topic}|${p.lastRevised}`)
+        .join('~'),
+    [problems]
+  );
+
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
@@ -406,7 +433,9 @@ function App() {
         if (!cancelled) console.warn('Could not load stats:', err.message);
       });
     return () => { cancelled = true; };
-  }, [user?.id, problems]);
+    // problemsReviewSignature stands in for `problems` (see above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, problemsReviewSignature]);
 
   // Topic mastery. The backend is the source of truth (/api/topics: solved out
   // of total per topic, so the bar always matches the fraction); refetched
@@ -431,7 +460,9 @@ function App() {
         if (!cancelled) console.warn('Could not load topics:', err.message);
       });
     return () => { cancelled = true; };
-  }, [user?.id, problems]);
+    // problemsReviewSignature stands in for `problems` (see above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, problemsReviewSignature]);
 
   // Offline fallback: the same solved/total per topic, derived locally.
   const localTopics = useMemo(() => {
@@ -585,12 +616,14 @@ function App() {
   if (!user || isEditingProfile) {
     return (
       <div className="h-screen bg-bg-main text-text-main overflow-hidden">
-        <ProfileSetup
-          user={user}
-          isEditing={isEditingProfile && !!user}
-          onSubmit={handleSaveProfile}
-          onCancel={() => setIsEditingProfile(false)}
-        />
+        <Suspense fallback={null}>
+          <ProfileSetup
+            user={user}
+            isEditing={isEditingProfile && !!user}
+            onSubmit={handleSaveProfile}
+            onCancel={() => setIsEditingProfile(false)}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -618,7 +651,7 @@ function App() {
       {/* Main View Container */}
       <div className="flex-1 min-w-0 relative flex flex-col">
         {/* Dynamic screen output */}
-        {renderScreen()}
+        <Suspense fallback={screenFallback}>{renderScreen()}</Suspense>
       </div>
     </div>
   );

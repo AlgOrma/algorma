@@ -35,7 +35,7 @@ export default function ProblemBank({
 
   const handleToggleSelectAll = () => {
     const allFilteredIds = filteredProblems.map(p => p.id);
-    const areAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.includes(id));
+    const areAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIdSet.has(id));
     if (areAllSelected) {
       setSelectedIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
     } else {
@@ -78,13 +78,18 @@ export default function ProblemBank({
   const uniqueDiffs = ['All', 'Easy', 'Medium', 'Hard'];
   const uniqueStatuses = ['All', 'Done', 'Solving', 'Not started'];
 
+  // Selection lookups happen once per row per render; a Set keeps them O(1)
+  // instead of scanning the selection array for every row.
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
   // Filter logic
   const filteredProblems = useMemo(() => {
+    const query = search.toLowerCase();
     return problems.filter(p => {
-      const matchesSearch = 
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.topic.toLowerCase().includes(search.toLowerCase());
-      
+      const matchesSearch =
+        p.title.toLowerCase().includes(query) ||
+        p.topic.toLowerCase().includes(query);
+
       const matchesTopic = selectedTopic === 'All' || p.topic === selectedTopic;
       const matchesDiff = selectedDiff === 'All' || p.difficulty === selectedDiff;
       const matchesStatus = selectedStatus === 'All' || p.status === selectedStatus;
@@ -254,7 +259,7 @@ export default function ProblemBank({
         {/* Table Header */}
         <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px_45px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-text-muted tracking-[0.06em] text-left items-center">
           <div className="flex items-center justify-center">
-            {filteredProblems.length > 0 && filteredProblems.every(p => selectedIds.includes(p.id)) ? (
+            {filteredProblems.length > 0 && filteredProblems.every(p => selectedIdSet.has(p.id)) ? (
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer" onClick={handleToggleSelectAll}>
                 <rect x="2" y="2" width="16" height="16" rx="4" fill="var(--color-accent)" />
                 <path d="M6 10l3 3 5-5" stroke="var(--color-text-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -277,7 +282,7 @@ export default function ProblemBank({
         {/* Table Rows */}
         <div className="flex flex-col">
           {filteredProblems.map((row) => {
-            const isSelected = selectedIds.includes(row.id);
+            const isSelected = selectedIdSet.has(row.id);
             return (
               <div 
                 key={row.id} 
