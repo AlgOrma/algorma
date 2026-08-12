@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Heatmap from '../components/common/Heatmap';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import { getStats, getActivity } from '../api';
+
+// Activity-heatmap green, shared by the cells and the legend swatches.
+const HEATMAP_COLOR_BASE = '111, 191, 146';
 
 // Time-of-day greeting word
 function greetingWord() {
@@ -14,21 +17,42 @@ export default function Dashboard({
   problems = [],
   topics = [],
   userName,
+  userId,
   onNavigate,
   onOpenProblem
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const searchRef = useRef(null);
 
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState(null);
+
+  // The search box advertises ⌘K — honor it.
   useEffect(() => {
-    getStats()
-      .then(setStats)
-      .catch((err) => console.warn('Could not load stats:', err.message));
-    getActivity()
-      .then(setActivity)
-      .catch((err) => console.warn('Could not load activity:', err.message));
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Both endpoints are user-scoped, so they wait for a profile and refetch when
+  // it changes. The cancelled flag drops a previous profile's response if one
+  // is still in flight, so a switch can't leave someone else's numbers on screen.
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    getStats()
+      .then((data) => { if (!cancelled) setStats(data); })
+      .catch((err) => { if (!cancelled) console.warn('Could not load stats:', err.message); });
+    getActivity()
+      .then((data) => { if (!cancelled) setActivity(data); })
+      .catch((err) => { if (!cancelled) console.warn('Could not load activity:', err.message); });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // Derived (fallback) statistics
   const totalSolved = problems.filter(p => p.status === 'Done').length;
@@ -55,7 +79,7 @@ export default function Dashboard({
             {greetingWord()}, {userName || 'there'}
           </div>
           <div className="font-mono text-fs-12-5 text-text-muted mt-sp-5 text-left">
-            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).replace(',', ' ·')} &nbsp;·&nbsp; <span className="text-accent">{dueCount} cards</span> due for review
+            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).replace(',', ' ·')} &nbsp;·&nbsp; <span className="text-accent-text">{dueDisplay} {dueDisplay === 1 ? 'card' : 'cards'}</span> due for review
           </div>
         </div>
         
@@ -67,6 +91,7 @@ export default function Dashboard({
               <line x1="13.5" y1="13.5" x2="17" y2="17" />
             </svg>
             <input
+              ref={searchRef}
               type="text"
               placeholder="Search problems"
               value={searchQuery}
@@ -101,10 +126,10 @@ export default function Dashboard({
           onClick={() => onNavigate('revise')}
           className="bg-bg-card border border-accent/28 rounded-xl py-sp-15 px-sp-16 cursor-pointer text-left hover:border-accent/50 transition-colors duration-200"
         >
-          <div className="font-mono text-fs-10-5 text-accent tracking-[0.05em]">
+          <div className="font-mono text-fs-10-5 text-accent-text tracking-[0.05em]">
             DUE TODAY
           </div>
-          <div className="font-mono text-fs-31 font-semibold text-accent-blue mt-sp-9 leading-none">
+          <div className="font-mono text-fs-31 font-semibold text-accent mt-sp-9 leading-none">
             {dueDisplay}
           </div>
           <div className="text-fs-12 text-text-muted mt-sp-9">
@@ -147,14 +172,19 @@ export default function Dashboard({
           </div>
           <div className="flex items-center gap-1.5 font-mono text-fs-10 text-text-muted">
             less
-            <span className="w-2.5 h-2.5 rounded-sm bg-accent-green-hover/10"></span>
-            <span className="w-2.5 h-2.5 rounded-sm bg-accent-green-hover/34"></span>
-            <span className="w-2.5 h-2.5 rounded-sm bg-accent-green-hover/58"></span>
-            <span className="w-2.5 h-2.5 rounded-sm bg-accent-green-hover/88"></span>
+            {/* Exactly the ramp the heatmap cells use (empty cells included),
+                so the legend is truthful. */}
+            {[0.06, 0.1, 0.34, 0.58, 0.88].map((opacity) => (
+              <span
+                key={opacity}
+                className="w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: `rgba(${HEATMAP_COLOR_BASE}, ${opacity})` }}
+              ></span>
+            ))}
             more
           </div>
         </div>
-        <Heatmap colorBase="111, 191, 146" activity={activity} />
+        <Heatmap colorBase={HEATMAP_COLOR_BASE} activity={activity} />
       </div>
 
       {/* Main split sections */}
@@ -164,7 +194,7 @@ export default function Dashboard({
         <div className="flex-[1.55_1.55_0%] bg-bg-card border border-border-card rounded-xl py-sp-18 px-sp-20 flex flex-col min-w-0 text-left">
           <div className="flex items-center justify-between mb-1">
             <div className="text-fs-14-5 font-semibold text-text-main">Due for revision today</div>
-            <span onClick={() => onNavigate('problems')} className="font-mono text-fs-12 text-accent cursor-pointer hover:underline">
+            <span onClick={() => onNavigate('problems')} className="font-mono text-fs-12 text-accent-text cursor-pointer hover:underline">
               View all →
             </span>
           </div>
@@ -182,14 +212,14 @@ export default function Dashboard({
                     <span className="font-mono text-fs-11 text-text-hover bg-bg-btn-sec border border-border-main px-sp-7 py-sp-1 rounded-md">
                       {row.topic}
                     </span>
-                    <span className={`font-mono text-fs-11 ${row.dueMeta?.includes('overdue') ? 'text-accent-red' : 'text-accent-green'}`}>
+                    <span className={`font-mono text-fs-11 ${row.dueMeta?.includes('overdue') ? 'text-accent-red-text' : 'text-accent-green'}`}>
                       {row.dueMeta || 'due now'}
                     </span>
                   </div>
                 </div>
                 
                 <Badge type="difficulty" value={row.difficulty} />
-                <span className="text-border-accent text-fs-16 ml-1">→</span>
+                <span className="text-text-muted text-fs-16 ml-1">→</span>
               </div>
             ))}
 
@@ -205,12 +235,12 @@ export default function Dashboard({
             className="mt-4 w-full py-sp-11"
             disabled={dueCount === 0}
           >
-            Start revision session · {dueCount} cards
+            Start revision session · {dueCount} {dueCount === 1 ? 'card' : 'cards'}
           </Button>
         </div>
 
         {/* Right: Topic mastery */}
-        <div className="flex-1 display flex flex-col gap-sp-14 min-w-0">
+        <div className="flex-1 flex flex-col gap-sp-14 min-w-0">
           
           {/* Topic Mastery */}
           <div className="bg-bg-card border border-border-card rounded-xl py-sp-17 px-sp-18 text-left">
@@ -229,7 +259,7 @@ export default function Dashboard({
                     <span className="text-text-hover">{t.name}</span>
                     <span className="font-mono text-text-muted">{t.frac}</span>
                   </div>
-                  <div className="height h-sp-7 bg-bg-track rounded overflow-hidden">
+                  <div className="h-sp-7 bg-bg-track rounded overflow-hidden">
                     <div 
                       className="h-full bg-accent rounded transition-all duration-500 ease-out"
                       style={{ 

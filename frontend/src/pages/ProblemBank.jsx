@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import CustomListsModal from '../components/common/CustomListsModal';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 
 export default function ProblemBank({
   problems = [],
@@ -106,7 +107,7 @@ export default function ProblemBank({
             Problem bank
           </div>
           <div className="font-mono text-fs-12 text-text-muted mt-1">
-            {problems.length} problems · replaces the DSA Prep PDF
+            {problems.length} {problems.length === 1 ? 'problem' : 'problems'} · replaces the DSA Prep PDF
           </div>
         </div>
         
@@ -208,9 +209,9 @@ export default function ProblemBank({
                 {selectedIds.length} {selectedIds.length === 1 ? 'problem' : 'problems'} selected
               </span>
               <span className="text-text-muted">|</span>
-              <button 
+              <button
                 onClick={() => setSelectedIds([])}
-                className="text-fs-12-5 text-accent hover:text-text-main cursor-pointer outline-none bg-transparent border-none p-0"
+                className="text-fs-12-5 text-accent-text hover:text-text-main cursor-pointer outline-none bg-transparent border-none p-0"
               >
                 Deselect all
               </button>
@@ -251,7 +252,7 @@ export default function ProblemBank({
         )}
 
         {/* Table Header */}
-        <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px_45px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left items-center">
+        <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_96px_78px_45px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-text-muted tracking-[0.06em] text-left items-center">
           <div className="flex items-center justify-center">
             {filteredProblems.length > 0 && filteredProblems.every(p => selectedIds.includes(p.id)) ? (
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer" onClick={handleToggleSelectAll}>
@@ -308,7 +309,7 @@ export default function ProblemBank({
                 <span className="font-mono text-fs-11 text-text-muted">
                   {row.lastRevised || '—'}
                 </span>
-                <span className={`font-mono text-fs-11 text-right ${row.due ? 'text-accent' : 'text-text-muted'}`}>
+                <span className={`font-mono text-fs-11 text-right ${row.due ? 'text-accent-text' : 'text-text-muted'}`}>
                   {row.due ? 'today' : row.nextLabel || '—'}
                 </span>
                 <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
@@ -333,46 +334,44 @@ export default function ProblemBank({
           })}
 
           {filteredProblems.length === 0 && (
-            <div className="py-10 px-5 text-text-muted text-fs-14 text-center">
-              No problems matches your search filters.
-            </div>
+            problems.length === 0 ? (
+              <div className="py-14 px-5 flex flex-col items-center gap-3 text-center">
+                <div className="text-fs-14 font-semibold text-text-main">Your problem bank is empty</div>
+                <div className="text-fs-12-5 text-text-muted max-w-[360px] leading-relaxed">
+                  Import problems from the LeetCode library — each one you practice
+                  joins your spaced-repetition schedule.
+                </div>
+                <Button size="sm" onClick={onNewProblem} className="mt-1">
+                  Browse the LeetCode library
+                </Button>
+              </div>
+            ) : (
+              <div className="py-10 px-5 text-text-muted text-fs-14 text-center">
+                No problems match your search filters.
+              </div>
+            )
           )}
         </div>
       </div>
       </div>
       
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-bg-overlay/80 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
-          <div className="w-full max-w-[440px] bg-bg-main border border-border-main rounded-md shadow-modal flex flex-col p-6 text-left">
-            <h3 className="text-fs-16 font-bold text-text-main mb-2">
-              Delete Problems
-            </h3>
-            <p className="text-fs-13 text-text-muted mb-6 leading-relaxed">
-              {selectedIds.length === 1
-                ? "Are you sure you want to delete the selected problem? This action cannot be undone."
-                : `Are you sure you want to delete the ${selectedIds.length} selected problems? This action cannot be undone.`}
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setShowDeleteConfirm(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  onDeleteProblems(selectedIds);
-                  setSelectedIds([]);
-                  setShowDeleteConfirm(false);
-                }}
-                style={{ backgroundColor: 'var(--color-accent-red-hover)', color: '#fff' }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete Problems"
+        message={
+          selectedIds.length === 1
+            ? 'Are you sure you want to delete the selected problem? This action cannot be undone.'
+            : `Are you sure you want to delete the ${selectedIds.length} selected problems? This action cannot be undone.`
+        }
+        confirmLabel="Delete"
+        confirmVariant="red"
+        onConfirm={() => {
+          onDeleteProblems(selectedIds);
+          setSelectedIds([]);
+          setShowDeleteConfirm(false);
+        }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
 
       <CustomListsModal
         isOpen={isCustomListsModalOpen}
