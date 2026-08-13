@@ -204,7 +204,7 @@ export default function Sidebar({
         type="button"
         onClick={onEditProfile}
         title={collapsed ? `${user?.name || 'Your profile'} — edit profile` : 'Edit profile'}
-        className={`flex items-center rounded-card-sm bg-bg-card ring-1 ring-border-card cursor-pointer transition-shadow hover:ring-border-btn-hover text-left overflow-hidden ${
+        className={`flex items-center rounded-card-sm bg-bg-card ring-1 ring-border-card cursor-pointer transition-shadow hover:ring-border-btn-hover overflow-hidden text-left ${
           collapsed ? 'p-1.5 justify-center' : 'gap-sp-10 px-2.5 py-sp-9 w-full'
         }`}
       >
@@ -230,11 +230,11 @@ export default function Sidebar({
       </button>
 
       {/* Current Streak Widget — server stats; em dash while loading/offline.
-          Collapsed to a bare number: the rail has no room for the full card. */}
+          Collapsed, the rail has no room for the full card. */}
       {collapsed ? (
         <div
-          title={streakDays === null
-            ? 'Current streak unavailable'
+          title={streakDays === null || streakDays === undefined
+            ? 'Current streak · unavailable'
             : `Current streak · ${streakDays} ${streakDays === 1 ? 'day' : 'days'}`}
           className="w-full py-1.5 rounded-card-sm bg-bg-card border border-border-card font-mono text-fs-12 font-semibold text-text-main text-center"
         >
