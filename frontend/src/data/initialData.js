@@ -14,12 +14,12 @@ export const UNASSIGNED_DECK = '__unassigned__';
 export const DIFF_MAP = {
   Easy: { c: 'var(--color-accent-green-hover)', bg: 'var(--color-badge-easy-bg)', bd: 'var(--color-badge-easy-border)', l: 'EASY' },
   Medium: { c: 'var(--color-accent-orange)', bg: 'var(--color-badge-medium-bg)', bd: 'var(--color-badge-medium-border)', l: 'MED' },
-  Hard: { c: 'var(--color-accent-red-hover)', bg: 'var(--color-badge-hard-bg)', bd: 'var(--color-badge-hard-border)', l: 'HARD' }
+  Hard: { c: 'var(--color-accent-red-text)', bg: 'var(--color-badge-hard-bg)', bd: 'var(--color-badge-hard-border)', l: 'HARD' }
 };
 
 export const STATUS_MAP = {
   'Done': { c: 'var(--color-accent-green-hover)', l: '● Done' },
-  'Solving': { c: 'var(--color-accent-blue)', l: '◐ Solving' },
+  'Solving': { c: 'var(--color-accent-text)', l: '◐ Solving' },
   'Not started': { c: 'var(--color-text-muted)', l: '○ Not started' }
 };
 

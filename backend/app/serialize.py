@@ -1,7 +1,7 @@
 """Serializers that emit the exact shape the existing React frontend consumes.
 
 The frontend reads pre-formatted display strings (``created``, ``lastRevised``,
-``nextLabel``, ``dueMeta``, ``nextColor``) plus a boolean ``due`` flag. We keep
+``nextLabel``, ``dueMeta``, ``nextColor``) plus boolean ``due``/``overdue`` flags. We keep
 those for a near drop-in swap from localStorage, and additionally expose the raw
 fields (ISO timestamps, SRS state) so the UI can move to client-side formatting
 later.
@@ -173,6 +173,7 @@ def serialize_problem(
         "difficulty": p.difficulty,
         "status": p.status,
         "due": due,
+        "overdue": diff is not None and diff < 0,
         "statement": p.statement,
         "exIn": p.example_input,
         "exOut": p.example_output,

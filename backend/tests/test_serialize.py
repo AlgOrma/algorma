@@ -197,6 +197,7 @@ def test_problem_full_shape_with_revision_patterns_and_leetcode(session, user, t
         "difficulty": "Easy",
         "status": "Done",
         "due": False,
+        "overdue": False,
         "statement": "Find two numbers that add to target.",
         "exIn": "[2,7,11,15], 9",
         "exOut": "[0,1]",

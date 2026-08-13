@@ -57,9 +57,9 @@ function App() {
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
   const [problems, setProblems] = useState([]);
   const [problemsLoading, setProblemsLoading] = useState(true);
+  const [problemsError, setProblemsError] = useState(false);
   const [customLists, setCustomLists] = useState([]);
   const [customListsLoading, setCustomListsLoading] = useState(true);
-  const [streakDays] = useLocalStorage('dsa_streak', 0);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
@@ -129,9 +129,11 @@ function App() {
     api.getProblems()
       .then((data) => {
         setProblems(data || []);
+        setProblemsError(false);
       })
       .catch((err) => {
         console.warn('Could not load problems from backend:', err.message);
+        setProblemsError(true);
       })
       .finally(() => setProblemsLoading(false));
   }, [user?.id]);
@@ -356,18 +358,24 @@ function App() {
     }
   };
 
-  // Delete one or more problems
+  // Delete one or more problems. Partial failures are real: remove only the
+  // rows the server confirmed and return the failed ids so the caller can
+  // keep them selected and tell the user.
   const handleDeleteProblems = async (ids) => {
-    try {
-      await Promise.all(ids.map(id => api.deleteProblem(id)));
-      setProblems(prevProblems => prevProblems.filter(p => !ids.includes(p.id)));
-      if (selectedId && ids.includes(selectedId)) {
+    const results = await Promise.allSettled(ids.map(id => api.deleteProblem(id)));
+    const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+    const failedIds = ids.filter((_, i) => results[i].status === 'rejected');
+    if (deletedIds.length) {
+      setProblems(prevProblems => prevProblems.filter(p => !deletedIds.includes(p.id)));
+      if (selectedId && deletedIds.includes(selectedId)) {
         setSelectedId(null);
         setScreen('problems');
       }
-    } catch (err) {
-      console.error('Failed to delete problem(s):', err.message);
     }
+    if (failedIds.length) {
+      console.error(`Failed to delete ${failedIds.length} problem(s)`);
+    }
+    return failedIds;
   };
 
   // Add a problem imported from the LeetCode library (already created on the
@@ -375,6 +383,38 @@ function App() {
   const handleSaveProblem = (newProblem) => {
     setProblems(prevProblems => [newProblem, ...prevProblems]);
   };
+
+  // Dashboard/sidebar stats (streak, retention, weekly solves) — server-owned,
+  // fetched here so the sidebar streak and the dashboard cards share one source
+  // of truth. Refetched when the problem list changes so grading shows up.
+  const [stats, setStats] = useState(null);
+  const [statsError, setStatsError] = useState(false);
+  const [statsRetryTick, setStatsRetryTick] = useState(0);
+
+  // Clear on user change so a slow refetch never shows another user's stats.
+  useEffect(() => {
+    setStats(null);
+    setStatsError(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    api.getStats()
+      .then((data) => {
+        if (!cancelled) {
+          setStats(data);
+          setStatsError(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.warn('Could not load stats:', err.message);
+          setStatsError(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, problems, statsRetryTick]);
 
   // Topic mastery. The backend is the source of truth (/api/topics: solved out
   // of total per topic, so the bar always matches the fraction); refetched
@@ -433,17 +473,26 @@ function App() {
         return (
           <Dashboard
             problems={problems}
+            problemsLoading={problemsLoading}
+            problemsError={problemsError}
+            onRetryProblems={loadProblems}
             topics={topics}
             userName={user?.name}
+            dailyGoal={user?.dailyGoal ?? 10}
+            stats={stats}
+            statsError={statsError}
+            onRetryStats={() => setStatsRetryTick((t) => t + 1)}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
-            themeColor={themeAccent}
           />
         );
       case 'problems':
         return (
           <ProblemBank
             problems={problems}
+            problemsLoading={problemsLoading}
+            problemsError={problemsError}
+            onRetryProblems={loadProblems}
             onOpenProblem={handleOpenProblem}
             onNewProblem={() => handleNavigate('leetcode')}
             onDeleteProblems={handleDeleteProblems}
@@ -605,7 +654,7 @@ function App() {
         templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
         flashcardsCount={flashcardsDueCount}
-        streakDays={streakDays}
+        streakDays={stats ? stats.streakDays : null}
         user={user}
         onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
