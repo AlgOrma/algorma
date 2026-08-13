@@ -42,7 +42,8 @@ export default function FlashcardCardEditor({ cardId = null, presetDeckId = null
               type: card.type || 'concept',
             });
           }
-        } else if (presetDeckId) {
+        } else if (presetDeckId !== null && presetDeckId !== undefined) {
+          // An explicit preset wins — including '' for "(General / Unassigned)".
           setForm((prev) => ({ ...prev, deckId: presetDeckId }));
         } else if (fetchedDecks && fetchedDecks.length > 0) {
           setForm((prev) => ({ ...prev, deckId: fetchedDecks[0].id }));

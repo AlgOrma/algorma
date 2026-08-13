@@ -19,7 +19,8 @@ def list_decks(
 ):
     now = utcnow()
     decks = deck_service.list_decks(session, user)
-    return [serialize_deck(d, now=now) for d in decks]
+    # list_decks eager-loads flashcards + revisions, so no per-deck N+1 here.
+    return [serialize_deck(d, cards=d.flashcards, now=now) for d in decks]
 
 
 @router.post("", status_code=201)

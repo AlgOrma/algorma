@@ -121,6 +121,8 @@ export const createFlashcard = (body) => request('/flashcards', { method: 'POST'
 export const getFlashcard = (id) => request(`/flashcards/${id}`);
 export const updateFlashcard = (id, body) => request(`/flashcards/${id}`, { method: 'PATCH', body });
 export const deleteFlashcard = (id) => request(`/flashcards/${id}`, { method: 'DELETE' });
+// Cheap count of due cards, for the sidebar badge (avoids serializing every card).
+export const getFlashcardsDueCount = () => request('/flashcards/due-count');
 
 // --- Writes ---
 export const createProblem = (body) => request('/problems', { method: 'POST', body });
@@ -131,7 +133,6 @@ export const reviewProblem = (id, grade) =>
   request(`/problems/${id}/review`, { method: 'POST', body: { grade } });
 export const reviewFlashcard = (id, grade) =>
   request(`/flashcards/${id}/review`, { method: 'POST', body: { grade } });
-
 
 // --- LeetCode Questions ---
 

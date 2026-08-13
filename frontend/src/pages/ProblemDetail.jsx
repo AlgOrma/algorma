@@ -5,6 +5,8 @@ import Checklist from '../components/common/Checklist';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import CodeEditor from '../components/common/CodeEditor';
 import CustomListsModal from '../components/common/CustomListsModal';
+import * as api from '../api';
+import { FEATURES } from '../features';
 
 // Simple Markdown to HTML formatter for editorial solutions (matching LeetCodeLibrary)
 const formatMarkdown = (text) => {
@@ -441,19 +443,21 @@ export default function ProblemDetail({
                   Force Revision
                 </button>
                 <div className="border-t border-border-muted my-1"></div>
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleOpenFlashcardModal();
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-fs-13 text-text-hover hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
-                >
-                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="5.5" width="11" height="9" rx="1.6"/>
-                    <path d="M6 5.5V4.2A1.2 1.2 0 0 1 7.2 3H17v8.5"/>
-                  </svg>
-                  Create Flashcard
-                </button>
+                {FEATURES.flashcards && (
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleOpenFlashcardModal();
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-fs-13 text-text-hover hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5.5" width="11" height="9" rx="1.6"/>
+                      <path d="M6 5.5V4.2A1.2 1.2 0 0 1 7.2 3H17v8.5"/>
+                    </svg>
+                    Create Flashcard
+                  </button>
+                )}
                 <div className="border-t border-border-muted my-1"></div>
                 <button
                   onClick={() => {

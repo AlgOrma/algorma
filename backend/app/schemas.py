@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -146,11 +146,27 @@ class DeckCreate(CamelModel):
     description: str | None = None
     color: str | None = None
 
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: str) -> str:
+        name = v.strip()
+        if not name:
+            raise ValueError("Deck name cannot be blank")
+        return name
+
 
 class DeckUpdate(CamelModel):
     name: str | None = None
     description: str | None = None
     color: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: str) -> str:
+        name = v.strip()
+        if not name:
+            raise ValueError("Deck name cannot be blank")
+        return name
 
 
 class FlashcardCreate(CamelModel):
@@ -167,6 +183,4 @@ class FlashcardUpdate(CamelModel):
     deck_id: str | None = None
     type: str | None = None
     tag: str | None = None
-
-
 

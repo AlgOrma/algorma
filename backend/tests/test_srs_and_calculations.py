@@ -3,6 +3,7 @@ from datetime import timedelta
 from sqlmodel import Session, select
 
 from app.models import Deck, Flashcard, ReviewLog, Revision, User
+from app.schemas import DeckCreate, FlashcardCreate
 from app.serialize import serialize_deck, serialize_flashcard
 from app.services import decks as deck_service
 from app.services import flashcards as flashcard_service
@@ -84,15 +85,23 @@ def test_serialize_deck_due_count_math():
 
 
 def test_list_flashcards_deck_id_filter_handling(session: Session):
-    user = User(id="user-calc-1", name="Test Calc", password_hash="hash")
+    user = User(id="user-calc-1", name="Test Calc")
     session.add(user)
     session.commit()
 
-    deck = deck_service.create_deck(session, user, type("DeckPayload", (), {"name": "DP", "description": "", "color": ""})())
+    deck = deck_service.create_deck(
+        session, user, DeckCreate(name="DP", description="", color="")
+    )
     
     # 1 card in deck, 1 card without deck
-    c_deck = flashcard_service.create_flashcard(session, user, type("CardPayload", (), {"deck_id": deck.id, "type": "concept", "tag": "dp", "front": "Q1", "back": "A1"})())
-    _c_nodeck = flashcard_service.create_flashcard(session, user, type("CardPayload", (), {"deck_id": None, "type": "concept", "tag": "general", "front": "Q2", "back": "A2"})())
+    c_deck = flashcard_service.create_flashcard(
+        session, user,
+        FlashcardCreate(deck_id=deck.id, type="concept", tag="dp", front="Q1", back="A1"),
+    )
+    _c_nodeck = flashcard_service.create_flashcard(
+        session, user,
+        FlashcardCreate(deck_id=None, type="concept", tag="general", front="Q2", back="A2"),
+    )
 
     # Filter with deck_id=deck.id
     deck_cards = flashcard_service.list_flashcards(session, user, deck_id=deck.id)
@@ -107,12 +116,13 @@ def test_list_flashcards_deck_id_filter_handling(session: Session):
 
 
 def test_review_flashcard_updates_srs_state(session: Session):
-    user = User(id="user-calc-2", name="Review Calc", password_hash="hash")
+    user = User(id="user-calc-2", name="Review Calc")
     session.add(user)
     session.commit()
 
     card = flashcard_service.create_flashcard(
-        session, user, type("CardPayload", (), {"deck_id": None, "type": "concept", "tag": "arrays", "front": "Q", "back": "A"})()
+        session, user,
+        FlashcardCreate(deck_id=None, type="concept", tag="arrays", front="Q", back="A"),
     )
 
     card_after, rev, now = flashcard_service.review_flashcard(session, user, card.id, "Good")

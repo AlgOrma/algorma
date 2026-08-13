@@ -44,6 +44,14 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() + "Z" if dt else None
 
 
+def flashcard_is_due(revision: Optional[Revision], now: datetime) -> bool:
+    """A card is due when it was never reviewed or its due date has arrived."""
+    if revision is None:
+        return True
+    due_at = revision.due_at
+    return due_at is not None and _days_delta(due_at, now) <= 0
+
+
 def serialize_user(u: User) -> dict:
     return {
         "id": u.id,
@@ -310,12 +318,7 @@ def serialize_deck(
     now = now or utcnow()
     cards_list = cards if cards is not None else deck.flashcards or []
     card_count = len(cards_list)
-    due_count = 0
-    for card in cards_list:
-        rev = card.revision
-        due_at = rev.due_at if rev else None
-        if rev is None or (due_at is not None and _days_delta(due_at, now) <= 0):
-            due_count += 1
+    due_count = sum(1 for card in cards_list if flashcard_is_due(card.revision, now))
 
     return {
         "id": deck.id,
@@ -333,8 +336,8 @@ def serialize_flashcard(
     c: Flashcard, revision: Optional[Revision] = None, now: Optional[datetime] = None
 ) -> dict:
     now = now or utcnow()
+    due = flashcard_is_due(revision, now)
     due_at = revision.due_at if revision else None
-    due = (revision is None) or (due_at is not None and _days_delta(due_at, now) <= 0)
     review_count = revision.review_count if revision else 0
     last_reviewed_at = revision.last_reviewed_at if revision else None
     stability = revision.stability if revision else None
@@ -364,4 +367,3 @@ def serialize_flashcard(
         "lastReviewedAt": _iso(last_reviewed_at),
         "dueAt": _iso(due_at),
     }
-

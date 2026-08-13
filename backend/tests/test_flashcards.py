@@ -100,7 +100,8 @@ def test_due_filter_keeps_only_overdue_and_due_today(session, user):
     due_rows = list_flashcards(due=True, user=user, session=session)
 
     assert {r["front"] for r in all_rows} == {"overdue", "today", "future", "fresh"}
-    assert set(r["front"] for r in due_rows) == {"overdue", "today", "fresh"}
+    # Oldest-first ordering is preserved through the due filter.
+    assert [r["front"] for r in due_rows] == ["overdue", "today", "fresh"]
     assert all(r["due"] is True for r in due_rows)
 
 
@@ -113,6 +114,31 @@ def test_list_excludes_other_users_cards(session, user):
 
     assert [r["id"] for r in rows] == [mine.id]
     assert rows[0]["front"] == "mine"
+
+
+def test_due_count_endpoint_counts_only_due_cards(client, session, user):
+    from datetime import timedelta
+
+    make_card(session, user, front="fresh")  # never reviewed -> due
+    make_card(session, user, front="overdue")
+    future = make_card(session, user, front="future")
+    session.add(
+        Revision(
+            user_id=user.id,
+            flashcard_id=future.id,
+            review_count=1,
+            last_reviewed_at=utcnow(),
+            due_at=utcnow() + timedelta(days=7),
+            stability=5.0,
+            difficulty=5.0,
+        )
+    )
+    session.commit()
+
+    res = client.get("/api/flashcards/due-count")
+
+    assert res.status_code == 200
+    assert res.json() == {"count": 2}
 
 
 # --- review / grade flow ---

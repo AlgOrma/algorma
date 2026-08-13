@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Button from '../components/common/Button';
 import FormattedText from '../components/common/FormattedText';
 import * as api from '../api';
-import { GRADES, gradeIntervalLabel } from '../data/initialData';
+import { GRADES, UNASSIGNED_DECK, gradeIntervalLabel } from '../data/initialData';
 
-export default function FlashcardSession({ deckId, onNavigate }) {
+export default function FlashcardSession({ deckId, onNavigate, onCardsChanged }) {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [isGrading, setIsGrading] = useState(false);
+  const isGradingRef = useRef(false);
+  const [allCaughtUp, setAllCaughtUp] = useState(false);
   const [reviewStats, setReviewStats] = useState({
     reviewedCount: 0,
     againCount: 0,
@@ -18,28 +21,41 @@ export default function FlashcardSession({ deckId, onNavigate }) {
     easyCount: 0,
   });
 
-  const loadCards = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const params = { due: true };
-      if (deckId) params.deck_id = deckId;
-      let dueCards = await api.getFlashcards(params);
-      
-      // If no cards due for this specific filter, load all cards in deck/all so user can review anyway
-      if (!dueCards || dueCards.length === 0) {
-        const allParams = deckId ? { deck_id: deckId } : {};
-        dueCards = await api.getFlashcards(allParams);
-      }
+  const loadCards = useCallback(
+    async (opts = {}) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const params = { due: true };
+        if (deckId && deckId !== UNASSIGNED_DECK) params.deck_id = deckId;
+        let dueCards = await api.getFlashcards(params);
+        if (deckId === UNASSIGNED_DECK) {
+          dueCards = (dueCards || []).filter((c) => !c.deckId);
+        }
 
-      setCards(dueCards || []);
-    } catch (err) {
-      console.error('Failed to load cards for study session:', err);
-      setError('Could not load flashcards for review.');
-    } finally {
-      setLoading(false);
-    }
-  }, [deckId]);
+        if ((!dueCards || dueCards.length === 0) && opts.studyAhead) {
+          // Explicit "study ahead" opt-in: pull every card for this filter so
+          // the user can review early without silently re-scheduling due cards.
+          const allParams = deckId && deckId !== UNASSIGNED_DECK ? { deck_id: deckId } : {};
+          let allCards = await api.getFlashcards(allParams);
+          if (deckId === UNASSIGNED_DECK) {
+            allCards = (allCards || []).filter((c) => !c.deckId);
+          }
+          setAllCaughtUp(false);
+          setCards(allCards || []);
+        } else {
+          setAllCaughtUp((dueCards || []).length === 0);
+          setCards(dueCards || []);
+        }
+      } catch (err) {
+        console.error('Failed to load cards for study session:', err);
+        setError('Could not load flashcards for review.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [deckId]
+  );
 
   useEffect(() => {
     loadCards();
@@ -49,32 +65,44 @@ export default function FlashcardSession({ deckId, onNavigate }) {
   const isFinished = currentIndex >= totalCards;
   const currentCard = isFinished ? null : cards[currentIndex];
 
-  const handleGrade = useCallback(async (gradeObj) => {
-    if (!currentCard) return;
+  const handleGrade = useCallback(
+    async (gradeObj) => {
+      if (!currentCard || isGradingRef.current) return;
 
-    try {
-      await api.reviewFlashcard(currentCard.id, gradeObj.key);
-    } catch (err) {
-      console.error('Failed to record review grade:', err);
-    }
-
-    setReviewStats((prev) => ({
-      ...prev,
-      reviewedCount: prev.reviewedCount + 1,
-      againCount: gradeObj.key === 'Again' ? prev.againCount + 1 : prev.againCount,
-      hardCount: gradeObj.key === 'Hard' ? prev.hardCount + 1 : prev.hardCount,
-      goodCount: gradeObj.key === 'Good' ? prev.goodCount + 1 : prev.goodCount,
-      easyCount: gradeObj.key === 'Easy' ? prev.easyCount + 1 : prev.easyCount,
-    }));
-
-    setFlipped(false);
-    setCurrentIndex((prev) => prev + 1);
-  }, [currentCard]);
+      isGradingRef.current = true;
+      setIsGrading(true);
+      setError(null);
+      try {
+        await api.reviewFlashcard(currentCard.id, gradeObj.key);
+        setReviewStats((prev) => ({
+          ...prev,
+          reviewedCount: prev.reviewedCount + 1,
+          againCount: gradeObj.key === 'Again' ? prev.againCount + 1 : prev.againCount,
+          hardCount: gradeObj.key === 'Hard' ? prev.hardCount + 1 : prev.hardCount,
+          goodCount: gradeObj.key === 'Good' ? prev.goodCount + 1 : prev.goodCount,
+          easyCount: gradeObj.key === 'Easy' ? prev.easyCount + 1 : prev.easyCount,
+        }));
+        setFlipped(false);
+        setCurrentIndex((prev) => prev + 1);
+        if (onCardsChanged) onCardsChanged();
+      } catch (err) {
+        // Hold the card: a failed review must not be counted as a success.
+        console.error('Failed to record review grade:', err);
+        setError(
+          err.message || 'Could not save your review. The card was not advanced — try again.'
+        );
+      } finally {
+        isGradingRef.current = false;
+        setIsGrading(false);
+      }
+    },
+    [currentCard, onCardsChanged]
+  );
 
   // Keyboard Shortcuts Listener
   const handleKeyDown = useCallback(
     (e) => {
-      if (isFinished || !currentCard) return;
+      if (isFinished || !currentCard || isGradingRef.current) return;
 
       // Ignore shortcut keys if user is typing in an input
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
@@ -116,6 +144,56 @@ export default function FlashcardSession({ deckId, onNavigate }) {
   }
 
   if (error || cards.length === 0) {
+    // Load failure: surface it rather than pretending the session is empty.
+    if (error) {
+      return (
+        <div className="w-full h-full flex items-center justify-center p-6">
+          <div className="max-w-md w-full text-center bg-bg-card-grad-start border border-red-500/20 rounded-2xl p-8 shadow-card">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4 text-red-400">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <h3 className="text-fs-18 font-bold text-text-main mb-2">Session Unavailable</h3>
+            <p className="text-fs-13 text-text-muted mb-6">{error}</p>
+            <div className="flex justify-center gap-3">
+              <Button variant="secondary" onClick={() => loadCards()}>Retry</Button>
+              <Button onClick={() => onNavigate('flashcards')}>Back to Decks</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Nothing is due. Show the caught-up state with an explicit opt-in to study
+    // ahead, instead of silently re-scheduling cards that aren't due.
+    if (allCaughtUp) {
+      return (
+        <div className="w-full h-full flex items-center justify-center p-6">
+          <div className="max-w-md w-full text-center bg-bg-card-grad-start border border-border-btn rounded-2xl p-8 shadow-card">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 text-emerald-400">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h3 className="text-fs-18 font-bold text-text-main mb-2">You're all caught up!</h3>
+            <p className="text-fs-13 text-text-muted mb-6">
+              No cards are due for review right now. Studying ahead will re-schedule
+              cards that aren't due yet.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
+              <Button variant="secondary" onClick={() => loadCards({ studyAhead: true })}>
+                Study Ahead Anyway
+              </Button>
+              <Button onClick={() => onNavigate('flashcards')}>Back to Decks</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center bg-bg-card-grad-start border border-border-btn rounded-2xl p-8 shadow-card">
@@ -127,7 +205,7 @@ export default function FlashcardSession({ deckId, onNavigate }) {
           </div>
           <h3 className="text-fs-18 font-bold text-text-main mb-2">No Cards Available</h3>
           <p className="text-fs-13 text-text-muted mb-6">
-            There are no flashcards in this deck yet. Add some cards to begin practicing!
+            There are no flashcards here yet. Add some cards to begin practicing!
           </p>
           <Button onClick={() => onNavigate('flashcards')}>Back to Decks</Button>
         </div>
@@ -217,6 +295,12 @@ export default function FlashcardSession({ deckId, onNavigate }) {
                     How well did you recall it? <span className="opacity-70">(Keys 1-4)</span>
                   </div>
 
+                  {error && (
+                    <div className="mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-fs-12 font-mono text-center">
+                      {error}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {GRADES.map((g, idx) => {
                       const intervalHint = gradeIntervalLabel(currentCard, g);
@@ -224,7 +308,8 @@ export default function FlashcardSession({ deckId, onNavigate }) {
                         <button
                           key={g.key}
                           onClick={() => handleGrade(g)}
-                          className="btn-card-3d flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl bg-bg-track hover:bg-border-btn/50 border border-border-btn/80 transition-all select-none"
+                          disabled={isGrading}
+                          className="btn-card-3d flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl bg-bg-track hover:bg-border-btn/50 border border-border-btn/80 transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <div className="flex items-center gap-1.5">
                             <span className="font-mono text-fs-10 opacity-60">[{idx + 1}]</span>

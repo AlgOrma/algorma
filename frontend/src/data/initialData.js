@@ -7,6 +7,10 @@ export const INITIAL_PROBLEMS = [];
 
 export const INITIAL_CARDS = [];
 
+// Pseudo-deck id for flashcards with no deck (the "(General / Unassigned)"
+// bucket in the deck manager / card editor).
+export const UNASSIGNED_DECK = '__unassigned__';
+
 export const DIFF_MAP = {
   Easy: { c: 'var(--color-accent-green-hover)', bg: 'var(--color-badge-easy-bg)', bd: 'var(--color-badge-easy-border)', l: 'EASY' },
   Medium: { c: 'var(--color-accent-orange)', bg: 'var(--color-badge-medium-bg)', bd: 'var(--color-badge-medium-border)', l: 'MED' },

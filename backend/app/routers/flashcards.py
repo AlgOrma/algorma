@@ -7,7 +7,7 @@ from ..db import get_session
 from ..deps import get_current_user
 from ..models import User
 from ..schemas import FlashcardCreate, FlashcardUpdate, GradeIn
-from ..serialize import serialize_flashcard
+from ..serialize import flashcard_is_due, serialize_flashcard
 from ..services import flashcards as flashcard_service
 from ..utils import utcnow
 
@@ -23,10 +23,22 @@ def list_flashcards(
 ):
     now = utcnow()
     cards = flashcard_service.list_flashcards(session, user, deck_id=deck_id)
-    rows = [serialize_flashcard(c, c.revision, now) for c in cards]
+    # Filter due cards before serializing so preview_intervals (4 FSRS passes
+    # per card) only runs for the rows actually returned.
     if due is True:
-        rows = [r for r in rows if r["due"]]
-    return rows
+        cards = [c for c in cards if flashcard_is_due(c.revision, now)]
+    return [serialize_flashcard(c, c.revision, now) for c in cards]
+
+
+@router.get("/due-count")
+def flashcard_due_count(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Cheap due-card count for the sidebar badge — no per-card serialization."""
+    now = utcnow()
+    cards = flashcard_service.list_flashcards(session, user)
+    return {"count": sum(1 for c in cards if flashcard_is_due(c.revision, now))}
 
 
 @router.post("", status_code=201)

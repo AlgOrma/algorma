@@ -64,9 +64,10 @@ function App() {
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
   // A feature-flagged-off screen can still be remembered in localStorage from
-  // before the flag flipped — fall back to the dashboard.
+  // before the flag flipped — fall back to the dashboard. Covers every
+  // flashcards surface (flashcards, flashcards-study, flashcards-editor).
   useEffect(() => {
-    if (!FEATURES.flashcards && screen === 'flashcards') setScreen('dashboard');
+    if (!FEATURES.flashcards && screen.startsWith('flashcards')) setScreen('dashboard');
     // setScreen is a stable useState setter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
@@ -184,8 +185,8 @@ function App() {
 
   const loadFlashcardsDue = React.useCallback(() => {
     if (!user?.id || !FEATURES.flashcards) return;
-    api.getFlashcards({ due: true })
-      .then((data) => setFlashcardsDueCount(data?.length || 0))
+    api.getFlashcardsDueCount()
+      .then((data) => setFlashcardsDueCount(data?.count || 0))
       .catch(() => {});
   }, [user?.id]);
 
@@ -529,6 +530,7 @@ function App() {
         return (
           <FlashcardDeckManager
             onNavigate={handleNavigate}
+            onCardsChanged={loadFlashcardsDue}
             onStartStudy={({ deckId }) => {
               setStudyDeckId(deckId || null);
               handleNavigate('flashcards-study');
@@ -540,6 +542,7 @@ function App() {
         return (
           <FlashcardSession
             deckId={studyDeckId}
+            onCardsChanged={loadFlashcardsDue}
             onNavigate={handleNavigate}
           />
         );

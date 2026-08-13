@@ -1,5 +1,5 @@
 import React from 'react';
-import SyntaxHighlighter from './SyntaxHighlighter';
+import CodeBlock from './CodeBlock';
 
 /**
  * Parses and renders rich Markdown formatting including code blocks, inline code,
@@ -11,7 +11,7 @@ export default function FormattedText({ content = '', className = '' }) {
   }
 
   // Regex to detect fenced code blocks: ```lang\ncode```
-  const codeBlockRegex = /```([a border-zA-Z0-9_+-]*)\n?([\s\S]*?)```/g;
+  const codeBlockRegex = /```([a-zA-Z0-9_+-]*)\n?([\s\S]*?)```/g;
 
   const elements = [];
   let lastIndex = 0;
@@ -34,17 +34,13 @@ export default function FormattedText({ content = '', className = '' }) {
     // Render code block
     const cleanLang = lang.trim() || 'python';
     elements.push(
-      <div
+      <CodeBlock
         key={`code-${matchIndex}`}
-        className="my-3 bg-bg-code border border-border-main rounded-xl overflow-hidden shadow-inner text-left font-mono"
-      >
-        <div className="flex items-center justify-between px-3.5 py-1.5 bg-bg-card border-b border-border-muted font-mono text-fs-10 text-text-muted">
-          <span className="uppercase tracking-wider">{cleanLang} CODE</span>
-        </div>
-        <pre className="m-0 p-3.5 text-fs-12 leading-relaxed overflow-x-auto text-left custom-scrollbar font-mono text-text-code">
-          <SyntaxHighlighter code={code.trim()} lang={cleanLang} />
-        </pre>
-      </div>
+        code={code.trim()}
+        lang={cleanLang}
+        title={`${cleanLang.toUpperCase()} CODE`}
+        className="my-3"
+      />
     );
 
     lastIndex = matchIndex + fullMatch.length;

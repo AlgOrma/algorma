@@ -3,9 +3,10 @@
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from ..models import Deck, Flashcard, Revision, User
+from ..models import Deck, Flashcard, ReviewLog, Revision, User
 from ..revisions import get_or_create_flashcard_revision, grade_revision
 from ..schemas import FlashcardCreate, FlashcardUpdate
 from ..utils import utcnow
@@ -15,7 +16,11 @@ from .common import get_owned, require_valid_grade
 def list_flashcards(
     session: Session, user: User, deck_id: Optional[str] = None
 ) -> list[Flashcard]:
-    query = select(Flashcard).where(Flashcard.user_id == user.id)
+    query = (
+        select(Flashcard)
+        .options(selectinload(Flashcard.deck), selectinload(Flashcard.revision))
+        .where(Flashcard.user_id == user.id)
+    )
     if deck_id:
         query = query.where(Flashcard.deck_id == deck_id)
     return session.exec(query.order_by(Flashcard.created_at)).all()
@@ -30,7 +35,7 @@ def create_flashcard(
 
     card = Flashcard(
         user_id=user.id,
-        deck_id=payload.deck_id,
+        deck_id=payload.deck_id or None,
         type=payload.type,
         tag=payload.tag,
         front=payload.front.strip(),
@@ -76,6 +81,14 @@ def update_flashcard(
 
 def delete_flashcard(session: Session, user: User, card_id: str) -> None:
     card = get_flashcard(session, user, card_id)
+    # Preserve the card's review history for dashboard stats: detach the
+    # ReviewLog rows (the model no longer cascades them on delete) rather than
+    # letting them disappear with the card.
+    for log in session.exec(
+        select(ReviewLog).where(ReviewLog.flashcard_id == card.id)
+    ).all():
+        log.flashcard_id = None
+        session.add(log)
     session.delete(card)
     session.commit()
 

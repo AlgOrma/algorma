@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Button from '../components/common/Button';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as api from '../api';
+import { UNASSIGNED_DECK } from '../data/initialData';
 
 const DECK_COLORS = [
   { name: 'Blue', hex: '#3b82f6' },
@@ -11,7 +13,14 @@ const DECK_COLORS = [
   { name: 'Cyan', hex: '#06b6d4' },
 ];
 
-export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
+const UNASSIGNED_PSEUDO_DECK = {
+  id: UNASSIGNED_DECK,
+  name: 'General / Unassigned',
+  color: '#6b7280',
+  description: 'Flashcards not assigned to any deck.',
+};
+
+export default function FlashcardDeckManager({ onNavigate, onStartStudy, onCardsChanged }) {
   const [decks, setDecks] = useState([]);
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,10 +34,11 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
   const [showDeckModal, setShowDeckModal] = useState(false);
   const [editingDeck, setEditingDeck] = useState(null); // null = create mode
   const [deckForm, setDeckForm] = useState({ name: '', description: '', color: '#3b82f6' });
+  const [deckError, setDeckError] = useState(null);
 
   const [deletingItem, setDeletingItem] = useState(null); // { type: 'deck'|'card', id, name }
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -38,26 +48,29 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
       ]);
       setDecks(fetchedDecks || []);
       setCards(fetchedCards || []);
+      if (onCardsChanged) onCardsChanged();
     } catch (err) {
       console.error('Failed to load flashcard decks:', err);
       setError('Could not connect to server or load flashcards.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [onCardsChanged]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Total statistics
   const totalCardsCount = cards.length;
   const totalDueCount = cards.filter((c) => c.due).length;
+  const unassignedCards = cards.filter((c) => !c.deckId);
 
   // Deck CRUD Handlers
   const openCreateDeckModal = () => {
     setEditingDeck(null);
     setDeckForm({ name: '', description: '', color: '#3b82f6' });
+    setDeckError(null);
     setShowDeckModal(true);
   };
 
@@ -69,14 +82,19 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
       description: deck.description || '',
       color: deck.color || '#3b82f6',
     });
+    setDeckError(null);
     setShowDeckModal(true);
   };
 
   const handleSaveDeck = async (e) => {
     e.preventDefault();
-    if (!deckForm.name.trim()) return;
+    if (!deckForm.name.trim()) {
+      setDeckError('Deck name cannot be blank.');
+      return;
+    }
 
     try {
+      setDeckError(null);
       if (editingDeck) {
         await api.updateDeck(editingDeck.id, deckForm);
       } else {
@@ -85,7 +103,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
       setShowDeckModal(false);
       await loadData();
     } catch (err) {
-      alert(err.message || 'Failed to save deck');
+      setDeckError(err.message || 'Failed to save deck');
     }
   };
 
@@ -102,14 +120,14 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
 
   // Card CRUD Handlers
   const openCreateCardModal = (presetDeckId = null) => {
-    onNavigate('flashcards-editor', { presetDeckId: presetDeckId || selectedDeckId });
+    // The unassigned pseudo-deck maps to an explicit "no deck" preset.
+    if (presetDeckId === UNASSIGNED_DECK) presetDeckId = '';
+    onNavigate('flashcards-editor', { presetDeckId });
   };
 
   const openEditCardModal = (card) => {
     onNavigate('flashcards-editor', { cardId: card.id });
   };
-
-
 
   const handleDeleteCard = async (cardId) => {
     try {
@@ -121,9 +139,18 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
     }
   };
 
+  const selectDeck = (deckId) => {
+    setSelectedDeckId(deckId);
+    setSearchQuery('');
+  };
+
   // Filtered Cards for browser view
   const filteredCards = cards.filter((card) => {
-    if (selectedDeckId && card.deckId !== selectedDeckId) return false;
+    if (selectedDeckId === UNASSIGNED_DECK) {
+      if (card.deckId) return false;
+    } else if (selectedDeckId && card.deckId !== selectedDeckId) {
+      return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchFront = card.front.toLowerCase().includes(q);
@@ -134,7 +161,18 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
     return true;
   });
 
-  const selectedDeck = decks.find((d) => d.id === selectedDeckId);
+  // Cards belonging to the currently selected deck (before search filtering),
+  // used to decide whether the "Study" button should be enabled.
+  const selectedDeckCards = cards.filter((card) =>
+    selectedDeckId === UNASSIGNED_DECK
+      ? !card.deckId
+      : card.deckId === selectedDeckId
+  );
+
+  const selectedDeck =
+    selectedDeckId === UNASSIGNED_DECK
+      ? { ...UNASSIGNED_PSEUDO_DECK, dueCount: selectedDeckCards.filter((c) => c.due).length }
+      : decks.find((d) => d.id === selectedDeckId);
 
   if (loading) {
     return (
@@ -167,7 +205,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
         <div className="flex items-center gap-3">
           {totalDueCount > 0 && (
             <Button
-              onClick={() => onStartStudy && onStartStudy({ dueOnly: true })}
+              onClick={() => onStartStudy && onStartStudy({})}
               variant="primary"
             >
               <span className="flex items-center gap-1.5">
@@ -197,7 +235,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
       {selectedDeckId === null ? (
         /* Decks Grid View */
         <div>
-          {decks.length === 0 ? (
+          {decks.length === 0 && unassignedCards.length === 0 ? (
             <div className="mt-8 p-12 border border-dashed border-border-btn rounded-2xl flex flex-col items-center justify-center text-center bg-bg-card-grad-start">
               <div className="w-14 h-14 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-blue)" strokeWidth="2">
@@ -225,13 +263,13 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {decks.map((deck) => {
                   const deckCards = cards.filter((c) => c.deckId === deck.id);
-                  const deckCardCount = deckCards.length || deck.cardCount || 0;
+                  const deckCardCount = deckCards.length;
                   const deckDueCount = deckCards.filter((c) => c.due).length;
 
                   return (
                     <div
                       key={deck.id}
-                      onClick={() => setSelectedDeckId(deck.id)}
+                      onClick={() => selectDeck(deck.id)}
                       className="group bg-gradient-to-br from-bg-card-grad-start to-bg-card-grad-end border border-border-btn hover:border-accent/40 rounded-2xl p-6 shadow-card hover:shadow-card-hover transition-all cursor-pointer flex flex-col justify-between"
                       style={{ borderLeftColor: deck.color || 'var(--color-accent-blue)', borderLeftWidth: '4px' }}
                     >
@@ -304,6 +342,48 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
                     </div>
                   );
                 })}
+
+                {unassignedCards.length > 0 && (
+                  <div
+                    key={UNASSIGNED_DECK}
+                    onClick={() => selectDeck(UNASSIGNED_DECK)}
+                    className="group bg-gradient-to-br from-bg-card-grad-start to-bg-card-grad-end border border-border-btn hover:border-accent/40 rounded-2xl p-6 shadow-card hover:shadow-card-hover transition-all cursor-pointer flex flex-col justify-between"
+                    style={{ borderLeftColor: UNASSIGNED_PSEUDO_DECK.color, borderLeftWidth: '4px', borderStyle: 'dashed' }}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="text-fs-16 font-bold text-text-main group-hover:text-accent transition-colors line-clamp-1">
+                          {UNASSIGNED_PSEUDO_DECK.name}
+                        </h3>
+                      </div>
+                      <p className="text-fs-12 text-text-muted line-clamp-2 min-h-[36px] mb-4">
+                        {UNASSIGNED_PSEUDO_DECK.description}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-border-btn/50 mt-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-fs-11 px-2 py-0.5 rounded bg-bg-track text-text-muted">
+                          {unassignedCards.length} cards
+                        </span>
+                        <span className="font-mono text-fs-11 px-2 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+                          {unassignedCards.filter((c) => c.due).length} due
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onStartStudy) onStartStudy({ deckId: UNASSIGNED_DECK });
+                        }}
+                        disabled={unassignedCards.length === 0}
+                        className="font-mono text-fs-11 text-accent font-semibold hover:underline disabled:opacity-40 disabled:no-underline"
+                      >
+                        Study →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -313,7 +393,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
         <div>
           <div className="flex items-center justify-between mb-6">
             <button
-              onClick={() => setSelectedDeckId(null)}
+              onClick={() => selectDeck(null)}
               className="font-mono text-fs-12 text-text-muted hover:text-text-main transition-colors flex items-center gap-1.5"
             >
               ← Back to all decks
@@ -323,7 +403,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
               <Button
                 variant="primary"
                 onClick={() => onStartStudy && onStartStudy({ deckId: selectedDeckId })}
-                disabled={filteredCards.length === 0}
+                disabled={selectedDeckCards.length === 0}
               >
                 <span className="flex items-center gap-1.5">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -454,6 +534,9 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
                   onChange={(e) => setDeckForm({ ...deckForm, name: e.target.value })}
                   className="w-full px-3.5 py-2 bg-bg-track border border-border-btn rounded-xl text-fs-13 text-text-main focus:outline-none focus:border-accent"
                 />
+                {deckError && (
+                  <p className="mt-1.5 text-fs-11 text-red-400 font-mono">{deckError}</p>
+                )}
               </div>
 
               <div>
@@ -496,34 +579,36 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy }) {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deletingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-bg-card-grad-start border border-border-btn rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center">
-            <h3 className="text-fs-16 font-bold text-text-main mb-2">Confirm Delete</h3>
-            <p className="text-fs-13 text-text-muted mb-6">
-              Are you sure you want to delete {deletingItem.type === 'deck' ? 'deck' : 'card'}{' '}
+      <ConfirmationModal
+        isOpen={!!deletingItem}
+        title={deletingItem?.type === 'deck' ? 'Delete Deck' : 'Delete Card'}
+        message={
+          deletingItem ? (
+            <>
+              Are you sure you want to delete{' '}
+              {deletingItem.type === 'deck' ? 'deck' : 'card'}{' '}
               <span className="font-semibold text-text-main">"{deletingItem.name}"</span>?
-              {deletingItem.type === 'deck' && ' All flashcards inside this deck will also be removed.'}
-            </p>
-
-            <div className="flex justify-center gap-3">
-              <Button variant="secondary" onClick={() => setDeletingItem(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() =>
-                  deletingItem.type === 'deck'
-                    ? handleDeleteDeck(deletingItem.id)
-                    : handleDeleteCard(deletingItem.id)
-                }
-              >
-                Delete Permanently
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+              {deletingItem.type === 'deck' ? (
+                <>
+                  {' '}Flashcards in this deck will be kept as{' '}
+                  <span className="font-semibold text-text-main">"General / Unassigned"</span>,
+                  and your review history will be preserved.
+                </>
+              ) : (
+                <> Your review history for this card will be preserved.</>
+              )}
+            </>
+          ) : null
+        }
+        confirmLabel="Delete Permanently"
+        confirmVariant="red"
+        onConfirm={() =>
+          deletingItem?.type === 'deck'
+            ? handleDeleteDeck(deletingItem.id)
+            : handleDeleteCard(deletingItem.id)
+        }
+        onCancel={() => setDeletingItem(null)}
+      />
     </div>
   );
 }

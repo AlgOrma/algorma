@@ -65,6 +65,14 @@ def init_db() -> None:
             if "deck_id" not in card_columns:
                 conn.execute(text("ALTER TABLE flashcard ADD COLUMN deck_id VARCHAR"))
                 conn.commit()
+            # The model declares Field(..., index=True) on deck_id, so fresh
+            # databases get ix_flashcard_deck_id from create_all. Recreate it
+            # here too, or migrated databases silently diverge (deck-filtered
+            # queries full-scan).
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_flashcard_deck_id ON flashcard (deck_id)"
+            ))
+            conn.commit()
 
     # 2. Migrate existing flat approaches / solutions to problem_approach table
     with Session(engine) as session:

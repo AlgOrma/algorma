@@ -2,16 +2,19 @@
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
+from sqlmodel import select
 
-from app.models import User
+from app.models import ReviewLog, User
 from app.routers.decks import create_deck, delete_deck, get_deck, list_decks, update_deck
 from app.routers.flashcards import (
     create_flashcard,
     delete_flashcard,
     list_flashcards,
+    review_flashcard,
     update_flashcard,
 )
-from app.schemas import DeckCreate, DeckUpdate, FlashcardCreate, FlashcardUpdate
+from app.schemas import DeckCreate, DeckUpdate, FlashcardCreate, FlashcardUpdate, GradeIn
 
 
 def make_user(session, name="Deck User"):
@@ -112,3 +115,73 @@ def test_deck_isolation_between_users(session, user):
     with pytest.raises(HTTPException) as exc:
         get_deck(deck["id"], user=other_user, session=session)
     assert exc.value.status_code == 404
+
+
+def test_blank_deck_name_rejected_on_create_and_update(session, user):
+    with pytest.raises(ValidationError):
+        create_deck(DeckCreate(name="   "), user=user, session=session)
+
+    deck = create_deck(DeckCreate(name="Keep Me"), user=user, session=session)
+    with pytest.raises(ValidationError):
+        update_deck(deck["id"], DeckUpdate(name=" \n "), user=user, session=session)
+
+
+def test_deck_name_is_stripped(session, user):
+    deck = create_deck(DeckCreate(name="  Algorithms  "), user=user, session=session)
+    assert deck["name"] == "Algorithms"
+
+
+def test_create_flashcard_normalizes_empty_deck_id(session, user):
+    card = create_flashcard(
+        FlashcardCreate(front="Q", back="A", deck_id=""),
+        user=user,
+        session=session,
+    )
+    assert card["deckId"] is None
+
+
+def test_delete_deck_detaches_cards_instead_of_cascading(session, user):
+    deck = create_deck(DeckCreate(name="To Drop"), user=user, session=session)
+    card = create_flashcard(
+        FlashcardCreate(front="Q", back="A", deck_id=deck["id"]),
+        user=user,
+        session=session,
+    )
+
+    delete_deck(deck["id"], user=user, session=session)
+
+    assert list_decks(user=user, session=session) == []
+    rows = list_flashcards(user=user, session=session)
+    assert [r["id"] for r in rows] == [card["id"]]
+    assert rows[0]["deckId"] is None
+
+
+def test_delete_flashcard_preserves_review_logs(session, user):
+    card = create_flashcard(
+        FlashcardCreate(front="Q", back="A"), user=user, session=session
+    )
+    review_flashcard(card["id"], GradeIn(grade="Good"), user=user, session=session)
+
+    delete_flashcard(card["id"], user=user, session=session)
+
+    logs = session.exec(select(ReviewLog)).all()
+    assert len(logs) == 1
+    assert logs[0].flashcard_id is None  # detached, not deleted
+    assert logs[0].user_id == user.id
+
+
+def test_delete_deck_preserves_review_logs(session, user):
+    deck = create_deck(DeckCreate(name="Stats Deck"), user=user, session=session)
+    card = create_flashcard(
+        FlashcardCreate(front="Q", back="A", deck_id=deck["id"]),
+        user=user,
+        session=session,
+    )
+    review_flashcard(card["id"], GradeIn(grade="Easy"), user=user, session=session)
+
+    delete_deck(deck["id"], user=user, session=session)
+
+    logs = session.exec(select(ReviewLog)).all()
+    assert len(logs) == 1
+    assert logs[0].flashcard_id is not None  # card survives detached, log intact
+    assert logs[0].grade == "Easy"

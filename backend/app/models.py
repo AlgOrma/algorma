@@ -245,7 +245,9 @@ class Deck(SQLModel, table=True):
     user: Optional["User"] = Relationship(back_populates="decks")
     flashcards: list["Flashcard"] = Relationship(
         back_populates="deck",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        # No cascade on purpose: deleting a deck detaches its cards (deck_id
+        # becomes NULL, they become "General / Unassigned") so the cards' SRS
+        # state and ReviewLog history survive — the service handles the detach.
     )
 
 
@@ -269,7 +271,9 @@ class Flashcard(SQLModel, table=True):
     )
     review_logs: list["ReviewLog"] = Relationship(
         back_populates="flashcard",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        # No cascade on purpose: deleting a card must not erase the review
+        # history that feeds the streak and activity heatmap — the service
+        # detaches logs (NULL flashcard_id) instead.
     )
 
 

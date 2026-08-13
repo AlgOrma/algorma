@@ -1,8 +1,9 @@
 """Deck business logic: CRUD for user flashcard decks."""
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from ..models import Deck, User
+from ..models import Deck, Flashcard, User
 from ..schemas import DeckCreate, DeckUpdate
 from ..utils import utcnow
 from .common import get_owned
@@ -11,6 +12,7 @@ from .common import get_owned
 def list_decks(session: Session, user: User) -> list[Deck]:
     return session.exec(
         select(Deck)
+        .options(selectinload(Deck.flashcards).selectinload(Flashcard.revision))
         .where(Deck.user_id == user.id)
         .order_by(Deck.name)
     ).all()
@@ -52,5 +54,12 @@ def update_deck(
 
 def delete_deck(session: Session, user: User, deck_id: str) -> None:
     deck = get_deck(session, user, deck_id)
+    # Detach the deck's cards (keeping their SRS state and review history)
+    # rather than cascade-deleting them: ReviewLog rows feed the streak and
+    # activity heatmap, so a delete must not retroactively erase past activity.
+    # Detached cards stay reachable under "General / Unassigned".
+    for card in list(deck.flashcards):
+        card.deck_id = None
+        session.add(card)
     session.delete(deck)
     session.commit()
