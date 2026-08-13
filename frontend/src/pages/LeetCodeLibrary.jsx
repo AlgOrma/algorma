@@ -3,6 +3,7 @@ import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import CustomListsModal from '../components/common/CustomListsModal';
 import LeetCodeSyncModal from '../components/common/LeetCodeSyncModal';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as api from '../api';
 import { formatMarkdown } from '../components/common/formatMarkdown';
 
@@ -54,6 +55,17 @@ export default function LeetCodeLibrary({
 
   // LeetCode account sync modal
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+
+  // Transient feedback for list operations and failures (replaces window.alert).
+  const [toast, setToast] = useState(null); // { msg, tone: 'success' | 'error' }
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Pending "remove from study list" confirmation (replaces window.confirm).
+  const [removalTarget, setRemovalTarget] = useState(null); // { curriculumId, questionId }
 
   const [page, setPage] = useState(1);
   const [questions, setQuestions] = useState([]);
@@ -166,7 +178,7 @@ export default function LeetCodeLibrary({
         onImportProblem(newProblem);
       }
     } catch (err) {
-      alert(err.message || 'Import failed');
+      setToast({ msg: err.message || 'Import failed', tone: 'error' });
     } finally {
       setImportingId(null);
     }
@@ -183,6 +195,53 @@ export default function LeetCodeLibrary({
 
   return (
     <div className="w-full h-full overflow-y-auto custom-scrollbar">
+      {/* Quiet, on-system replacement for window.alert */}
+      {toast && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[2100] bg-bg-card border text-fs-12 font-medium px-4 py-2.5 rounded-lg shadow-modal flex items-center gap-2 animate-fade-in ${
+            toast.tone === 'error'
+              ? 'border-badge-hard-border text-accent-red-text'
+              : 'border-accent-green/30 text-accent-green'
+          }`}
+        >
+          {toast.tone === 'error' ? (
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <circle cx="10" cy="10" r="8" />
+              <line x1="10" y1="6.5" x2="10" y2="10.5" />
+              <circle cx="10" cy="13.5" r="0.8" fill="currentColor" stroke="none" />
+            </svg>
+          ) : (
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <polyline points="17 5.5 8 15 3 10.2" />
+            </svg>
+          )}
+          {toast.msg}
+        </div>
+      )}
+
+      <ConfirmationModal
+        isOpen={!!removalTarget}
+        title="Remove From Study List"
+        message="Remove this question from the active study list?"
+        confirmLabel="Remove"
+        confirmVariant="red"
+        onConfirm={async () => {
+          const target = removalTarget;
+          setRemovalTarget(null);
+          if (!target) return;
+          try {
+            await api.removeQuestionFromCurriculum(target.curriculumId, target.questionId);
+            setToast({ msg: 'Removed from study list', tone: 'success' });
+            // Refresh
+            fetchQuestions();
+            loadCurriculums();
+          } catch (err) {
+            setToast({ msg: err.message || 'Failed to remove from list', tone: 'error' });
+          }
+        }}
+        onCancel={() => setRemovalTarget(null)}
+      />
+
       <div className="max-w-[1140px] mx-auto px-sp-30 pt-sp-26 pb-10 flex flex-col gap-4">
         {/* Header section */}
         <div className="flex items-start justify-between gap-4">
@@ -191,7 +250,7 @@ export default function LeetCodeLibrary({
               LeetCode Library
             </div>
             <div className="font-mono text-fs-12 text-text-muted mt-1">
-              {total} reference questions available to search and import
+              {total} reference {total === 1 ? 'question' : 'questions'} available to search and import
             </div>
           </div>
           <Button
@@ -252,7 +311,7 @@ export default function LeetCodeLibrary({
                 setSelectedTag(e.target.value);
                 setPage(1);
               }}
-              className="text-fs-12-5 text-text-hover bg-bg-card border border-border-main rounded-card-btn px-3 py-2 cursor-pointer outline-none transition-colors duration-200 focus:border-accent max-w-sp-200"
+              className="text-fs-12-5 text-text-hover bg-bg-card border border-border-main rounded-card-btn px-3 py-2 cursor-pointer outline-none transition-colors duration-200 focus:border-accent max-w-[200px]"
             >
               <option value="All">Tag: All</option>
               {POPULAR_TAGS.map((tag) => (
@@ -269,7 +328,7 @@ export default function LeetCodeLibrary({
                 setSelectedCurriculum(e.target.value);
                 setPage(1);
               }}
-              className="text-fs-12-5 text-text-hover bg-bg-card border border-border-main rounded-card-btn px-3 py-2 cursor-pointer outline-none transition-colors duration-200 focus:border-accent max-w-sp-200"
+              className="text-fs-12-5 text-text-hover bg-bg-card border border-border-main rounded-card-btn px-3 py-2 cursor-pointer outline-none transition-colors duration-200 focus:border-accent max-w-[200px]"
             >
               <option value="All">Curriculum: All</option>
               {curriculums.map((c) => (
@@ -282,7 +341,7 @@ export default function LeetCodeLibrary({
         </form>
 
         {error && (
-          <div className="p-3.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-fs-13 text-left">
+          <div className="p-3.5 bg-badge-hard-bg border border-badge-hard-border text-accent-red-text rounded-lg text-fs-13 text-left">
             {error}
           </div>
         )}
@@ -290,7 +349,7 @@ export default function LeetCodeLibrary({
         {/* Table Content */}
         <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left">
+          <div className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-text-muted tracking-[0.06em] text-left">
             <span>#</span>
             <span>TITLE</span>
             <span>DIFFICULTY</span>
@@ -352,12 +411,12 @@ export default function LeetCodeLibrary({
                         </span>
                         <span className="truncate">{q.title}</span>
                         {q.isPaidOnly && (
-                          <span className="font-mono text-[9px] bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-1 py-0.5 rounded">
+                          <span className="font-mono text-[9px] bg-badge-medium-bg border border-badge-medium-border text-accent-orange px-1 py-0.5 rounded">
                             Premium
                           </span>
                         )}
                       </span>
-                      <Badge type="difficulty" value={q.difficulty} />
+                      <Badge type="difficulty" value={q.difficulty} className="justify-self-start" />
                       <div className="flex flex-wrap gap-1 truncate max-w-full">
                         {q.topicTags.slice(0, 3).map((tag, idx) => (
                           <span
@@ -388,7 +447,7 @@ export default function LeetCodeLibrary({
                           {importingId === q.id
                             ? 'Importing…'
                             : imported
-                            ? '✓ Solved'
+                            ? '✓ Added'
                             : 'Practice'}
                         </Button>
                         <Button
@@ -420,7 +479,7 @@ export default function LeetCodeLibrary({
                             Loading detailed problem description...
                           </div>
                         ) : !expandedQuestion ? (
-                          <div className="text-center text-red-400 text-fs-12">
+                          <div className="text-center text-accent-red-text text-fs-12">
                             Failed to load details.
                           </div>
                         ) : (
@@ -429,11 +488,11 @@ export default function LeetCodeLibrary({
                             <div className="flex-1 min-w-0 flex flex-col gap-4">
                               {/* Description Content */}
                               <div>
-                                <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-2">
+                                <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-2">
                                   PROBLEM STATEMENT
                                 </div>
                                 <div
-                                  className="text-fs-13.5 leading-relaxed text-text-hover pr-2 select-text leetcode-statement"
+                                  className="text-fs-13-5 leading-relaxed text-text-hover pr-2 select-text leetcode-statement"
                                   dangerouslySetInnerHTML={{
                                     __html: expandedQuestion.statement || 'No description available.'
                                   }}
@@ -443,7 +502,7 @@ export default function LeetCodeLibrary({
                               {/* Hints section */}
                               {expandedQuestion.hints && expandedQuestion.hints.length > 0 && (
                                 <div className="mt-2">
-                                  <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-2">
+                                  <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-2">
                                     HINTS ({expandedQuestion.hints.length})
                                   </div>
                                   <div className="flex flex-col gap-1.5">
@@ -461,7 +520,7 @@ export default function LeetCodeLibrary({
                                                 [idx]: !prev[idx]
                                               }))
                                             }
-                                            className="px-3 py-2 cursor-pointer bg-white/1.5 flex items-center justify-between text-fs-12.5 text-text-main select-none hover:bg-white/3 transition-colors"
+                                            className="px-3 py-2 cursor-pointer bg-white/2 flex items-center justify-between text-fs-12-5 text-text-main select-none hover:bg-white/3 transition-colors"
                                           >
                                             <span className="font-medium">Hint {idx + 1}</span>
                                             <span className="font-mono text-text-muted">
@@ -483,7 +542,7 @@ export default function LeetCodeLibrary({
 
                               {/* Editorial Solution */}
                               <div className="mt-2">
-                                <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-2">
+                                <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-2">
                                   EDITORIAL SOLUTION
                                 </div>
                                 {!expandedQuestion.hasSolution ? (
@@ -492,7 +551,7 @@ export default function LeetCodeLibrary({
                                   </span>
                                 ) : !revealedSolution ? (
                                   <div className="border border-dashed border-border-main bg-bg-card p-4 rounded-lg flex flex-col items-center gap-2.5">
-                                    <span className="text-fs-12.5 text-text-muted">
+                                    <span className="text-fs-12-5 text-text-muted">
                                       Contains spoilers! Solution description and approach ahead.
                                     </span>
                                     <Button
@@ -505,7 +564,7 @@ export default function LeetCodeLibrary({
                                 ) : (
                                   <div className="border border-border-main bg-bg-card p-4 rounded-lg select-text overflow-hidden max-w-full">
                                     <div className="flex items-center justify-between mb-3 border-b border-border-main pb-2">
-                                      <span className="font-semibold text-fs-13.5 text-text-main">
+                                      <span className="font-semibold text-fs-13-5 text-text-main">
                                         Solution Article
                                       </span>
                                       <span
@@ -542,13 +601,13 @@ export default function LeetCodeLibrary({
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-text-muted">likes</span>
-                                    <span className="text-green-400">
+                                    <span className="text-accent-green">
                                       {expandedQuestion.likes.toLocaleString()}
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-text-muted">dislikes</span>
-                                    <span className="text-red-400">
+                                    <span className="text-accent-red-text">
                                       {expandedQuestion.dislikes.toLocaleString()}
                                     </span>
                                   </div>
@@ -560,7 +619,7 @@ export default function LeetCodeLibrary({
                                     <div className="flex flex-col gap-2 font-mono text-fs-11-5">
                                       <div className="flex justify-between">
                                         <span className="text-text-muted">ac rate</span>
-                                        <span className="text-accent">
+                                        <span className="text-accent-text">
                                           {expandedQuestion.stats.acRate}
                                         </span>
                                       </div>
@@ -586,7 +645,7 @@ export default function LeetCodeLibrary({
                                     href={expandedQuestion.leetcodeUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-fs-12 text-accent hover:underline flex items-center justify-between"
+                                    className="text-fs-12 text-accent-text hover:underline flex items-center justify-between"
                                   >
                                     <span>Open LeetCode ↗</span>
                                     <span className="text-fs-10 text-text-muted font-mono">
@@ -627,13 +686,14 @@ export default function LeetCodeLibrary({
                                       const val = e.target.value;
                                       if (!val) return;
                                       setAddingToListId(val);
+                                      const listName = curriculums.find((c) => String(c.id) === String(val))?.name || 'study list';
                                       try {
-                                        const res = await api.addQuestionsToCurriculum(val, [expandedQuestion.id]);
-                                        alert(`Added to study list! (New count: ${res.addedCount})`);
+                                        await api.addQuestionsToCurriculum(val, [expandedQuestion.id]);
+                                        setToast({ msg: `Added to ${listName}`, tone: 'success' });
                                         // Refresh
                                         loadCurriculums();
                                       } catch (err) {
-                                        alert(err.message || 'Failed to add to curriculum list');
+                                        setToast({ msg: err.message || 'Failed to add to curriculum list', tone: 'error' });
                                       } finally {
                                         setAddingToListId('');
                                       }
@@ -650,21 +710,12 @@ export default function LeetCodeLibrary({
 
                                   {selectedCurriculum !== 'All' && (
                                     <button
-                                      onClick={async () => {
-                                        if (!confirm('Remove this question from the active study list?')) return;
-                                        try {
-                                          const activeCurrObj = curriculums.find(c => c.slug === selectedCurriculum);
-                                          if (!activeCurrObj) return;
-                                          await api.removeQuestionFromCurriculum(activeCurrObj.id, expandedQuestion.id);
-                                          alert('Removed from study list!');
-                                          // Refresh
-                                          fetchQuestions();
-                                          loadCurriculums();
-                                        } catch (err) {
-                                          alert(err.message || 'Failed to remove from list');
-                                        }
+                                      onClick={() => {
+                                        const activeCurrObj = curriculums.find(c => c.slug === selectedCurriculum);
+                                        if (!activeCurrObj) return;
+                                        setRemovalTarget({ curriculumId: activeCurrObj.id, questionId: expandedQuestion.id });
                                       }}
-                                      className="text-fs-11 text-red-400 hover:text-red-300 font-semibold border border-red-500/20 hover:border-red-500/30 bg-red-500/10 py-1.5 rounded-md cursor-pointer transition-colors w-full text-center"
+                                      className="text-fs-11 text-accent-red-text hover:text-text-main font-semibold border border-badge-hard-border hover:border-accent-red-text/40 bg-badge-hard-bg py-1.5 rounded-md cursor-pointer transition-colors w-full text-center"
                                     >
                                       ✕ Remove From List
                                     </button>
@@ -694,7 +745,7 @@ export default function LeetCodeLibrary({
                                               href={`https://leetcode.com/problems/${sq.titleSlug}/`}
                                               target="_blank"
                                               rel="noreferrer"
-                                              className="text-accent hover:underline"
+                                              className="text-accent-text hover:underline"
                                             >
                                               Link
                                             </a>

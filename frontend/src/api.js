@@ -42,7 +42,7 @@ export function currentUserId() {
   }
 }
 
-async function request(path, { method = 'GET', body, auth = true, keepalive = false } = {}) {
+async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   const uid = auth ? currentUserId() : null;
   if (uid) headers['X-User-Id'] = uid;
@@ -53,10 +53,6 @@ async function request(path, { method = 'GET', body, auth = true, keepalive = fa
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      // Lets a write started during pagehide outlive the document (tab close,
-      // navigation). Opt-in per call: keepalive caps the body at ~64KB, so it
-      // must not be the default for ordinary saves.
-      keepalive: keepalive || undefined,
     });
   } catch {
     throw new ApiError('Cannot reach the server. Is the API running?', 0);
@@ -151,8 +147,8 @@ export const getFlashcardsDueCount = () => request('/flashcards/due-count');
 
 // --- Writes ---
 export const createProblem = (body) => request('/problems', { method: 'POST', body });
-export const updateProblem = (id, body, { keepalive = false } = {}) =>
-  request(`/problems/${id}`, { method: 'PATCH', body, keepalive });
+export const updateProblem = (id, body) =>
+  request(`/problems/${id}`, { method: 'PATCH', body });
 export const deleteProblem = (id) => request(`/problems/${id}`, { method: 'DELETE' });
 export const reviewProblem = (id, grade) =>
   request(`/problems/${id}/review`, { method: 'POST', body: { grade } });

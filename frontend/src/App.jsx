@@ -226,17 +226,6 @@ function App() {
   const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
   const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
 
-  // The theme variables must live on <html>: Tailwind's @theme tokens
-  // (--color-accent etc.) are declared at :root and resolve their var()
-  // references there, so descendants inherit the *resolved* color. Setting
-  // --theme-accent on an inner div never reaches them — the violet theme
-  // silently rendered blue everywhere until this moved to the root.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--theme-accent', themeAccent);
-    root.style.setProperty('--theme-secondary', themeSecondary);
-  }, [themeAccent, themeSecondary]);
-
   // State to hold specific problems forced for revision
   const [revisionProblems, setRevisionProblems] = useState(null);
   const [flashcardsDueCount, setFlashcardsDueCount] = useState(0);
@@ -404,18 +393,13 @@ function App() {
     );
   };
 
-  // Update a single problem in local state and database. Rethrows so callers
-  // that report save state to the user (ProblemDetail's autosave) can tell a
-  // completed write from a failed one instead of silently showing "saved".
-  // `opts.keepalive` is passed through for writes flushed during page unload.
-  const handleUpdateProblem = async (updatedProblem, opts = {}) => {
+  // Update a single problem in local state and database
+  const handleUpdateProblem = async (updatedProblem) => {
     try {
-      const res = await api.updateProblem(updatedProblem.id, updatedProblem, opts);
+      const res = await api.updateProblem(updatedProblem.id, updatedProblem);
       applyProblemUpdate(res);
-      return res;
     } catch (err) {
       console.error('Failed to update problem in database:', err.message);
-      throw err;
     }
   };
 
@@ -682,7 +666,13 @@ function App() {
   // Rendered full-screen without the sidebar, matching the design.
   if (!user || isEditingProfile) {
     return (
-      <div className="h-screen bg-bg-main text-text-main overflow-hidden">
+      <div
+        className="h-screen bg-bg-main text-text-main overflow-hidden"
+        style={{
+          '--theme-accent': themeAccent,
+          '--theme-secondary': themeSecondary
+        }}
+      >
         <ProfileSetup
           user={user}
           isEditing={isEditingProfile && !!user}
@@ -694,7 +684,13 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-bg-main text-text-main overflow-hidden relative">
+    <div
+      className="flex h-screen bg-bg-main text-text-main overflow-hidden relative"
+      style={{
+        '--theme-accent': themeAccent,
+        '--theme-secondary': themeSecondary
+      }}
+    >
       {/* Sidebar Navigation */}
       <Sidebar
         activeScreen={screen}

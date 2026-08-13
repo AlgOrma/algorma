@@ -14,10 +14,97 @@ import useDismissOnOutside from '../hooks/useDismissOnOutside';
 
 const LANGUAGES = ['Python', 'JavaScript', 'Java', 'C++', 'Go', 'Rust', 'TypeScript'];
 
+// How long the workspace sits still before it writes itself back. Short enough
+// that leaving the page never costs you a thought, long enough that a burst of
+// typing is one request rather than thirty.
+const AUTOSAVE_DELAY_MS = 1200;
+
+const NEW_APPROACH_CODE = '// Add your code solution here';
+
+// Seeded scaffolding isn't work — a problem whose only "solution" is the
+// starter comment has not been started.
+const isBlankCode = (code) =>
+  !code || !code.trim() || code.trim() === NEW_APPROACH_CODE;
+
+// The single definition of "this problem has been worked on", shared by the
+// autosave promotion and the checklist so they can never disagree about
+// whether a problem is Not started or Solving.
+const hasWork = (approaches, notes) =>
+  (notes || '').trim().length > 0 ||
+  (approaches || []).some(
+    (a) => !isBlankCode(a.code) || (a.approach || '').trim() || (a.complexityTime || '').trim() || (a.complexitySpace || '').trim()
+  );
+
 // Split-pane bounds, as a percentage of the workspace width.
 const SPLIT_MIN = 26;
 const SPLIT_MAX = 72;
 const SPLIT_DEFAULT = 46;
+
+const StatusDot = ({ className = '', filled = true }) => (
+  <svg width="7" height="7" viewBox="0 0 8 8" className={className} aria-hidden="true">
+    <circle
+      cx="4"
+      cy="4"
+      r="2.9"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.3"
+    />
+  </svg>
+);
+
+// Replaces the old Save button. Small, monospace, in the header's data voice —
+// it should be legible at a glance and invisible the rest of the time.
+function SaveStatus({ state, onRetry }) {
+  if (state === 'error') {
+    return (
+      <div className="flex items-center gap-2 font-mono text-fs-11 text-accent-red-text" role="status">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5" />
+          <line x1="10" y1="6.2" x2="10" y2="10.8" />
+          <line x1="10" y1="13.7" x2="10" y2="13.8" />
+        </svg>
+        <span>Couldn’t save</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="font-mono text-fs-11 underline underline-offset-2 bg-transparent border-none text-accent-red-text hover:text-text-main cursor-pointer p-0"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const variants = {
+    clean: { label: 'Autosave on', className: 'text-text-muted', dot: <StatusDot filled={false} /> },
+    dirty: { label: 'Unsaved changes', className: 'text-text-muted', dot: <StatusDot filled={false} /> },
+    saving: { label: 'Saving…', className: 'text-text-hover', dot: <StatusDot className="text-accent save-pulse" /> },
+    saved: {
+      label: 'Auto-saved',
+      className: 'text-accent-green',
+      dot: (
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="17 5.5 8 15 3 10.2" />
+        </svg>
+      )
+    }
+  };
+
+  const variant = variants[state] || variants.clean;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      title="Your code, notes and approaches save themselves a moment after you stop typing."
+      className={`flex items-center gap-1.5 font-mono text-fs-11 select-none whitespace-nowrap ${variant.className}`}
+    >
+      {variant.dot}
+      {variant.label}
+    </div>
+  );
+}
 
 export default function ProblemDetail({
   problem,
@@ -56,6 +143,10 @@ export default function ProblemDetail({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
   const menuRef = useDismissOnOutside(isMenuOpen, closeMenu);
+
+  // Autosave: 'clean' before anything is touched, then dirty → saving → saved,
+  // or 'error' when the write failed and the user's work is only in the tab.
+  const [saveState, setSaveState] = useState('clean');
 
   // Flashcard modal state
   const [isFlashcardModalOpen, setIsFlashcardModalOpen] = useState(false);
@@ -101,6 +192,175 @@ export default function ProblemDetail({
   const [isResizing, setIsResizing] = useState(false);
   const splitContainerRef = useRef(null);
 
+  // Latest values, mirrored into refs so a flush triggered by unmount, a
+  // background tab, or the Back button writes what is on screen right now
+  // rather than whatever was current when the timer was scheduled.
+  const workspaceRef = useRef({ approaches: [], notes: '' });
+  const problemRef = useRef(problem);
+  const saveTimerRef = useRef(null);
+  const pendingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    workspaceRef.current = { approaches, notes };
+  }, [approaches, notes]);
+
+  useEffect(() => {
+    problemRef.current = problem;
+  }, [problem]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Load problem details into local states
+  useEffect(() => {
+    if (problem) {
+      const defaultApproaches = problem.approaches && problem.approaches.length > 0
+        ? problem.approaches
+        : [
+            {
+              id: 'default',
+              name: 'Default Approach',
+              complexityTime: '',
+              complexitySpace: '',
+              approach: problem.approach || '',
+              code: problem.solution || NEW_APPROACH_CODE,
+              lang: 'Python'
+            }
+          ];
+
+      setApproaches(defaultApproaches);
+      setNotes(problem.notes || '');
+      setActiveApproachIdx(0);
+      setRevealedEditorial(false);
+      setRevealedHints({});
+      setSaveState('clean');
+      // A failed override belongs to the problem it was made on — never let
+      // one leak into the next problem's payload.
+      pendingOverridesRef.current = {};
+    }
+    // Re-initialize only when switching to a different problem. Depending on
+    // `problem` itself would clobber in-progress edits (and re-hide spoilers)
+    // every time a save produces a new problem object with the same id.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [problem?.id]);
+
+  // Deliberate changes (status, checklist) that haven't reached the server
+  // yet. They must survive a failed write: the Retry button, the unload
+  // flushes, and the next autosave all call persist() bare, and without this
+  // a failed "Mark complete" would be silently rewritten with the old status.
+  const pendingOverridesRef = useRef({});
+
+  // Write the workspace back. `overrides` carries deliberate changes (status,
+  // checklist) that must win over what the current problem row says.
+  // `keepalive` marks writes flushed while the page is going away.
+  const persist = useCallback(
+    async (overrides = {}, { keepalive = false } = {}) => {
+      const current = problemRef.current;
+      if (!current) return false;
+
+      pendingOverridesRef.current = { ...pendingOverridesRef.current, ...overrides };
+
+      const { approaches: liveApproaches, notes: liveNotes } = workspaceRef.current;
+      const primary = liveApproaches[0] || {};
+
+      // First real edit on an untouched problem is the moment it becomes
+      // "Solving" — the state you'd otherwise have to go and set by hand.
+      const started =
+        current.status === 'Not started' && hasWork(liveApproaches, liveNotes)
+          ? 'Solving'
+          : current.status;
+
+      const payload = {
+        ...current,
+        status: started,
+        approach: primary.approach || '',
+        solution: primary.code || '',
+        notes: liveNotes,
+        approaches: liveApproaches,
+        ...pendingOverridesRef.current
+      };
+
+      pendingRef.current = false;
+      if (mountedRef.current) setSaveState('saving');
+      try {
+        await onUpdateProblem(payload, { keepalive });
+        pendingOverridesRef.current = {};
+        // Edits typed while this write was in flight are still unsaved — the
+        // re-armed debounce will follow up, so don't claim "saved" over them.
+        if (mountedRef.current) setSaveState(pendingRef.current ? 'dirty' : 'saved');
+        return true;
+      } catch {
+        // Keep it dirty: the retry affordance and the next edit both re-arm.
+        pendingRef.current = true;
+        if (mountedRef.current) setSaveState('error');
+        return false;
+      }
+    },
+    [onUpdateProblem]
+  );
+
+  // Every edit path funnels through here, so there is exactly one place that
+  // decides when a write happens.
+  const markDirty = useCallback(() => {
+    pendingRef.current = true;
+    setSaveState('dirty');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      void persist();
+    }, AUTOSAVE_DELAY_MS);
+  }, [persist]);
+
+  // Write immediately instead of waiting out the debounce.
+  const flushNow = useCallback((opts = {}) => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (!pendingRef.current) return;
+    void persist({}, opts);
+  }, [persist]);
+
+  // Leaving the tab, hiding the window, or unmounting all cut the debounce
+  // short so a pending edit can never be the thing that gets lost. Exit
+  // flushes use keepalive so the browser doesn't abort the write with the
+  // document (a plain fetch dies on tab close).
+  useEffect(() => {
+    const flushOnExit = () => flushNow({ keepalive: true });
+    const handleHide = () => {
+      if (document.visibilityState === 'hidden') flushOnExit();
+    };
+    document.addEventListener('visibilitychange', handleHide);
+    window.addEventListener('pagehide', flushOnExit);
+    return () => {
+      document.removeEventListener('visibilitychange', handleHide);
+      window.removeEventListener('pagehide', flushOnExit);
+    };
+  }, [flushNow]);
+
+  // Unmount is the last chance to write, so it must fire on unmount and
+  // nothing else. `persist` is rebuilt whenever App hands down a new
+  // onUpdateProblem (every save does), so depending on it here would run this
+  // teardown mid-life and defeat the debounce — read it through a ref and keep
+  // the dependency list empty.
+  const persistRef = useRef(persist);
+  useEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
+
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (pendingRef.current) void persistRef.current();
+    },
+    []
+  );
+
   // Drag the seam between the statement and the editor.
   const handleResizeStart = (e) => {
     e.preventDefault();
@@ -135,35 +395,6 @@ export default function ProblemDetail({
   const nudgeSplit = (delta) =>
     setSplitPct((p) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, p + delta)));
 
-  // Load problem details into local states
-  useEffect(() => {
-    if (problem) {
-      const defaultApproaches = problem.approaches && problem.approaches.length > 0
-        ? problem.approaches
-        : [
-            {
-              id: 'default',
-              name: 'Default Approach',
-              complexityTime: '',
-              complexitySpace: '',
-              approach: problem.approach || '',
-              code: problem.solution || '// Add your code solution here',
-              lang: 'Python'
-            }
-          ];
-      
-      setApproaches(defaultApproaches);
-      setNotes(problem.notes || '');
-      setActiveApproachIdx(0);
-      setRevealedEditorial(false);
-      setRevealedHints({});
-    }
-    // Re-initialize only when switching to a different problem. Depending on
-    // `problem` itself would clobber in-progress edits (and re-hide spoilers)
-    // every time a save produces a new problem object with the same id.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [problem?.id]);
-
   if (!problem) {
     return (
       <div className="p-10 flex flex-col items-center gap-4 text-center">
@@ -182,6 +413,7 @@ export default function ProblemDetail({
     setApproaches((prev) =>
       prev.map((appr, idx) => (idx === activeApproachIdx ? { ...appr, [field]: value } : appr))
     );
+    markDirty();
   };
 
   // Add a new solution approach variation
@@ -193,11 +425,12 @@ export default function ProblemDetail({
       complexityTime: '',
       complexitySpace: '',
       approach: '',
-      code: '// Add your code solution here',
+      code: NEW_APPROACH_CODE,
       lang: 'Python'
     };
     setApproaches((prev) => [...prev, newApproach]);
     setActiveApproachIdx(approaches.length);
+    markDirty();
   };
 
   // Delete an approach variation
@@ -213,6 +446,12 @@ export default function ProblemDetail({
     setApproaches(updated);
     setActiveApproachIdx((prev) => (prev >= updated.length ? updated.length - 1 : prev));
     setApproachToDeleteIdx(null);
+    markDirty();
+  };
+
+  const handleUpdateNotes = (value) => {
+    setNotes(value);
+    markDirty();
   };
 
   // Horizontal scroll for approaches tab bar on mouse wheel scroll
@@ -222,43 +461,37 @@ export default function ProblemDetail({
     e.currentTarget.scrollLeft += e.deltaY;
   };
 
-  // Save changes locally and trigger backend callback
-  const handleSave = () => {
-    // Sync back flat structure for compatibility, picking the first approach
-    const primaryApproach = approaches[0] || {};
-    
-    const updated = {
-      ...problem,
-      approach: primaryApproach.approach || '',
-      solution: primaryApproach.code || '',
-      notes: notes,
-      approaches: approaches
-    };
-    
-    onUpdateProblem(updated);
-    
-    // Show smooth feedback
-    setToastMessage('Workspace saved successfully!');
-    setTimeout(() => setToastMessage(''), 2500);
+  // Save any pending edit before the workspace unmounts, so the trip back to
+  // the bank is never the thing that costs you a keystroke.
+  const handleBack = () => {
+    flushNow();
+    onBack();
   };
 
-  const handleMarkComplete = () => {
-    const primaryApproach = approaches[0] || {};
-    const updated = {
-      ...problem,
-      status: 'Done',
-      due: false,
-      lastRevised: 'just now',
-      nextLabel: 'in 6 days',
-      revisions: (problem.revisions || 0) + 1,
-      approach: primaryApproach.approach || '',
-      solution: primaryApproach.code || '',
-      notes: notes,
-      approaches: approaches
-    };
-    onUpdateProblem(updated);
-    
-    setToastMessage('Problem completed!');
+  const isDone = problem.status === 'Done';
+
+  // Done ⇄ Solving. Reopening lands on Solving rather than Not started — the
+  // work is still there, so claiming otherwise would be a lie. The toast only
+  // fires on a confirmed write: on failure SaveStatus already shows
+  // "Couldn't save" with Retry, and the override is held for that retry.
+  const handleToggleComplete = async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+
+    const ok = isDone
+      ? await persist({ status: 'Solving' })
+      : await persist({
+          status: 'Done',
+          due: false,
+          lastRevised: 'just now',
+          nextLabel: 'in 6 days',
+          revisions: (problem.revisions || 0) + 1
+        });
+    if (!ok) return;
+
+    setToastMessage(isDone ? 'Reopened — back to solving.' : 'Problem completed!');
     setTimeout(() => setToastMessage(''), 2500);
   };
 
@@ -281,7 +514,10 @@ export default function ProblemDetail({
     'Mark complete'
   ];
 
-  const defaultDoneCount = problem.status === 'Done' ? 6 : problem.status === 'Solving' ? 4 : 0;
+  // Without stored progress, only "Done" can be inferred — a Solving problem
+  // used to be shown with four steps pre-ticked, which invented progress the
+  // user never made.
+  const defaultDoneCount = problem.status === 'Done' ? checklistLabels.length : 0;
 
   const checklistProgress = problem.checklistProgress
     ? checklistLabels.map((_, idx) => !!problem.checklistProgress[idx])
@@ -306,44 +542,40 @@ export default function ProblemDetail({
     const currentProgress = [...checklistProgress];
 
     currentProgress[stepIndex] = !currentProgress[stepIndex];
-    
-    let newStatus = problem.status;
+
+    let newStatus;
     let isDue = problem.due;
-    
+
     const checkedCount = currentProgress.filter(Boolean).length;
-    if (currentProgress[5]) { 
+    if (currentProgress[checklistLabels.length - 1]) {
       newStatus = 'Done';
       isDue = false;
-    } else if (checkedCount > 0) {
+    } else if (checkedCount > 0 || hasWork(approaches, notes)) {
+      // Written code counts even with every box cleared — unticking the
+      // checklist shouldn't erase the fact that the problem was worked on.
       newStatus = 'Solving';
     } else {
       newStatus = 'Not started';
     }
 
-    const primaryApproach = approaches[0] || {};
-    onUpdateProblem({
-      ...problem,
-      status: newStatus,
-      due: isDue,
-      checklistProgress: currentProgress,
-      approach: primaryApproach.approach || '',
-      solution: primaryApproach.code || '',
-      notes: notes,
-      approaches: approaches
-    });
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    void persist({ status: newStatus, due: isDue, checklistProgress: currentProgress });
   };
 
   const activeApproach = approaches[activeApproachIdx] || {};
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#050505] text-[#eaeaea] overflow-hidden select-none">
+    <div className="w-full h-full flex flex-col bg-bg-panel-dark text-text-code overflow-hidden select-none">
       
       {/* Workspace Header */}
       <div className="flex items-center justify-between px-6 py-3 bg-bg-card border-b border-border-main shrink-0">
         <div className="flex items-center gap-4 min-w-0">
-          <button 
-            onClick={onBack} 
-            className="flex items-center justify-center p-1.5 rounded bg-[#111] hover:bg-[#222] border border-border-muted text-text-muted hover:text-text-main transition-colors cursor-pointer"
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center p-1.5 rounded bg-bg-element-dark hover:bg-bg-element-hover border border-border-muted text-text-muted hover:text-text-main transition-colors cursor-pointer"
             title="Back to Problems"
           >
             <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -351,15 +583,15 @@ export default function ProblemDetail({
               <polyline points="10 19 1 10 10 1" />
             </svg>
           </button>
-          
+
           <div className="flex items-center gap-3 truncate">
-            <span 
-              onClick={onBack}
+            <span
+              onClick={handleBack}
               className="font-mono text-fs-12 text-text-muted hover:text-text-main cursor-pointer transition-colors"
             >
               {problem.topic}
             </span>
-            <span className="text-[#333]">/</span>
+            <span className="text-border-btn">/</span>
             <span className="text-fs-16 font-bold text-text-main truncate">
               {problem.title}
             </span>
@@ -383,25 +615,28 @@ export default function ProblemDetail({
               LeetCode ↗
             </a>
           )}
-          <Button 
-            variant="secondary" 
-            onClick={handleSave}
+          <SaveStatus state={saveState} onRetry={() => void persist()} />
+
+          <Button
+            onClick={handleToggleComplete}
+            variant={isDone ? 'secondary' : 'primary'}
             className="cursor-pointer"
+            title={isDone ? 'Reopen this problem' : 'Mark this problem complete'}
           >
-            Save Solution
-          </Button>
-          <Button 
-            onClick={handleMarkComplete}
-            disabled={problem.status === 'Done'}
-            className="cursor-pointer"
-          >
-            {problem.status === 'Done' ? '✓ Completed' : 'Mark complete'}
+            {isDone && (
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 5 8 15 3 10" />
+              </svg>
+            )}
+            {isDone ? 'Completed' : 'Mark complete'}
           </Button>
 
           {/* Three dot actions menu */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-haspopup="menu"
+              aria-expanded={isMenuOpen}
               className="flex items-center justify-center p-2.5 dropdown-trigger-3d text-text-muted hover:text-text-main cursor-pointer"
               title="More Actions"
             >
@@ -464,7 +699,7 @@ export default function ProblemDetail({
                     setIsMenuOpen(false);
                     handleDelete();
                   }}
-                  className="w-full text-left px-4 py-2.5 text-fs-13 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-bold transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                  className="w-full text-left px-4 py-2.5 text-fs-13 text-accent-red-text hover:bg-badge-hard-bg font-bold transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6" />
@@ -485,10 +720,10 @@ export default function ProblemDetail({
         ref={splitContainerRef}
         className={`flex-1 w-full flex overflow-hidden min-h-0 relative ${isResizing ? 'cursor-col-resize' : ''}`}
       >
-        
+
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#10b981] text-black text-fs-12 font-bold px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-bounce">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-bg-card border border-accent-green/30 text-accent-green text-fs-12 font-medium px-4 py-2.5 rounded-lg shadow-modal flex items-center gap-2 animate-fade-in">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -499,15 +734,15 @@ export default function ProblemDetail({
         {/* LEFT PANE (Problem Details) */}
         <div
           style={{ flexBasis: `${splitPct}%` }}
-          className="h-full flex-none grow-0 shrink flex flex-col bg-[#080808] min-w-[300px]"
+          className="h-full flex-none grow-0 shrink flex flex-col bg-bg-card min-w-[300px]"
         >
           {/* Tab bar */}
-          <div className="flex bg-[#000] border-b border-border-muted shrink-0 text-fs-11 font-mono tracking-wider text-text-muted">
+          <div className="flex bg-bg-main border-b border-border-muted shrink-0 text-fs-11 font-mono tracking-wider text-text-muted">
             <button
               onClick={() => setLeftTab('description')}
               className={`px-5 py-3 border-r border-border-muted cursor-pointer transition-colors ${
                 leftTab === 'description'
-                  ? 'bg-[#080808] text-text-main border-b-2 border-b-accent'
+                  ? 'bg-bg-card text-text-main border-b-2 border-b-accent'
                   : 'hover:bg-bg-element-hover hover:text-text-main'
               }`}
             >
@@ -517,7 +752,7 @@ export default function ProblemDetail({
               onClick={() => setLeftTab('editorial')}
               className={`px-5 py-3 border-r border-border-muted cursor-pointer transition-colors ${
                 leftTab === 'editorial'
-                  ? 'bg-[#080808] text-text-main border-b-2 border-b-accent'
+                  ? 'bg-bg-card text-text-main border-b-2 border-b-accent'
                   : 'hover:bg-bg-element-hover hover:text-text-main'
               }`}
             >
@@ -527,7 +762,7 @@ export default function ProblemDetail({
               onClick={() => setLeftTab('checklist')}
               className={`px-5 py-3 cursor-pointer transition-colors ${
                 leftTab === 'checklist'
-                  ? 'bg-[#080808] text-text-main border-b-2 border-b-accent'
+                  ? 'bg-bg-card text-text-main border-b-2 border-b-accent'
                   : 'hover:bg-bg-element-hover hover:text-text-main'
               }`}
             >
@@ -535,106 +770,54 @@ export default function ProblemDetail({
             </button>
           </div>
 
-          {/* Left Tab Content (Scrollable) */}
-          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-left text-fs-13.5 leading-relaxed">
-            
-            {/* Description Tab */}
+          {/* Left Tab Content (Scrollable). overflow-x is clamped here: long
+              example lines wrap, and the rare unbreakable block scrolls inside
+              its own frame rather than dragging the whole panel sideways. */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 custom-scrollbar text-left text-fs-13-5 leading-relaxed">
+
+            {/* Description Tab — reading order follows a problem page: title,
+                what kind of problem it is, the statement, then the numbers.
+                Deliberately uncapped: the statement fills whatever width the
+                divider gives it, so dragging the seam actually reflows the
+                text instead of growing a margin beside it. The divider is the
+                reading-measure control. */}
             {leftTab === 'description' && (
-              <div className="flex flex-col gap-6 select-text">
-                <div>
-                  <h1 className="text-fs-20 font-bold text-text-main leading-tight mb-2">
+              <div className="flex flex-col gap-5 select-text">
+                <div className="flex flex-col gap-3">
+                  <h1 className="text-fs-20 font-bold text-text-main leading-snug">
                     {problem.title}
                   </h1>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
-                    {problem.categoryTitle && (
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                    <Badge type="difficulty" value={problem.difficulty} />
+                    <Badge type="status" value={problem.status} />
+                    {problem.topic && (
                       <span className="font-mono text-fs-10 text-text-muted bg-white/4 px-2 py-0.5 rounded">
-                        {problem.categoryTitle}
+                        {problem.topic}
                       </span>
                     )}
                     {problem.patterns && problem.patterns.map((pat, idx) => (
                       <span
                         key={idx}
-                        className="font-mono text-fs-10 text-accent bg-accent/5 border border-accent/15 px-2 py-0.5 rounded"
+                        className="font-mono text-fs-10 text-accent-text bg-accent/5 border border-accent/15 px-2 py-0.5 rounded"
                       >
                         {pat}
                       </span>
                     ))}
-
-                    {/* Concise Stats Icons */}
-                    {((problem.stats && Object.keys(problem.stats).length > 0) || problem.likes > 0 || problem.dislikes > 0) && (
-                      <>
-                        {(problem.categoryTitle || (problem.patterns && problem.patterns.length > 0)) && (
-                          <span className="text-[#333] select-none mx-0.5">|</span>
-                        )}
-                        
-                        {problem.likes > 0 && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Likes">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/80">
-                              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                            </svg>
-                            <span className="text-green-500/90 font-semibold">{problem.likes.toLocaleString()}</span>
-                          </span>
-                        )}
-                        {problem.dislikes > 0 && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Dislikes">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500/80">
-                              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-                            </svg>
-                            <span className="text-red-500/90 font-semibold">{problem.dislikes.toLocaleString()}</span>
-                          </span>
-                        )}
-                        {problem.stats?.acRate && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Acceptance Rate">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-                              <circle cx="12" cy="12" r="10" />
-                              <circle cx="12" cy="12" r="6" />
-                              <circle cx="12" cy="12" r="2" />
-                            </svg>
-                            <span className="text-text-hover font-semibold">{problem.stats.acRate}</span>
-                          </span>
-                        )}
-                        {problem.stats?.totalAccepted && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Accepted Submissions">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/60">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <span>{problem.stats.totalAccepted}</span>
-                          </span>
-                        )}
-                        {problem.stats?.totalSubmission && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Total Submissions">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted/60">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                              <polyline points="14 2 14 8 20 8" />
-                              <line x1="16" y1="13" x2="8" y2="13" />
-                              <line x1="16" y1="17" x2="8" y2="17" />
-                            </svg>
-                            <span>{problem.stats.totalSubmission}</span>
-                          </span>
-                        )}
-                      </>
-                    )}
                   </div>
                 </div>
-
-                <hr className="border-border-muted" />
 
                 {/* Problem Statement */}
-                <div>
-                  <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-3">
-                    PROBLEM STATEMENT
-                  </div>
-                  <div
-                    className="leetcode-statement leading-relaxed text-text-code"
-                    dangerouslySetInnerHTML={{
-                      __html: problem.statement || '<span class="text-text-muted">No description available.</span>'
-                    }}
-                  />
-                </div>
+                <div
+                  className="leetcode-statement"
+                  dangerouslySetInnerHTML={{
+                    __html: problem.statement || '<p class="text-text-muted">No description available.</p>'
+                  }}
+                />
 
-                {/* Example inputs/outputs */}
+                {/* Example inputs/outputs — only for hand-entered problems;
+                    imported statements carry their own example blocks. */}
                 {(problem.exIn || problem.exOut) && (
-                  <div className="bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre">
+                  <div className="bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre-wrap break-words">
                     {problem.exIn && (
                       <div>
                         <span className="text-text-muted select-none">Input: </span>
@@ -650,10 +833,62 @@ export default function ProblemDetail({
                   </div>
                 )}
 
+                {/* Catalog numbers — present, but not competing with the
+                    statement for the top of the page. */}
+                {((problem.stats && Object.keys(problem.stats).length > 0) || problem.likes > 0 || problem.dislikes > 0) && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-3.5 border-t border-border-muted font-mono text-fs-11 text-text-muted select-none">
+                    {problem.stats?.acRate && (
+                      <span className="flex items-center gap-1.5" title="Acceptance rate">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                          <circle cx="12" cy="12" r="10" />
+                          <circle cx="12" cy="12" r="6" />
+                          <circle cx="12" cy="12" r="2" />
+                        </svg>
+                        <span className="text-text-hover">{problem.stats.acRate} accepted</span>
+                      </span>
+                    )}
+                    {problem.stats?.totalAccepted && (
+                      <span className="flex items-center gap-1.5" title="Accepted submissions">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        {problem.stats.totalAccepted}
+                      </span>
+                    )}
+                    {problem.stats?.totalSubmission && (
+                      <span className="flex items-center gap-1.5" title="Total submissions">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        {problem.stats.totalSubmission}
+                      </span>
+                    )}
+                    {problem.likes > 0 && (
+                      <span className="flex items-center gap-1.5" title="Likes">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                        </svg>
+                        {problem.likes.toLocaleString()}
+                      </span>
+                    )}
+                    {problem.dislikes > 0 && (
+                      <span className="flex items-center gap-1.5" title="Dislikes">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-red-text">
+                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+                        </svg>
+                        {problem.dislikes.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Expandable Hints */}
                 {problem.hints && problem.hints.length > 0 && (
                   <div>
-                    <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-2.5">
+                    <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-2.5">
                       HINTS ({problem.hints.length})
                     </div>
                     <div className="flex flex-col gap-2">
@@ -668,7 +903,7 @@ export default function ProblemDetail({
                               onClick={() =>
                                 setRevealedHints((prev) => ({ ...prev, [idx]: !prev[idx] }))
                               }
-                              className="px-3.5 py-2.5 cursor-pointer bg-white/1.5 hover:bg-white/3 flex items-center justify-between text-fs-12 text-text-main select-none transition-colors"
+                              className="px-3.5 py-2.5 cursor-pointer bg-white/2 hover:bg-white/3 flex items-center justify-between text-fs-12 text-text-main select-none transition-colors"
                             >
                               <span className="font-semibold font-sans">Hint {idx + 1}</span>
                               <span className="font-mono text-text-muted text-[10px]">
@@ -693,7 +928,7 @@ export default function ProblemDetail({
                 {/* Similar Questions */}
                 {problem.similarQuestions && problem.similarQuestions.length > 0 && (
                   <div>
-                    <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-2.5">
+                    <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-2.5">
                       SIMILAR QUESTIONS
                     </div>
                     <div className="flex flex-col gap-2">
@@ -714,7 +949,7 @@ export default function ProblemDetail({
                             href={`https://leetcode.com/problems/${sq.titleSlug}/`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-accent hover:underline text-fs-11 font-mono shrink-0"
+                            className="text-accent-text hover:underline text-fs-11 font-mono shrink-0"
                           >
                             Solve ↗
                           </a>
@@ -753,7 +988,7 @@ export default function ProblemDetail({
                 ) : (
                   <div className="border border-border-main bg-bg-card p-5 rounded-xl overflow-hidden relative">
                     <div className="flex items-center justify-between mb-4 border-b border-border-main pb-2">
-                      <span className="font-semibold text-fs-13 text-accent font-mono">
+                      <span className="font-semibold text-fs-13 text-accent-text font-mono">
                         Solution Article
                       </span>
                       <button
@@ -764,7 +999,7 @@ export default function ProblemDetail({
                       </button>
                     </div>
                     <div
-                      className="leetcode-solution text-fs-13.5 leading-relaxed"
+                      className="leetcode-solution text-fs-13-5 leading-relaxed"
                       dangerouslySetInnerHTML={{
                         __html: formatMarkdown(problem.solutionContent)
                       }}
@@ -795,10 +1030,10 @@ export default function ProblemDetail({
                   </label>
                   <textarea
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    onChange={(e) => handleUpdateNotes(e.target.value)}
                     rows={12}
                     placeholder="Write your learnings, core concepts, or pitfalls here. These notes are shared across all approaches."
-                    className="bg-bg-code border border-border-main rounded-xl p-4 text-[#ffffff] font-sans text-fs-13.5 leading-[1.6] outline-none w-full focus:border-accent transition-colors resize-y select-text"
+                    className="bg-bg-code border border-border-main rounded-xl p-4 text-text-main font-sans text-fs-13-5 leading-[1.6] outline-none w-full focus:border-accent transition-colors resize-y select-text"
                   />
                 </div>
 
@@ -814,7 +1049,7 @@ export default function ProblemDetail({
                   </div>
                   <div className="flex justify-between">
                     <span>Next Spaced Review</span>
-                    <span className={problem.due ? 'text-accent font-semibold' : 'text-text-hover'}>
+                    <span className={problem.due ? 'text-accent-text font-semibold' : 'text-text-hover'}>
                       {problem.due ? 'TODAY' : problem.nextLabel}
                     </span>
                   </div>
@@ -856,10 +1091,10 @@ export default function ProblemDetail({
         </div>
 
         {/* RIGHT PANE (Code Playground) */}
-        <div className="flex-1 h-full flex flex-col bg-[#050505] min-w-0 overflow-hidden">
+        <div className="flex-1 h-full flex flex-col bg-bg-panel-dark min-w-0 overflow-hidden">
           
           {/* Approaches tabs */}
-          <div className="bg-[#000] border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
+          <div className="bg-bg-main border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
             <div 
               onWheel={handleTabsWheel}
               className="flex items-center gap-0.5 overflow-x-auto no-scrollbar select-none w-full"
@@ -870,7 +1105,7 @@ export default function ProblemDetail({
                   onClick={() => setActiveApproachIdx(idx)}
                   className={`flex items-center gap-2 px-4 py-3 border-r border-border-muted cursor-pointer transition-colors relative ${
                     activeApproachIdx === idx
-                      ? 'bg-[#050505] text-text-main border-b-2 border-b-accent font-semibold'
+                      ? 'bg-bg-panel-dark text-text-main border-b-2 border-b-accent font-semibold'
                       : 'hover:bg-bg-element-hover hover:text-text-hover'
                   }`}
                 >
@@ -879,7 +1114,7 @@ export default function ProblemDetail({
                   {approaches.length > 1 && (
                     <button
                       onClick={(e) => handleDeleteApproach(idx, e)}
-                      className="text-text-muted hover:text-red-400 p-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer bg-transparent border-none"
+                      className="text-text-muted hover:text-accent-red-text p-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer bg-transparent border-none"
                       title="Delete Approach"
                     >
                       <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -893,7 +1128,7 @@ export default function ProblemDetail({
 
               <button
                 onClick={handleAddApproach}
-                className="px-4 py-3 text-accent hover:text-text-main hover:bg-bg-element-hover transition-colors font-mono cursor-pointer bg-transparent border-none border-r border-border-muted"
+                className="px-4 py-3 text-accent-text hover:text-text-main hover:bg-bg-element-hover transition-colors font-mono cursor-pointer bg-transparent border-none border-r border-border-muted"
                 title="Add new approach variation"
               >
                 + ADD APPROACH
@@ -906,7 +1141,7 @@ export default function ProblemDetail({
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
               
               {/* Approach settings bar */}
-              <div className="grid grid-cols-[2fr_1fr_1fr_1.1fr] gap-3 px-6 py-3.5 bg-[#080808] border-b border-border-main shrink-0 items-center">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1.1fr] gap-3 px-6 py-3.5 bg-bg-card border-b border-border-main shrink-0 items-center">
                 {/* Name */}
                 <div className="flex flex-col gap-1 text-left">
                   <label className="font-mono text-[9px] text-text-muted tracking-[0.05em] uppercase">Approach Name</label>
@@ -915,7 +1150,7 @@ export default function ProblemDetail({
                     value={activeApproach.name || ''}
                     onChange={(e) => handleUpdateApproachField('name', e.target.value)}
                     placeholder="e.g. Optimal (Two Pointers)"
-                    className="bg-bg-code border border-border-main rounded-md px-2.5 py-1 text-text-main text-fs-12.5 outline-none focus:border-accent transition-colors w-full"
+                    className="bg-bg-code border border-border-main rounded-md px-2.5 py-1 text-text-main text-fs-12-5 outline-none focus:border-accent transition-colors w-full"
                   />
                 </div>
 
@@ -927,7 +1162,7 @@ export default function ProblemDetail({
                     value={activeApproach.complexityTime || ''}
                     onChange={(e) => handleUpdateApproachField('complexityTime', e.target.value)}
                     placeholder="e.g. O(N)"
-                    className="bg-bg-code border border-border-main rounded-md px-2.5 py-1 text-text-main text-fs-12.5 outline-none focus:border-accent transition-colors w-full font-mono"
+                    className="bg-bg-code border border-border-main rounded-md px-2.5 py-1 text-text-main text-fs-12-5 outline-none focus:border-accent transition-colors w-full font-mono"
                   />
                 </div>
 
@@ -939,7 +1174,7 @@ export default function ProblemDetail({
                     value={activeApproach.complexitySpace || ''}
                     onChange={(e) => handleUpdateApproachField('complexitySpace', e.target.value)}
                     placeholder="e.g. O(1)"
-                    className="bg-bg-code border border-border-main rounded-md px-2.5 py-1 text-text-main text-fs-12.5 outline-none focus:border-accent transition-colors w-full font-mono"
+                    className="bg-bg-code border border-border-main rounded-md px-2.5 py-1 text-text-main text-fs-12-5 outline-none focus:border-accent transition-colors w-full font-mono"
                   />
                 </div>
 
@@ -949,7 +1184,7 @@ export default function ProblemDetail({
                   <select
                     value={activeApproach.lang || 'Python'}
                     onChange={(e) => handleUpdateApproachField('lang', e.target.value)}
-                    className="bg-bg-code border border-border-main rounded-md px-2 py-1 text-text-main text-fs-12.5 outline-none focus:border-accent cursor-pointer transition-colors w-full"
+                    className="bg-bg-code border border-border-main rounded-md px-2 py-1 text-text-main text-fs-12-5 outline-none focus:border-accent cursor-pointer transition-colors w-full"
                   >
                     {LANGUAGES.map((lang) => (
                       <option key={lang} value={lang}>
@@ -961,19 +1196,19 @@ export default function ProblemDetail({
               </div>
 
               {/* Approach description input */}
-              <div className="px-6 py-2.5 bg-[#080808]/40 border-b border-border-main shrink-0 flex flex-col gap-1 text-left">
+              <div className="px-6 py-2.5 bg-bg-card/40 border-b border-border-main shrink-0 flex flex-col gap-1 text-left">
                 <label className="font-mono text-[9px] text-text-muted tracking-[0.05em] uppercase">Approach Logic / Strategy Explanation</label>
                 <textarea
                   value={activeApproach.approach || ''}
                   onChange={(e) => handleUpdateApproachField('approach', e.target.value)}
                   rows={2}
                   placeholder="Explain the strategy, data structures used, or recursive relations..."
-                  className="bg-bg-code border border-border-main rounded-md px-3 py-2 text-[#ffffff] font-sans text-fs-12.5 outline-none focus:border-accent transition-colors resize-none select-text"
+                  className="bg-bg-code border border-border-main rounded-md px-3 py-2 text-text-main font-sans text-fs-12-5 outline-none focus:border-accent transition-colors resize-none select-text"
                 />
               </div>
 
               {/* Code Playground area (Scrollable code block) */}
-              <div className="flex-1 overflow-hidden min-h-0 bg-[#0a0a0a] select-text">
+              <div className="flex-1 overflow-hidden min-h-0 bg-bg-card select-text">
                 <CodeEditor
                   value={activeApproach.code || ''}
                   onChange={(val) => handleUpdateApproachField('code', val)}
