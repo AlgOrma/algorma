@@ -3,6 +3,7 @@ import Heatmap from '../components/common/Heatmap';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import { getStats, getActivity } from '../api';
+import { pressable } from '../a11y';
 
 // Activity-heatmap green, shared by the cells and the legend swatches.
 const HEATMAP_COLOR_BASE = '111, 191, 146';
@@ -122,8 +123,8 @@ export default function Dashboard({
           </div>
         </div>
 
-        <div 
-          onClick={() => onNavigate('revise')}
+        <div
+          {...pressable(() => onNavigate('revise'), { 'aria-label': 'Open revision queue' })}
           className="bg-bg-card border border-accent/28 rounded-xl py-sp-15 px-sp-16 cursor-pointer text-left hover:border-accent/50 transition-colors duration-200"
         >
           <div className="font-mono text-fs-10-5 text-accent-text tracking-[0.05em]">
@@ -194,16 +195,16 @@ export default function Dashboard({
         <div className="flex-[1.55_1.55_0%] bg-bg-card border border-border-card rounded-xl py-sp-18 px-sp-20 flex flex-col min-w-0 text-left">
           <div className="flex items-center justify-between mb-1">
             <div className="text-fs-14-5 font-semibold text-text-main">Due for revision today</div>
-            <span onClick={() => onNavigate('problems')} className="font-mono text-fs-12 text-accent-text cursor-pointer hover:underline">
+            <span {...pressable(() => onNavigate('problems'))} className="font-mono text-fs-12 text-accent-text cursor-pointer hover:underline">
               View all →
             </span>
           </div>
 
           <div className="flex flex-col">
             {dueList.slice(0, 5).map((row) => (
-              <div 
-                key={row.id} 
-                onClick={() => onOpenProblem(row.id)} 
+              <div
+                key={row.id}
+                {...pressable(() => onOpenProblem(row.id))}
                 className="flex items-center gap-3 py-3 px-0.5 border-b border-bg-element-dark cursor-pointer hover:bg-white/[0.01] transition-all duration-200"
               >
                 <div className="flex-1 min-w-0">

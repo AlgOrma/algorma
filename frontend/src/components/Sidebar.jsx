@@ -1,5 +1,6 @@
 import React from 'react';
 import { FEATURES } from '../features';
+import { pressable } from '../a11y';
 
 // Double chevron; points left to collapse, flipped to expand.
 const CollapseIcon = ({ flipped = false }) => (
@@ -166,7 +167,7 @@ export default function Sidebar({
           return (
             <div
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              {...pressable(() => onNavigate(item.id), { 'aria-current': isActive ? 'page' : undefined, 'aria-label': collapsed ? item.label : undefined })}
               title={collapsed ? item.label : undefined}
               className={`flex items-center py-2.5 rounded-card-btn text-fs-14 font-medium cursor-pointer transition-all duration-150 border overflow-hidden ${
                 collapsed ? 'justify-center px-0' : 'gap-sp-11 px-sp-11'
@@ -197,7 +198,7 @@ export default function Sidebar({
 
       {/* Profile card — opens the edit-profile screen */}
       <div
-        onClick={onEditProfile}
+        {...pressable(onEditProfile, { 'aria-label': 'Edit profile' })}
         title={collapsed ? `${user?.name || 'Your profile'} — edit profile` : 'Edit profile'}
         className={`flex items-center rounded-card-sm bg-bg-card border border-border-card cursor-pointer transition-colors hover:border-border-btn-hover overflow-hidden ${
           collapsed ? 'p-1.5 justify-center' : 'gap-sp-10 px-2.5 py-sp-9 w-full'

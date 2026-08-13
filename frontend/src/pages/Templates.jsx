@@ -2,7 +2,9 @@ import React, { useState, useMemo, useCallback } from 'react';
 import SyntaxHighlighter from '../components/common/SyntaxHighlighter';
 import CodeEditor from '../components/common/CodeEditor';
 import Button from '../components/common/Button';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 import useDismissOnOutside from '../hooks/useDismissOnOutside';
+import { pressable } from '../a11y';
 
 // A two-level, editable template library (mirrors the claude.ai/design screen).
 // A parent "pattern" holds shared guidance (description) plus named code
@@ -88,6 +90,12 @@ export default function Templates({
   const [varDrag, setVarDrag] = useState(null); // { patternId, varId } | null
   const [varDragOverId, setVarDragOverId] = useState(null);
   const [copiedVarId, setCopiedVarId] = useState(null); // brief "copied!" feedback
+  // True while the open editor belongs to a pattern that "+ New pattern" just
+  // created and the user hasn't saved yet — Cancel must remove the placeholder.
+  const [draftIsNew, setDraftIsNew] = useState(false);
+  // Pending destructive action awaiting the confirmation modal:
+  // { type: 'pattern'|'variation', patternId, variationId?, name, ... } | null
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const query = search.trim().toLowerCase();
 
@@ -109,21 +117,39 @@ export default function Templates({
     setDraft(JSON.parse(JSON.stringify(p)));
     setEditId(id);
     setEditScope('full');
+    setDraftIsNew(false);
     setMenuId(null);
     setExpanded((s) => ({ ...s, [id]: true }));
   };
 
-  const cancelEdit = () => {
+  // Close the editor without touching the pattern (after save, delete, or
+  // cancelling edits to a pattern that existed before this session).
+  const closeEditor = () => {
     setEditId(null);
     setDraft(null);
     setEditScope(null);
+    setDraftIsNew(false);
+  };
+
+  // Cancel discards edits — and if the editor holds the placeholder that
+  // "+ New pattern" just created, it also removes that placeholder so
+  // cancelling never strands a junk "New pattern" in the library.
+  const cancelEdit = async () => {
+    if (draftIsNew && editId != null) {
+      try {
+        await onDeletePattern(editId);
+      } catch (err) {
+        console.warn('Could not discard new pattern:', err.message);
+      }
+    }
+    closeEditor();
   };
 
   const saveEdit = async () => {
     if (!draft) return;
     try {
       await onUpdatePattern(draft.id, draft);
-      cancelEdit();
+      closeEditor();
     } catch (err) {
       // Keep the editor open so the user's work isn't lost on a failed save.
       console.warn('Could not save pattern:', err.message);
@@ -142,6 +168,7 @@ export default function Templates({
       setDraft(JSON.parse(JSON.stringify(created)));
       setEditId(created.id);
       setEditScope('full');
+      setDraftIsNew(true);
       setMenuId(null);
       setExpanded((s) => ({ ...s, [created.id]: true }));
     } catch (err) {
@@ -153,7 +180,7 @@ export default function Templates({
     setMenuId(null);
     try {
       await onDeletePattern(id);
-      if (editId === id) cancelEdit();
+      if (editId === id) closeEditor();
     } catch (err) {
       console.warn('Could not delete pattern:', err.message);
     }
@@ -188,6 +215,7 @@ export default function Templates({
     setDraft(next);
     setEditId(id);
     setEditScope('vars');
+    setDraftIsNew(false);
     setMenuId(null);
     setExpanded((s) => ({ ...s, [id]: true }));
   };
@@ -393,7 +421,7 @@ export default function Templates({
                     ⠿
                   </span>
                   <div
-                    onClick={() => toggle(p.id)}
+                    {...pressable(() => toggle(p.id), { 'aria-expanded': open })}
                     className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0"
                   >
                     <span className="text-fs-12 text-text-muted w-3 flex-none">
@@ -449,7 +477,10 @@ export default function Templates({
                           <button
                             type="button"
                             role="menuitem"
-                            onClick={() => deletePattern(p.id)}
+                            onClick={() => {
+                              setMenuId(null);
+                              setConfirmDelete({ type: 'pattern', patternId: p.id, name: p.name, count: p.variations.length });
+                            }}
                             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-card-xs text-fs-13 text-accent-red-text text-left bg-transparent border-none cursor-pointer hover:bg-badge-hard-bg transition-colors duration-150"
                           >
                             <TrashIcon className="flex-none" /> Delete
@@ -495,7 +526,7 @@ export default function Templates({
                                 e.stopPropagation();
                                 dropOnVariation(p.id, v.id);
                               }}
-                              className={`border border-l-2 rounded-card-md bg-bg-element-dark py-sp-13 px-sp-14 transition-[border-color,opacity] duration-150 ${
+                              className={`border rounded-card-md bg-bg-element-dark py-sp-13 px-sp-14 transition-[border-color,opacity] duration-150 ${
                                 varDrag?.varId === v.id
                                   ? 'opacity-40 border-border-muted border-l-accent/40'
                                   : varDragOverId === v.id && varDrag
@@ -505,7 +536,7 @@ export default function Templates({
                             >
                               <div className="flex items-center gap-2.5">
                                 <div
-                                  onClick={() => toggleVar(v.id)}
+                                  {...pressable(() => toggleVar(v.id), { 'aria-expanded': vOpen })}
                                   className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0"
                                 >
                                   <span
@@ -537,7 +568,7 @@ export default function Templates({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    deleteVariation(p.id, v.id);
+                                    setConfirmDelete({ type: 'variation', patternId: p.id, variationId: v.id, name: v.name, patternName: p.name });
                                   }}
                                   title="Delete variation"
                                   className="w-[26px] h-[26px] flex-none flex items-center justify-center text-accent-red-text bg-transparent border border-transparent rounded-card-xs cursor-pointer hover:bg-badge-hard-bg transition-colors duration-150"
@@ -559,13 +590,16 @@ export default function Templates({
                                         TEMPLATE · {v.lang}
                                       </span>
                                       <span
-                                        onClick={() => {
-                                          navigator.clipboard?.writeText(v.code);
-                                          setCopiedVarId(v.id);
-                                          setTimeout(() => {
-                                            setCopiedVarId((cur) => (cur === v.id ? null : cur));
-                                          }, 2000);
-                                        }}
+                                        {...pressable(
+                                          () => {
+                                            navigator.clipboard?.writeText(v.code);
+                                            setCopiedVarId(v.id);
+                                            setTimeout(() => {
+                                              setCopiedVarId((cur) => (cur === v.id ? null : cur));
+                                            }, 2000);
+                                          },
+                                          { 'aria-label': 'Copy template code' }
+                                        )}
                                         className="font-mono text-fs-10 text-text-muted cursor-pointer hover:text-text-hover transition-colors duration-150"
                                       >
                                         {copiedVarId === v.id ? 'copied!' : 'copy'}
@@ -628,7 +662,7 @@ export default function Templates({
                         {draft.variations.map((v, i) => (
                           <div
                             key={v.id}
-                            className="border border-border-muted border-l-2 border-l-accent/40 rounded-card-md bg-bg-element-dark py-sp-13 px-sp-14 flex flex-col gap-2.5"
+                            className="border border-border-muted border-l-accent/40 rounded-card-md bg-bg-element-dark py-sp-13 px-sp-14 flex flex-col gap-2.5"
                           >
                             <div className="flex items-center gap-2.5">
                               <input
@@ -719,6 +753,33 @@ export default function Templates({
           })}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={confirmDelete !== null}
+        title={confirmDelete?.type === 'variation' ? 'Delete Variation' : 'Delete Pattern'}
+        message={
+          confirmDelete?.type === 'variation'
+            ? `Are you sure you want to delete the variation "${confirmDelete.name}" from "${confirmDelete.patternName}"? This action cannot be undone.`
+            : `Are you sure you want to delete the pattern "${confirmDelete?.name}"${
+                confirmDelete?.count
+                  ? ` and its ${confirmDelete.count} variation${confirmDelete.count === 1 ? '' : 's'}`
+                  : ''
+              }? This action cannot be undone.`
+        }
+        confirmLabel="Delete"
+        confirmVariant="red"
+        onConfirm={() => {
+          const pending = confirmDelete;
+          setConfirmDelete(null);
+          if (!pending) return;
+          if (pending.type === 'variation') {
+            deleteVariation(pending.patternId, pending.variationId);
+          } else {
+            deletePattern(pending.patternId);
+          }
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

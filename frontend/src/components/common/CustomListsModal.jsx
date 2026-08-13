@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../../api';
 import Button from './Button';
+import { pressable } from '../../a11y';
 
 function CustomCheckbox({ checked, indeterminate }) {
   return (
@@ -377,7 +378,7 @@ export default function CustomListsModal({
               return (
                 <div
                   key={list.id}
-                  onClick={() => handleToggle(list.id, !isChecked)}
+                  {...pressable(() => handleToggle(list.id, !isChecked), { role: 'checkbox', 'aria-checked': isIndeterminate ? 'mixed' : isChecked })}
                   className={`group/row flex items-center gap-3 px-3 py-2.5 select-none rounded-lg cursor-pointer transition-colors duration-100 ${
                     isChecked
                       ? 'bg-accent/8 hover:bg-accent/12'

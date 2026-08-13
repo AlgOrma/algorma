@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Button from './Button';
 
 export default function ConfirmationModal({
@@ -11,11 +11,26 @@ export default function ConfirmationModal({
   onCancel,
   confirmVariant = 'red'
 }) {
+  // Escape backs out of the confirmation, matching the app's other overlays.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onCancel?.();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-bg-overlay/80 backdrop-blur-[4px] flex items-center justify-center z-[2000] p-5 animate-fade-in">
-      <div className="w-full max-w-[400px] bg-bg-main border border-border-main rounded-md shadow-modal flex flex-col text-left overflow-hidden animate-scale-up">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full max-w-[400px] bg-bg-main border border-border-main rounded-md shadow-modal flex flex-col text-left overflow-hidden animate-scale-up"
+      >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-border-subtle flex items-center justify-between">
           <span className="text-fs-15 font-semibold text-text-main font-mono tracking-wider">
@@ -23,6 +38,7 @@ export default function ConfirmationModal({
           </span>
           <button
             onClick={onCancel}
+            aria-label="Close"
             className="bg-transparent border-none text-text-muted text-fs-16 cursor-pointer leading-none hover:text-white transition-colors"
           >
             ✕
@@ -36,7 +52,7 @@ export default function ConfirmationModal({
 
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-bg-card border-t border-border-subtle flex justify-end gap-3">
-          <Button variant="ghost" onClick={onCancel} size="sm">
+          <Button variant="ghost" onClick={onCancel} size="sm" autoFocus>
             {cancelLabel}
           </Button>
           <Button variant={confirmVariant} onClick={onConfirm} size="sm">

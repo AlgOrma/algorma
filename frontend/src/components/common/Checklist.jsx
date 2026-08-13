@@ -1,15 +1,20 @@
 import React from 'react';
+import { pressable } from '../../a11y';
 
 export default function Checklist({ checklist, onToggleStep }) {
   return (
     <div className="flex flex-col gap-sp-2">
       {checklist.map((step, index) => {
         const isDone = step.done;
-        
+        // Steps are only interactive when a toggle handler is supplied.
+        const interactiveProps = onToggleStep
+          ? pressable(() => onToggleStep(index), { role: 'checkbox', 'aria-checked': !!isDone })
+          : {};
+
         return (
           <div
             key={index}
-            onClick={() => onToggleStep && onToggleStep(index)}
+            {...interactiveProps}
             className={`flex items-center gap-sp-10 py-sp-6 select-none transition-colors duration-200 ${onToggleStep ? 'cursor-pointer' : 'cursor-default'}`}
             style={{ color: step.color }}
           >

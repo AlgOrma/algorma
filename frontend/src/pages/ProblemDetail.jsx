@@ -6,6 +6,7 @@ import ConfirmationModal from '../components/common/ConfirmationModal';
 import CodeEditor from '../components/common/CodeEditor';
 import CustomListsModal from '../components/common/CustomListsModal';
 import useDismissOnOutside from '../hooks/useDismissOnOutside';
+import { pressable } from '../a11y';
 
 // Simple Markdown to HTML formatter for editorial solutions (matching LeetCodeLibrary)
 const formatMarkdown = (text) => {
@@ -657,7 +658,7 @@ export default function ProblemDetail({
 
           <div className="flex items-center gap-3 truncate">
             <span
-              onClick={handleBack}
+              {...pressable(handleBack, { 'aria-label': `Back to ${problem.topic} problems` })}
               className="font-mono text-fs-12 text-text-muted hover:text-text-main cursor-pointer transition-colors"
             >
               {problem.topic}
@@ -955,9 +956,10 @@ export default function ProblemDetail({
                             className="border border-border-main rounded-md bg-bg-card overflow-hidden"
                           >
                             <div
-                              onClick={() =>
-                                setRevealedHints((prev) => ({ ...prev, [idx]: !prev[idx] }))
-                              }
+                              {...pressable(
+                                () => setRevealedHints((prev) => ({ ...prev, [idx]: !prev[idx] })),
+                                { 'aria-expanded': !!isRevealed }
+                              )}
                               className="px-3.5 py-2.5 cursor-pointer bg-white/2 hover:bg-white/3 flex items-center justify-between text-fs-12 text-text-main select-none transition-colors"
                             >
                               <span className="font-semibold font-sans">Hint {idx + 1}</span>

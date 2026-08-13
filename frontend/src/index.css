@@ -641,6 +641,19 @@ select:active {
   .save-pulse { animation: none; }
 }
 
-
+/* ── Keyboard focus ─────────────────────────────────────────────────────
+   The button/key resets above remove native outlines, so keyboard focus
+   needs one visible replacement everywhere. :focus-visible only fires on
+   keyboard (not mouse) focus, so the arcade keys stay clean on click.
+   Uses the accent-text lift — the raw accent ring fails 3:1 on black in
+   the violet theme. Text fields keep their own border + glow treatment. */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-text);
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
 
 

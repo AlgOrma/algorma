@@ -5,6 +5,7 @@ import CustomListsModal from '../components/common/CustomListsModal';
 import LeetCodeSyncModal from '../components/common/LeetCodeSyncModal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as api from '../api';
+import { pressable } from '../a11y';
 
 // Simple Markdown to HTML formatter for editorial solutions (matching
 // ProblemDetail). Pure, so it lives at module scope.
@@ -447,7 +448,7 @@ export default function LeetCodeLibrary({
                   >
                     {/* Summary row */}
                     <div
-                      onClick={() => handleToggleExpand(q.id)}
+                      {...pressable(() => handleToggleExpand(q.id), { 'aria-expanded': isExpanded })}
                       className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150"
                     >
                       <span className="font-mono text-fs-12 text-text-muted select-none">
@@ -562,12 +563,14 @@ export default function LeetCodeLibrary({
                                           className="border border-border-main rounded-md overflow-hidden bg-bg-card"
                                         >
                                           <div
-                                            onClick={() =>
-                                              setRevealedHints((prev) => ({
-                                                ...prev,
-                                                [idx]: !prev[idx]
-                                              }))
-                                            }
+                                            {...pressable(
+                                              () =>
+                                                setRevealedHints((prev) => ({
+                                                  ...prev,
+                                                  [idx]: !prev[idx]
+                                                })),
+                                              { 'aria-expanded': !!isHintRevealed }
+                                            )}
                                             className="px-3 py-2 cursor-pointer bg-white/2 flex items-center justify-between text-fs-12-5 text-text-main select-none hover:bg-white/3 transition-colors"
                                           >
                                             <span className="font-medium">Hint {idx + 1}</span>
@@ -616,7 +619,7 @@ export default function LeetCodeLibrary({
                                         Solution Article
                                       </span>
                                       <span
-                                        onClick={() => setRevealedSolution(false)}
+                                        {...pressable(() => setRevealedSolution(false), { 'aria-label': 'Hide solution article' })}
                                         className="font-mono text-fs-11 text-text-muted hover:text-text-main cursor-pointer"
                                       >
                                         [Hide]

@@ -3,6 +3,7 @@ import * as api from '../api';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import ConfirmationModal from '../components/common/ConfirmationModal';
+import { pressable } from '../a11y';
 
 export default function CustomLists({
   customLists = [],
@@ -281,7 +282,7 @@ export default function CustomLists({
                     customListDetail.problems.map((p, idx) => (
                       <div
                         key={p.id}
-                        onClick={() => onOpenProblem(p.id)}
+                        {...pressable(() => onOpenProblem(p.id))}
                         className="grid grid-cols-[50px_2.5fr_1fr_1fr_1fr_120px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover border-b border-bg-element-dark last:border-b-0 transition-colors duration-150"
                       >
                         <span className="font-mono text-fs-12 text-text-muted">
@@ -399,17 +400,19 @@ export default function CustomLists({
             <div className="text-fs-12 text-text-muted max-w-[340px] leading-relaxed">
               Create a custom list to group and practice specific sets of problems from your problem bank.
             </div>
-            <Button size="sm" onClick={() => setShowCreateForm(true)} className="mt-2">
-              Create your first list
-            </Button>
+            {!showCreateForm && (
+              <Button size="sm" onClick={() => setShowCreateForm(true)} className="mt-2">
+                Create your first list
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {customLists.map((list) => (
               <div
                 key={list.id}
-                onClick={() => setSelectedCustomListId(list.id)}
-                className="bg-bg-card border border-border-card rounded-xl p-5 text-left flex flex-col justify-between min-h-[160px] cursor-pointer hover:border-accent/40 hover:bg-bg-element-hover/20 transition-all duration-200 shadow-sm relative group"
+                {...pressable(() => setSelectedCustomListId(list.id))}
+                className="bg-bg-card border border-border-card rounded-xl p-5 text-left flex flex-col justify-between min-h-[160px] cursor-pointer hover:border-accent/40 hover:bg-bg-element-hover/20 transition-all duration-200 relative group"
               >
                 <div>
                   <div className="flex justify-between items-start gap-2">
