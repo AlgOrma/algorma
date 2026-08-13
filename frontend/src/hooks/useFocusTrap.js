@@ -21,10 +21,11 @@ export default function useFocusTrap(ref, active, initialRef) {
       if (!items.length) return;
       const first = items[0];
       const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      const isOutside = !node.contains(document.activeElement);
+      if (e.shiftKey && (document.activeElement === first || isOutside)) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && (document.activeElement === last || isOutside)) {
         e.preventDefault();
         first.focus();
       }
