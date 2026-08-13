@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Checklist from '../components/common/Checklist';
@@ -8,8 +8,8 @@ import CustomListsModal from '../components/common/CustomListsModal';
 import * as api from '../api';
 import { FEATURES } from '../features';
 import { formatMarkdown } from '../components/common/formatMarkdown';
-import useLocalStorage from '../hooks/useLocalStorage';
 import useDismissOnOutside from '../hooks/useDismissOnOutside';
+import { pressable } from '../a11y';
 
 
 const LANGUAGES = ['Python', 'JavaScript', 'Java', 'C++', 'Go', 'Rust', 'TypeScript'];
@@ -39,6 +39,22 @@ const hasWork = (approaches, notes) =>
 const SPLIT_MIN = 26;
 const SPLIT_MAX = 72;
 const SPLIT_DEFAULT = 46;
+const SPLIT_STORAGE_KEY = 'dsa_detail_split_pct';
+
+const clampSplit = (pct) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct));
+
+// The stored ratio is read once per mount and written back once per gesture
+// (see the persist effect) — not through useLocalStorage, whose write-on-every-
+// value effect would hit localStorage synchronously on each drag frame.
+const readStoredSplit = () => {
+  try {
+    const raw = localStorage.getItem(SPLIT_STORAGE_KEY);
+    const val = raw === null ? NaN : JSON.parse(raw);
+    return Number.isFinite(val) ? clampSplit(val) : SPLIT_DEFAULT;
+  } catch {
+    return SPLIT_DEFAULT;
+  }
+};
 
 const StatusDot = ({ className = '', filled = true }) => (
   <svg width="7" height="7" viewBox="0 0 8 8" className={className} aria-hidden="true">
@@ -188,9 +204,29 @@ export default function ProblemDetail({
 
   // Split pane. The user's chosen ratio outlives the session because the right
   // width depends on their monitor, not on the problem.
-  const [splitPct, setSplitPct] = useLocalStorage('dsa_detail_split_pct', SPLIT_DEFAULT);
+  const [splitPct, setSplitPct] = useState(readStoredSplit);
   const [isResizing, setIsResizing] = useState(false);
   const splitContainerRef = useRef(null);
+  // Drag geometry, read once per gesture; moves are batched to one state
+  // update per animation frame so pointermove bursts can't outpace paint.
+  // `draggingRef` guards moves synchronously — the isResizing state commits a
+  // render later, which would drop a gesture's early moves.
+  const draggingRef = useRef(false);
+  const dragRectRef = useRef(null);
+  const dragFrameRef = useRef(null);
+  const dragClientXRef = useRef(0);
+
+  // Persist the ratio when the gesture ends (isResizing flips off) and on
+  // keyboard nudges / double-click resets — never per pointermove, where a
+  // synchronous localStorage write per event janks the drag itself.
+  useEffect(() => {
+    if (isResizing) return;
+    try {
+      localStorage.setItem(SPLIT_STORAGE_KEY, JSON.stringify(splitPct));
+    } catch {
+      /* private mode / quota — the session still works, the ratio just isn't remembered */
+    }
+  }, [splitPct, isResizing]);
 
   // Latest values, mirrored into refs so a flush triggered by unmount, a
   // background tab, or the Back button writes what is on screen right now
@@ -362,18 +398,46 @@ export default function ProblemDetail({
   );
 
   // Drag the seam between the statement and the editor.
+  const applyDragPosition = () => {
+    const rect = dragRectRef.current;
+    if (!rect || !rect.width) return;
+    const pct = ((dragClientXRef.current - rect.left) / rect.width) * 100;
+    setSplitPct(clampSplit(Math.round(pct * 10) / 10));
+  };
+
   const handleResizeStart = (e) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    // One layout read per gesture — the pane's geometry can't change mid-drag,
+    // so measuring on every move would only force needless reflows.
+    dragRectRef.current = splitContainerRef.current?.getBoundingClientRect() ?? null;
+    draggingRef.current = true;
     setIsResizing(true);
   };
 
   const handleResizeMove = (e) => {
-    if (!isResizing || !splitContainerRef.current) return;
-    const rect = splitContainerRef.current.getBoundingClientRect();
-    if (!rect.width) return;
-    const pct = ((e.clientX - rect.left) / rect.width) * 100;
-    setSplitPct(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, Math.round(pct * 10) / 10)));
+    if (!draggingRef.current) return;
+    dragClientXRef.current = e.clientX;
+    if (dragFrameRef.current !== null) return;
+    dragFrameRef.current = requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      applyDragPosition();
+    });
+  };
+
+  // Ends the gesture from any exit: pointerup on the handle (pointer capture
+  // routes it here even off-element), or the window-level fallbacks below.
+  // A frame still pending is applied, not discarded — otherwise the last
+  // sliver of movement (or an entire fast gesture) would be lost.
+  const handleResizeEnd = () => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+      applyDragPosition();
+    }
+    setIsResizing(false);
   };
 
   // Release is watched on the window, not the handle: if pointer capture is
@@ -381,19 +445,32 @@ export default function ProblemDetail({
   // out of its dragging state rather than staying lit.
   useEffect(() => {
     if (!isResizing) return undefined;
-    const stop = () => setIsResizing(false);
-    window.addEventListener('pointerup', stop);
-    window.addEventListener('pointercancel', stop);
-    window.addEventListener('blur', stop);
+    window.addEventListener('pointerup', handleResizeEnd);
+    window.addEventListener('pointercancel', handleResizeEnd);
+    window.addEventListener('blur', handleResizeEnd);
     return () => {
-      window.removeEventListener('pointerup', stop);
-      window.removeEventListener('pointercancel', stop);
-      window.removeEventListener('blur', stop);
+      window.removeEventListener('pointerup', handleResizeEnd);
+      window.removeEventListener('pointercancel', handleResizeEnd);
+      window.removeEventListener('blur', handleResizeEnd);
+      // Unmount mid-drag: nothing left to update, just drop the frame.
+      if (dragFrameRef.current !== null) {
+        cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = null;
+      }
     };
+    // handleResizeEnd only touches refs and stable setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isResizing]);
 
-  const nudgeSplit = (delta) =>
-    setSplitPct((p) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, p + delta)));
+  const nudgeSplit = (delta) => setSplitPct((p) => clampSplit(p + delta));
+
+  // The editorial article is a heavy regex pass over a long document; every
+  // keystroke in the workspace re-renders this component, so formatting must
+  // be cached per article, not re-run per render.
+  const editorialHtml = useMemo(
+    () => (problem?.solutionContent ? formatMarkdown(problem.solutionContent) : ''),
+    [problem?.solutionContent]
+  );
 
   if (!problem) {
     return (
@@ -586,7 +663,7 @@ export default function ProblemDetail({
 
           <div className="flex items-center gap-3 truncate">
             <span
-              onClick={handleBack}
+              {...pressable(handleBack, { 'aria-label': `Back to ${problem.topic} problems` })}
               className="font-mono text-fs-12 text-text-muted hover:text-text-main cursor-pointer transition-colors"
             >
               {problem.topic}
@@ -900,9 +977,10 @@ export default function ProblemDetail({
                             className="border border-border-main rounded-md bg-bg-card overflow-hidden"
                           >
                             <div
-                              onClick={() =>
-                                setRevealedHints((prev) => ({ ...prev, [idx]: !prev[idx] }))
-                              }
+                              {...pressable(
+                                () => setRevealedHints((prev) => ({ ...prev, [idx]: !prev[idx] })),
+                                { 'aria-expanded': !!isRevealed }
+                              )}
                               className="px-3.5 py-2.5 cursor-pointer bg-white/2 hover:bg-white/3 flex items-center justify-between text-fs-12 text-text-main select-none transition-colors"
                             >
                               <span className="font-semibold font-sans">Hint {idx + 1}</span>
@@ -1000,9 +1078,7 @@ export default function ProblemDetail({
                     </div>
                     <div
                       className="leetcode-solution text-fs-13-5 leading-relaxed"
-                      dangerouslySetInnerHTML={{
-                        __html: formatMarkdown(problem.solutionContent)
-                      }}
+                      dangerouslySetInnerHTML={{ __html: editorialHtml }}
                     />
                   </div>
                 )}
@@ -1071,6 +1147,8 @@ export default function ProblemDetail({
           tabIndex={0}
           onPointerDown={handleResizeStart}
           onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeEnd}
+          onPointerCancel={handleResizeEnd}
           onDoubleClick={() => setSplitPct(SPLIT_DEFAULT)}
           onKeyDown={(e) => {
             if (e.key === 'ArrowLeft') { e.preventDefault(); nudgeSplit(-2); }

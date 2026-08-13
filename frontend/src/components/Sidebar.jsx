@@ -170,6 +170,7 @@ export default function Sidebar({
               href={`/${item.id}`}
               onClick={(e) => { e.preventDefault(); onNavigate(item.id); }}
               aria-current={isActive ? 'page' : undefined}
+              aria-label={collapsed ? item.label : undefined}
               title={collapsed ? item.label : undefined}
               className={`flex items-center py-2.5 rounded-card-btn text-fs-14 font-medium cursor-pointer transition-all duration-150 border overflow-hidden ${
                 collapsed ? 'justify-center px-0' : 'gap-sp-11 px-sp-11'
@@ -203,6 +204,7 @@ export default function Sidebar({
       <button
         type="button"
         onClick={onEditProfile}
+        aria-label="Edit profile"
         title={collapsed ? `${user?.name || 'Your profile'} — edit profile` : 'Edit profile'}
         className={`flex items-center rounded-card-sm bg-bg-card ring-1 ring-border-card cursor-pointer transition-shadow hover:ring-border-btn-hover overflow-hidden text-left ${
           collapsed ? 'p-1.5 justify-center' : 'gap-sp-10 px-2.5 py-sp-9 w-full'

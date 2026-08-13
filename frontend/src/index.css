@@ -686,6 +686,19 @@ select:active {
   .save-pulse { animation: none; }
 }
 
-
+/* ── Keyboard focus ─────────────────────────────────────────────────────
+   The global :focus-visible ring is defined once with the button reset above.
+   Text-entry fields opt out because they carry their own focus treatment
+   (focus:border-accent). Scoped by type on purpose: checkboxes are <input>
+   too, and .pb-checkbox is appearance:none with no focus styling of its own,
+   so a blanket input exemption would leave it with no visible focus at all. */
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="number"]:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
 
 

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import CustomListsModal from '../components/common/CustomListsModal';
 import LeetCodeSyncModal from '../components/common/LeetCodeSyncModal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as api from '../api';
+import { pressable } from '../a11y';
 import { formatMarkdown } from '../components/common/formatMarkdown';
 
 const POPULAR_TAGS = [
@@ -192,6 +193,17 @@ export default function LeetCodeLibrary({
       (p) => p.leetcodeUrl === leetcodeUrl || p.leetcode_url === leetcodeUrl
     );
   };
+
+  // The formatted article is a heavy regex pass over a long document; the
+  // whole page re-renders on every toast, import, and hint toggle, so the
+  // formatting is cached per article rather than re-run per render.
+  const solutionHtml = useMemo(
+    () =>
+      expandedQuestion?.solutionContent
+        ? formatMarkdown(expandedQuestion.solutionContent)
+        : '',
+    [expandedQuestion?.solutionContent]
+  );
 
   return (
     <div className="w-full h-full overflow-y-auto custom-scrollbar">
@@ -399,7 +411,7 @@ export default function LeetCodeLibrary({
                   >
                     {/* Summary row */}
                     <div
-                      onClick={() => handleToggleExpand(q.id)}
+                      {...pressable(() => handleToggleExpand(q.id), { 'aria-expanded': isExpanded })}
                       className="grid grid-cols-[50px_2.5fr_0.9fr_1.8fr_180px] gap-3 items-center px-sp-18 py-3 cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150"
                     >
                       <span className="font-mono text-fs-12 text-text-muted select-none">
@@ -514,12 +526,14 @@ export default function LeetCodeLibrary({
                                           className="border border-border-main rounded-md overflow-hidden bg-bg-card"
                                         >
                                           <div
-                                            onClick={() =>
-                                              setRevealedHints((prev) => ({
-                                                ...prev,
-                                                [idx]: !prev[idx]
-                                              }))
-                                            }
+                                            {...pressable(
+                                              () =>
+                                                setRevealedHints((prev) => ({
+                                                  ...prev,
+                                                  [idx]: !prev[idx]
+                                                })),
+                                              { 'aria-expanded': !!isHintRevealed }
+                                            )}
                                             className="px-3 py-2 cursor-pointer bg-white/2 flex items-center justify-between text-fs-12-5 text-text-main select-none hover:bg-white/3 transition-colors"
                                           >
                                             <span className="font-medium">Hint {idx + 1}</span>
@@ -568,7 +582,7 @@ export default function LeetCodeLibrary({
                                         Solution Article
                                       </span>
                                       <span
-                                        onClick={() => setRevealedSolution(false)}
+                                        {...pressable(() => setRevealedSolution(false), { 'aria-label': 'Hide solution article' })}
                                         className="font-mono text-fs-11 text-text-muted hover:text-text-main cursor-pointer"
                                       >
                                         [Hide]
@@ -576,9 +590,7 @@ export default function LeetCodeLibrary({
                                     </div>
                                     <div
                                       className="leetcode-solution text-fs-13 leading-relaxed"
-                                      dangerouslySetInnerHTML={{
-                                        __html: formatMarkdown(expandedQuestion.solutionContent)
-                                      }}
+                                      dangerouslySetInnerHTML={{ __html: solutionHtml }}
                                     />
                                   </div>
                                 )}

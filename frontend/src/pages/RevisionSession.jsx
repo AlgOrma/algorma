@@ -5,6 +5,7 @@ import CodeEditor from '../components/common/CodeEditor';
 import Button from '../components/common/Button';
 import { GRADES, gradeIntervalLabel } from '../data/initialData';
 import * as api from '../api';
+import { pressable } from '../a11y';
 
 export default function RevisionSession({
   problems = [],
@@ -232,14 +233,17 @@ export default function RevisionSession({
           <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
             {/* Table Header */}
             <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_78px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-text-muted tracking-[0.06em] text-left items-center">
-              <div className="flex items-center justify-center">
+              <div
+                className="flex items-center justify-center cursor-pointer"
+                {...pressable(toggleSelectAll, { role: 'checkbox', 'aria-checked': allSelected, 'aria-label': 'Select all problems' })}
+              >
                 {allSelected ? (
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer" onClick={toggleSelectAll}>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <rect x="2" y="2" width="16" height="16" rx="4" fill="var(--color-accent)" />
                     <path d="M6 10l3 3 5-5" stroke="var(--color-text-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-text-muted hover:text-text-main cursor-pointer transition-colors duration-150" onClick={toggleSelectAll}>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-text-muted hover:text-text-main transition-colors duration-150">
                     <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="2" />
                   </svg>
                 )}
@@ -258,18 +262,21 @@ export default function RevisionSession({
                 return (
                   <div
                     key={row.id}
-                    onClick={() => handleReviseOne(row)}
+                    {...pressable(() => handleReviseOne(row))}
                     title="Revise this problem now"
                     className={`grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_78px] gap-3 items-center px-sp-18 py-3 border-b border-bg-element-dark cursor-pointer text-left hover:bg-bg-element-hover transition-colors duration-150 ${isSelected ? 'bg-bg-element-hover/50' : ''}`}
                   >
-                    <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); toggleSelect(row.id); }}>
+                    <div
+                      className="flex items-center justify-center cursor-pointer"
+                      {...pressable((e) => { e.stopPropagation(); toggleSelect(row.id); }, { role: 'checkbox', 'aria-checked': isSelected, 'aria-label': `Select ${row.title}` })}
+                    >
                       {isSelected ? (
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                           <rect x="2" y="2" width="16" height="16" rx="4" fill="var(--color-accent)" />
                           <path d="M6 10l3 3 5-5" stroke="var(--color-text-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       ) : (
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-text-muted hover:text-text-main cursor-pointer transition-colors duration-150">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="text-text-muted hover:text-text-main transition-colors duration-150">
                           <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="2" />
                         </svg>
                       )}
@@ -319,8 +326,8 @@ export default function RevisionSession({
                 <span className="font-mono text-fs-11 text-text-muted">
                   {currentIndex + 1} / {totalCards}
                 </span>
-                <span 
-                  onClick={() => onNavigate('dashboard')} 
+                <span
+                  {...pressable(() => onNavigate('dashboard'))}
                   className="font-mono text-fs-11 text-text-muted cursor-pointer hover:text-text-hover transition-colors duration-200"
                 >
                   End session ✕
@@ -498,13 +505,13 @@ export default function RevisionSession({
 
           {/* Approaches tabs */}
           <div className="bg-bg-main border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
-            <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar select-none w-full">
+            <div role="tablist" aria-label="Approaches" className="flex items-center gap-0.5 overflow-x-auto no-scrollbar select-none w-full">
               {approaches.map((appr, idx) => {
                 const isApprRevealed = !!revealedApproaches[appr.id || idx];
                 return (
                   <div
                     key={appr.id || idx}
-                    onClick={() => setActiveApproachIdx(idx)}
+                    {...pressable(() => setActiveApproachIdx(idx), { role: 'tab', 'aria-selected': activeApproachIdx === idx })}
                     className={`flex items-center gap-2 px-4 py-3 border-r border-border-muted cursor-pointer transition-colors relative ${
                       activeApproachIdx === idx
                         ? 'bg-bg-panel-dark text-text-main border-b-2 border-b-accent font-semibold'

@@ -47,7 +47,7 @@ export default function ProblemBank({
   const handleToggleSelectAll = () => {
     setDeleteFailedCount(0);
     const allFilteredIds = filteredProblems.map(p => p.id);
-    const areAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.includes(id));
+    const areAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIdSet.has(id));
     if (areAllSelected) {
       setSelectedIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
     } else {
@@ -107,10 +107,11 @@ export default function ProblemBank({
 
   // Filter logic
   const filteredProblems = useMemo(() => {
+    const query = search.toLowerCase();
     return problems.filter(p => {
       const matchesSearch =
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.topic.toLowerCase().includes(search.toLowerCase());
+        p.title.toLowerCase().includes(query) ||
+        p.topic.toLowerCase().includes(query);
 
       const matchesTopic = selectedTopic === 'All' || p.topic === selectedTopic;
       const matchesDiff = selectedDiff === 'All' || p.difficulty === selectedDiff;
@@ -164,6 +165,8 @@ export default function ProblemBank({
     setDueOnly(false);
   };
 
+  // Selection lookups happen once per row per render; a Set keeps them O(1)
+  // instead of scanning the selection array for every row.
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const filteredIdSet = useMemo(() => new Set(filteredProblems.map(p => p.id)), [filteredProblems]);
   const allFilteredSelected =

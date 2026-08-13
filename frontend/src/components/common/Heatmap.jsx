@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Legend opacities (match the "less … more" swatches on the dashboard).
 // Level 1 sits well above the empty cell so "some activity" is visibly
@@ -26,6 +26,51 @@ function tooltipText(cell) {
   if (cell.reviews) parts.push(`${cell.reviews} review${cell.reviews === 1 ? '' : 's'}`);
   return parts.length ? parts.join(' · ') : 'No activity';
 }
+
+// The year grid is ~370 cells; hovering updates only the tooltip, so the grid
+// is memoized against its data and stable callbacks — a tooltip show/hide
+// re-renders one floating div, not every cell.
+const HeatmapGrid = memo(function HeatmapGrid({ grid, monthLabels, onShowTip, onHideTip }) {
+  // Extra space before each month's first column, so months read as blocks.
+  // Applied to the label row and the grid alike to keep columns aligned.
+  const monthGap = (i) => (i > 0 && monthLabels[i] ? ' ml-sp-10' : '');
+
+  return (
+    <div className="min-w-[640px]">
+      <div className="flex gap-sp-3 mb-1.5">
+        {/* Space before ${} keeps Tailwind's scanner extracting h-sp-10 */}
+        {monthLabels.map((label, i) => (
+          <div key={i} className={`relative flex-1 min-w-0 h-sp-10 ${monthGap(i)}`}>
+            {label && (
+              <span
+                className="absolute left-0 top-0 text-center font-mono text-fs-10 text-text-muted leading-none whitespace-nowrap"
+                style={{ width: `calc(${label.span * 100}% + ${(label.span - 1) * 3}px)` }}
+              >
+                {label.text}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-sp-3" onMouseLeave={onHideTip}>
+        {grid.map((column, cIdx) => (
+          <div key={cIdx} className={`flex flex-col flex-1 min-w-0 gap-sp-3 ${monthGap(cIdx)}`}>
+            {column.map((cell, dIdx) => (
+              <div
+                key={dIdx}
+                className="w-full aspect-square rounded-sm transition-colors duration-300"
+                style={{ backgroundColor: cell ? cell.color : 'transparent' }}
+                onMouseEnter={cell ? (e) => onShowTip(e, cell) : undefined}
+                onMouseLeave={onHideTip}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
 
 // Default matches --color-accent-green-hover (#059669) so cells render the
 // same color family as the dashboard's "less … more" legend swatches.
@@ -91,22 +136,21 @@ export default function Heatmap({ colorBase = '5, 150, 105', activity = null, we
     return labels;
   }, [grid]);
 
-  // Extra space before each month's first column, so months read as blocks.
-  // Applied to the label row and the grid alike to keep columns aligned.
-  const monthGap = (i) => (i > 0 && monthLabels[i] ? ' ml-sp-10' : '');
-
   // Keep the most recent weeks in view when the grid overflows.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollLeft = el.scrollWidth;
   }, [grid]);
 
-  const showTip = (e, cell) => {
+  // Stable identities so HeatmapGrid's memo actually holds between tooltip
+  // updates.
+  const showTip = useCallback((e, cell) => {
     const rect = e.currentTarget.getBoundingClientRect();
     // Flip below the cell when there's no room above (short windows).
     const below = rect.top < 64;
     setTip({ cell, x: rect.left + rect.width / 2, y: below ? rect.bottom : rect.top, below });
-  };
+  }, []);
+  const hideTip = useCallback(() => setTip(null), []);
 
   const totalActivities = activity
     ? (activity.totalSolves || 0) + (activity.totalReviews || 0)
@@ -130,39 +174,12 @@ export default function Heatmap({ colorBase = '5, 150, 105', activity = null, we
     >
       {/* Fluid columns (flex-1) so the whole year fits the card without
           scrolling; the min-width only kicks in on very narrow screens. */}
-      <div className="min-w-[640px]">
-        <div className="flex gap-sp-3 mb-1.5">
-          {/* Space before ${} keeps Tailwind's scanner extracting h-sp-10 */}
-          {monthLabels.map((label, i) => (
-            <div key={i} className={`relative flex-1 min-w-0 h-sp-10 ${monthGap(i)}`}>
-              {label && (
-                <span
-                  className="absolute left-0 top-0 text-center font-mono text-fs-10 text-text-muted leading-none whitespace-nowrap"
-                  style={{ width: `calc(${label.span * 100}% + ${(label.span - 1) * 3}px)` }}
-                >
-                  {label.text}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-sp-3" onMouseLeave={() => setTip(null)}>
-          {grid.map((column, cIdx) => (
-            <div key={cIdx} className={`flex flex-col flex-1 min-w-0 gap-sp-3 ${monthGap(cIdx)}`}>
-              {column.map((cell, dIdx) => (
-                <div
-                  key={dIdx}
-                  className="w-full aspect-square rounded-sm transition-colors duration-300"
-                  style={{ backgroundColor: cell ? cell.color : 'transparent' }}
-                  onMouseEnter={cell ? (e) => showTip(e, cell) : undefined}
-                  onMouseLeave={() => setTip(null)}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+      <HeatmapGrid
+        grid={grid}
+        monthLabels={monthLabels}
+        onShowTip={showTip}
+        onHideTip={hideTip}
+      />
 
       {tip && (
         <div
