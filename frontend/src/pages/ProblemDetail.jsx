@@ -514,20 +514,29 @@ export default function ProblemDetail({
             </button>
           </div>
 
-          {/* Left Tab Content (Scrollable) */}
-          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-left text-fs-13.5 leading-relaxed">
-            
-            {/* Description Tab */}
+          {/* Left Tab Content (Scrollable). overflow-x is clamped here: long
+              example lines wrap, and the rare unbreakable block scrolls inside
+              its own frame rather than dragging the whole panel sideways. */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 custom-scrollbar text-left text-fs-13.5 leading-relaxed">
+
+            {/* Description Tab — reading order follows a problem page: title,
+                what kind of problem it is, the statement, then the numbers.
+                Deliberately uncapped: the statement fills whatever width the
+                divider gives it, so dragging the seam actually reflows the
+                text instead of growing a margin beside it. The divider is the
+                reading-measure control. */}
             {leftTab === 'description' && (
-              <div className="flex flex-col gap-6 select-text">
-                <div>
-                  <h1 className="text-fs-20 font-bold text-text-main leading-tight mb-2">
+              <div className="flex flex-col gap-5 select-text">
+                <div className="flex flex-col gap-3">
+                  <h1 className="text-fs-20 font-bold text-text-main leading-snug">
                     {problem.title}
                   </h1>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
-                    {problem.categoryTitle && (
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                    <Badge type="difficulty" value={problem.difficulty} />
+                    <Badge type="status" value={problem.status} />
+                    {problem.topic && (
                       <span className="font-mono text-fs-10 text-text-muted bg-white/4 px-2 py-0.5 rounded">
-                        {problem.categoryTitle}
+                        {problem.topic}
                       </span>
                     )}
                     {problem.patterns && problem.patterns.map((pat, idx) => (
@@ -538,82 +547,21 @@ export default function ProblemDetail({
                         {pat}
                       </span>
                     ))}
-
-                    {/* Concise Stats Icons */}
-                    {((problem.stats && Object.keys(problem.stats).length > 0) || problem.likes > 0 || problem.dislikes > 0) && (
-                      <>
-                        {(problem.categoryTitle || (problem.patterns && problem.patterns.length > 0)) && (
-                          <span className="text-[#333] select-none mx-0.5">|</span>
-                        )}
-                        
-                        {problem.likes > 0 && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Likes">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/80">
-                              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                            </svg>
-                            <span className="text-green-500/90 font-semibold">{problem.likes.toLocaleString()}</span>
-                          </span>
-                        )}
-                        {problem.dislikes > 0 && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Dislikes">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500/80">
-                              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-                            </svg>
-                            <span className="text-red-500/90 font-semibold">{problem.dislikes.toLocaleString()}</span>
-                          </span>
-                        )}
-                        {problem.stats?.acRate && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Acceptance Rate">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-                              <circle cx="12" cy="12" r="10" />
-                              <circle cx="12" cy="12" r="6" />
-                              <circle cx="12" cy="12" r="2" />
-                            </svg>
-                            <span className="text-text-hover font-semibold">{problem.stats.acRate}</span>
-                          </span>
-                        )}
-                        {problem.stats?.totalAccepted && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Accepted Submissions">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-500/60">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <span>{problem.stats.totalAccepted}</span>
-                          </span>
-                        )}
-                        {problem.stats?.totalSubmission && (
-                          <span className="flex items-center gap-1 text-fs-11 font-mono text-text-muted select-none" title="Total Submissions">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted/60">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                              <polyline points="14 2 14 8 20 8" />
-                              <line x1="16" y1="13" x2="8" y2="13" />
-                              <line x1="16" y1="17" x2="8" y2="17" />
-                            </svg>
-                            <span>{problem.stats.totalSubmission}</span>
-                          </span>
-                        )}
-                      </>
-                    )}
                   </div>
                 </div>
-
-                <hr className="border-border-muted" />
 
                 {/* Problem Statement */}
-                <div>
-                  <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-3">
-                    PROBLEM STATEMENT
-                  </div>
-                  <div
-                    className="leetcode-statement leading-relaxed text-text-code"
-                    dangerouslySetInnerHTML={{
-                      __html: problem.statement || '<span class="text-text-muted">No description available.</span>'
-                    }}
-                  />
-                </div>
+                <div
+                  className="leetcode-statement"
+                  dangerouslySetInnerHTML={{
+                    __html: problem.statement || '<p class="text-text-muted">No description available.</p>'
+                  }}
+                />
 
-                {/* Example inputs/outputs */}
+                {/* Example inputs/outputs — only for hand-entered problems;
+                    imported statements carry their own example blocks. */}
                 {(problem.exIn || problem.exOut) && (
-                  <div className="bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre">
+                  <div className="bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre-wrap break-words">
                     {problem.exIn && (
                       <div>
                         <span className="text-text-muted select-none">Input: </span>
@@ -625,6 +573,58 @@ export default function ProblemDetail({
                         <span className="text-text-muted select-none">Output: </span>
                         {problem.exOut}
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Catalog numbers — present, but not competing with the
+                    statement for the top of the page. */}
+                {((problem.stats && Object.keys(problem.stats).length > 0) || problem.likes > 0 || problem.dislikes > 0) && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-3.5 border-t border-border-muted font-mono text-fs-11 text-text-muted select-none">
+                    {problem.stats?.acRate && (
+                      <span className="flex items-center gap-1.5" title="Acceptance rate">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                          <circle cx="12" cy="12" r="10" />
+                          <circle cx="12" cy="12" r="6" />
+                          <circle cx="12" cy="12" r="2" />
+                        </svg>
+                        <span className="text-text-hover">{problem.stats.acRate} accepted</span>
+                      </span>
+                    )}
+                    {problem.stats?.totalAccepted && (
+                      <span className="flex items-center gap-1.5" title="Accepted submissions">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        {problem.stats.totalAccepted}
+                      </span>
+                    )}
+                    {problem.stats?.totalSubmission && (
+                      <span className="flex items-center gap-1.5" title="Total submissions">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        {problem.stats.totalSubmission}
+                      </span>
+                    )}
+                    {problem.likes > 0 && (
+                      <span className="flex items-center gap-1.5" title="Likes">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                        </svg>
+                        {problem.likes.toLocaleString()}
+                      </span>
+                    )}
+                    {problem.dislikes > 0 && (
+                      <span className="flex items-center gap-1.5" title="Dislikes">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#ff6b6b]">
+                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+                        </svg>
+                        {problem.dislikes.toLocaleString()}
+                      </span>
                     )}
                   </div>
                 )}
