@@ -49,10 +49,11 @@ function App() {
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
   const [problems, setProblems] = useState([]);
   const [problemsLoading, setProblemsLoading] = useState(true);
+  const [problemsError, setProblemsError] = useState(false);
   const [customLists, setCustomLists] = useState([]);
   const [customListsLoading, setCustomListsLoading] = useState(true);
   // Read-only for now: cards are graded via the API once flashcards ship, and
-  // there's no theme switcher yet.
+  // there's no theme switcher yet. The streak comes from server stats below.
   const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
@@ -128,9 +129,11 @@ function App() {
     api.getProblems()
       .then((data) => {
         setProblems(data || []);
+        setProblemsError(false);
       })
       .catch((err) => {
         console.warn('Could not load problems from backend:', err.message);
+        setProblemsError(true);
       })
       .finally(() => setProblemsLoading(false));
   }, [user?.id]);
@@ -368,18 +371,24 @@ function App() {
     }
   };
 
-  // Delete one or more problems
+  // Delete one or more problems. Partial failures are real: remove only the
+  // rows the server confirmed and return the failed ids so the caller can
+  // keep them selected and tell the user.
   const handleDeleteProblems = async (ids) => {
-    try {
-      await Promise.all(ids.map(id => api.deleteProblem(id)));
-      setProblems(prevProblems => prevProblems.filter(p => !ids.includes(p.id)));
-      if (selectedId && ids.includes(selectedId)) {
+    const results = await Promise.allSettled(ids.map(id => api.deleteProblem(id)));
+    const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+    const failedIds = ids.filter((_, i) => results[i].status === 'rejected');
+    if (deletedIds.length) {
+      setProblems(prevProblems => prevProblems.filter(p => !deletedIds.includes(p.id)));
+      if (selectedId && deletedIds.includes(selectedId)) {
         setSelectedId(null);
         setScreen('problems');
       }
-    } catch (err) {
-      console.error('Failed to delete problem(s):', err.message);
     }
+    if (failedIds.length) {
+      console.error(`Failed to delete ${failedIds.length} problem(s)`);
+    }
+    return failedIds;
   };
 
   // Add a problem imported from the LeetCode library (already created on the
@@ -388,25 +397,37 @@ function App() {
     setProblems(prevProblems => [newProblem, ...prevProblems]);
   };
 
-  // Streak for the sidebar widget. The backend computes it from the review
-  // heatmap; the old localStorage value was never written, so the sidebar
-  // permanently claimed "0 days" while the dashboard stat showed the truth.
-  const [serverStats, setServerStats] = useState(null);
+  // Dashboard/sidebar stats (streak, retention, weekly solves) — server-owned,
+  // fetched here so the sidebar streak and the dashboard cards share one source
+  // of truth. Refetched when the problem list changes so grading shows up.
+  const [stats, setStats] = useState(null);
+  const [statsError, setStatsError] = useState(false);
+  const [statsRetryTick, setStatsRetryTick] = useState(0);
 
+  // Clear on user change so a slow refetch never shows another user's stats.
   useEffect(() => {
-    setServerStats(null);
+    setStats(null);
+    setStatsError(false);
   }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
     api.getStats()
-      .then((data) => { if (!cancelled) setServerStats(data); })
+      .then((data) => {
+        if (!cancelled) {
+          setStats(data);
+          setStatsError(false);
+        }
+      })
       .catch((err) => {
-        if (!cancelled) console.warn('Could not load stats:', err.message);
+        if (!cancelled) {
+          console.warn('Could not load stats:', err.message);
+          setStatsError(true);
+        }
       });
     return () => { cancelled = true; };
-  }, [user?.id, problems]);
+  }, [user?.id, problems, statsRetryTick]);
 
   // Topic mastery. The backend is the source of truth (/api/topics: solved out
   // of total per topic, so the bar always matches the fraction); refetched
@@ -465,18 +486,26 @@ function App() {
         return (
           <Dashboard
             problems={problems}
+            problemsLoading={problemsLoading}
+            problemsError={problemsError}
+            onRetryProblems={loadProblems}
             topics={topics}
             userName={user?.name}
-            userId={user?.id}
+            dailyGoal={user?.dailyGoal ?? 10}
+            stats={stats}
+            statsError={statsError}
+            onRetryStats={() => setStatsRetryTick((t) => t + 1)}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
-            themeColor={themeAccent}
           />
         );
       case 'problems':
         return (
           <ProblemBank
             problems={problems}
+            problemsLoading={problemsLoading}
+            problemsError={problemsError}
+            onRetryProblems={loadProblems}
             onOpenProblem={handleOpenProblem}
             onNewProblem={() => handleNavigate('leetcode')}
             onDeleteProblems={handleDeleteProblems}
@@ -606,7 +635,7 @@ function App() {
         templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
         flashcardsCount={cards.length}
-        streakDays={serverStats?.streakDays ?? 0}
+        streakDays={stats ? stats.streakDays : null}
         user={user}
         onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
