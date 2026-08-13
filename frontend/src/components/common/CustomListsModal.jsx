@@ -288,7 +288,7 @@ export default function CustomListsModal({
                 <button
                   type="button"
                   onClick={() => setShowCreateInline(true)}
-                  className="bg-transparent border-none text-accent-text hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors px-1 py-0.5"
+                  className="bg-transparent border-none text-accent hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors px-1 py-0.5"
                 >
                   + NEW
                 </button>
@@ -347,7 +347,7 @@ export default function CustomListsModal({
 
         {/* Inline Error Banner */}
         {errorMessage && (
-          <div role="alert" className="px-5 py-2 bg-badge-hard-bg border-b border-badge-hard-border text-accent-red-text text-fs-11 font-mono flex items-center gap-2">
+          <div role="alert" className="px-5 py-2 bg-red-500/10 border-b border-red-500/20 text-red-400 text-fs-11 font-mono flex items-center gap-2">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <circle cx="10" cy="10" r="8" />
               <line x1="10" y1="6.5" x2="10" y2="10.5" />
@@ -373,7 +373,7 @@ export default function CustomListsModal({
                 <button
                   type="button"
                   onClick={() => setShowCreateInline(true)}
-                  className="bg-transparent border-none text-accent-text hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors"
+                  className="bg-transparent border-none text-accent hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors"
                 >
                   + CREATE ONE
                 </button>

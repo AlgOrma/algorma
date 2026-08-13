@@ -97,7 +97,7 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
           {/* Name */}
           <div className="flex flex-col gap-sp-7">
             <label className="font-mono text-fs-10 tracking-[0.06em] text-text-muted">
-              YOUR NAME <span className="text-accent">*</span>
+              YOUR NAME <span className="text-accent-text">*</span>
             </label>
             <input
               value={form.name}
@@ -105,13 +105,13 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
               placeholder="e.g. Sam Rivera"
               className={inputClasses}
             />
-            {nameError && <span className="text-fs-11-5 text-accent-red-hover">{nameError}</span>}
+            {nameError && <span className="text-fs-11-5 text-accent-red-text">{nameError}</span>}
           </div>
 
           {/* Email */}
           <div className="flex flex-col gap-sp-7">
             <label className="font-mono text-fs-10 tracking-[0.06em] text-text-muted">
-              EMAIL <span className="text-border-accent">· optional</span>
+              EMAIL <span className="text-text-muted">· optional</span>
             </label>
             <input
               type="email"
@@ -120,7 +120,7 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
               placeholder="you@domain.com"
               className={inputClasses}
             />
-            {emailError && <span className="text-fs-11-5 text-accent-red-hover">{emailError}</span>}
+            {emailError && <span className="text-fs-11-5 text-accent-red-text">{emailError}</span>}
           </div>
 
           {/* Daily goal */}
@@ -128,38 +128,25 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
             <label className="font-mono text-fs-10 tracking-[0.06em] text-text-muted">
               HOW MANY PROBLEMS A DAY?
             </label>
-            <div className="relative">
-              <select
-                value={form.dailyGoal}
-                onChange={(e) => setField('dailyGoal', parseInt(e.target.value, 10) || 1)}
-                className="bg-bg-code border border-border-main rounded-card-btn pl-sp-12 pr-sp-30 py-sp-11 text-text-main text-fs-14 outline-none w-full appearance-none cursor-pointer focus:border-accent transition-colors"
-              >
-                {GOAL_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <svg
-                className="absolute right-sp-11 top-1/2 -translate-y-1/2 pointer-events-none"
-                width="12"
-                height="12"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="var(--color-text-muted)"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="5 8 10 13 15 8" />
-              </svg>
-            </div>
+            {/* The global select style (3D key + chevron) owns the styling; a
+                second local chevron here used to double up with it. */}
+            <select
+              value={form.dailyGoal}
+              onChange={(e) => setField('dailyGoal', parseInt(e.target.value, 10) || 1)}
+              className="pl-sp-12 py-sp-11 text-fs-14 outline-none w-full"
+            >
+              {GOAL_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Bio */}
           <div className="flex flex-col gap-sp-7">
             <label className="font-mono text-fs-10 tracking-[0.06em] text-text-muted">
-              BIO <span className="text-border-accent">· optional</span>
+              BIO <span className="text-text-muted">· optional</span>
             </label>
             <textarea
               value={form.bio}
@@ -172,7 +159,7 @@ export default function ProfileSetup({ user = null, isEditing = false, onSubmit,
         </div>
 
         {serverError && (
-          <div className="mt-sp-20 text-fs-12 text-accent-red-hover">{serverError}</div>
+          <div className="mt-sp-20 text-fs-12 text-accent-red-text">{serverError}</div>
         )}
 
         <Button
