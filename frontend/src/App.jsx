@@ -491,6 +491,7 @@ function App() {
             onRetryProblems={loadProblems}
             topics={topics}
             userName={user?.name}
+            userId={user?.id}
             dailyGoal={user?.dailyGoal ?? 10}
             stats={stats}
             statsError={statsError}
