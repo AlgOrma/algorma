@@ -10,9 +10,10 @@
      resolved color, not the var() expression. */
   --color-accent: var(--theme-accent, #0070F3);
   --color-accent-secondary: var(--theme-secondary, #0051CB);
-  /* Readable lift of the accent for small text on dark surfaces (the raw
-     accent fails AA contrast below ~18px, violet especially). */
+  /* Readable accent for small text on dark cards — the raw accent fails
+     contrast at small sizes (violet especially), so text uses this lift. */
   --color-accent-text: color-mix(in srgb, var(--color-accent) 70%, #ffffff);
+  --color-accent-red-text: #ff6b6b;
 
   /* Background Colors */
   --color-bg-overlay: rgba(0, 0, 0, 0.8);
@@ -177,6 +178,50 @@ button {
   border: none;
 }
 
+/* Visible keyboard focus everywhere. Unlayered, so it wins over the button
+   reset above and utility `outline-none` classes. Uses the lifted accent —
+   the raw violet accent fails 3:1 on black. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-text);
+  outline-offset: 2px;
+}
+
+/* The search box container already glows on focus-within; no inner ring. */
+.lc-search input:focus-visible {
+  outline: none;
+}
+
+/* Styled native checkboxes (real inputs, keyboard-operable). White glyph:
+   a dark glyph fails 3:1 on the violet accent fill. */
+.pb-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  flex: none;
+}
+.pb-checkbox:hover {
+  border-color: var(--color-text-main);
+}
+.pb-checkbox:checked,
+.pb-checkbox:indeterminate {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.pb-checkbox:checked {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 10.5l3.5 3.5L15 7' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.pb-checkbox:indeterminate {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cline x1='5' y1='10' x2='15' y2='10' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
 /* Custom interactive animation for spoilers */
 .blur-transition {
   transition: filter 0.3s ease, background 0.3s ease;
@@ -232,7 +277,8 @@ button {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .lc-search:focus-within {
-  border-color: var(--color-accent);
+  /* Lifted accent: the raw violet accent fails 3:1 on black */
+  border-color: var(--color-accent-text);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
@@ -447,7 +493,15 @@ select:hover {
 }
 
 select:focus {
-  border-color: var(--color-accent) !important;
+  /* Lifted accent: the raw violet accent fails 3:1 on black */
+  border-color: var(--color-accent-text) !important;
+}
+
+/* A filter select holding a non-default value: visibly "powered on".
+   !important because the base select rules above lock these properties. */
+select.filter-active {
+  border-color: var(--color-accent-text) !important;
+  color: var(--color-text-main) !important;
 }
 
 select:active {
