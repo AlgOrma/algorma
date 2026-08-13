@@ -4,15 +4,13 @@
   --font-sans: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'Geist Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
   
-  /* Dynamic accent colors from state. App sets --theme-accent/--theme-secondary
-     on <html> (document.documentElement) — they must live at the root, because
-     these derived tokens are computed at :root and descendants inherit the
-     resolved color, not the var() expression. */
+  /* Dynamic accent colors from state */
   --color-accent: var(--theme-accent, #0070F3);
   --color-accent-secondary: var(--theme-secondary, #0051CB);
-  /* Readable lift of the accent for small text on dark surfaces (the raw
-     accent fails AA contrast below ~18px, violet especially). */
+  /* Readable accent for small text on dark cards — the raw accent fails
+     contrast at small sizes (violet especially), so text uses this lift. */
   --color-accent-text: color-mix(in srgb, var(--color-accent) 70%, #ffffff);
+  --color-accent-red-text: #ff6b6b;
 
   /* Background Colors */
   --color-bg-overlay: rgba(0, 0, 0, 0.8);
@@ -55,7 +53,6 @@
   --color-accent-green-hover: #059669;
   --color-accent-red: #EE0000;
   --color-accent-red-hover: #CC0000;
-  --color-accent-red-text: #ff6b6b;
   --color-accent-blue: #0070F3;
   --color-accent-orange: #F5A623;
 
@@ -156,11 +153,11 @@ html, body {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #38342d;
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #444444;
+  background: #44403a;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -175,6 +172,50 @@ button {
   font-family: inherit;
   outline: none;
   border: none;
+}
+
+/* Visible keyboard focus everywhere. Unlayered, so it wins over the button
+   reset above and utility `outline-none` classes. Uses the lifted accent —
+   the raw violet accent fails 3:1 on black. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-text);
+  outline-offset: 2px;
+}
+
+/* The search box container already glows on focus-within; no inner ring. */
+.lc-search input:focus-visible {
+  outline: none;
+}
+
+/* Styled native checkboxes (real inputs, keyboard-operable). White glyph:
+   a dark glyph fails 3:1 on the violet accent fill. */
+.pb-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  flex: none;
+}
+.pb-checkbox:hover {
+  border-color: var(--color-text-main);
+}
+.pb-checkbox:checked,
+.pb-checkbox:indeterminate {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.pb-checkbox:checked {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 10.5l3.5 3.5L15 7' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.pb-checkbox:indeterminate {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cline x1='5' y1='10' x2='15' y2='10' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
 /* Custom interactive animation for spoilers */
@@ -232,7 +273,8 @@ button {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .lc-search:focus-within {
-  border-color: var(--color-accent);
+  /* Lifted accent: the raw violet accent fails 3:1 on black */
+  border-color: var(--color-accent-text);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
@@ -263,12 +305,11 @@ button {
   outline: none;
 }
 
-.btn-3d:active:not(:disabled) {
+.btn-3d:active {
   transform: translateY(3px) !important;
   border-bottom-width: 1px !important;
 }
 
-/* A key that can't be pressed shouldn't look or feel pressable. */
 .btn-3d:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -351,13 +392,9 @@ button {
   background-color: var(--color-bg-element-hover) !important;
   border-color: var(--color-border-accent) !important;
 }
-.btn-card-3d:active:not(:disabled) {
+.btn-card-3d:active {
   transform: translateY(3px) !important;
   border-bottom-width: 1px !important;
-}
-.btn-card-3d:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 /* Compact version of 3D button */
@@ -367,7 +404,7 @@ button {
   border-radius: 8px !important;
   border-bottom-width: 3px !important;
 }
-.btn-3d-sm:active:not(:disabled) {
+.btn-3d-sm:active {
   transform: translateY(2px) !important;
   border-bottom-width: 1px !important;
 }
@@ -389,23 +426,6 @@ button {
 
 .animate-scale-up {
   animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Collapsible panels (e.g. the create-list form) ease open downward. */
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-down {
-  animation: slideDown 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-fade-in,
-  .animate-scale-up,
-  .animate-slide-down {
-    animation: none;
-  }
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
@@ -447,7 +467,15 @@ select:hover {
 }
 
 select:focus {
-  border-color: var(--color-accent) !important;
+  /* Lifted accent: the raw violet accent fails 3:1 on black */
+  border-color: var(--color-accent-text) !important;
+}
+
+/* A filter select holding a non-default value: visibly "powered on".
+   !important because the base select rules above lock these properties. */
+select.filter-active {
+  border-color: var(--color-accent-text) !important;
+  color: var(--color-text-main) !important;
 }
 
 select:active {
@@ -642,16 +670,16 @@ select:active {
 }
 
 /* ── Keyboard focus ─────────────────────────────────────────────────────
-   The button/key resets above remove native outlines, so keyboard focus
-   needs one visible replacement everywhere. :focus-visible only fires on
-   keyboard (not mouse) focus, so the arcade keys stay clean on click.
-   Uses the accent-text lift — the raw accent ring fails 3:1 on black in
-   the violet theme. Text fields keep their own border + glow treatment. */
-*:focus-visible {
-  outline: 2px solid var(--color-accent-text);
-  outline-offset: 2px;
-}
-input:focus-visible,
+   The global :focus-visible ring is defined once with the button reset above.
+   Text-entry fields opt out because they carry their own focus treatment
+   (focus:border-accent). Scoped by type on purpose: checkboxes are <input>
+   too, and .pb-checkbox is appearance:none with no focus styling of its own,
+   so a blanket input exemption would leave it with no visible focus at all. */
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="number"]:focus-visible,
 textarea:focus-visible {
   outline: none;
 }

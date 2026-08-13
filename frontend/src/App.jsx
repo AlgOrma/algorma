@@ -2,9 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'rea
 import useLocalStorage from './hooks/useLocalStorage';
 import * as api from './api';
 import Sidebar from './components/Sidebar';
-import { FEATURES } from './features';
-
-import { INITIAL_CARDS } from './data/initialData';
+import { FEATURES, applyServerFeatures } from './features';
+import { screenFromPath, pathForScreen } from './routes';
 
 // Each screen loads as its own chunk so opening the app costs one small
 // bundle, not the whole editor. The CodeMirror stack (used by ProblemDetail,
@@ -16,6 +15,8 @@ const Templates = lazy(() => import('./pages/Templates'));
 const ProblemDetail = lazy(() => import('./pages/ProblemDetail'));
 const RevisionSession = lazy(() => import('./pages/RevisionSession'));
 const FlashcardSession = lazy(() => import('./pages/FlashcardSession'));
+const FlashcardDeckManager = lazy(() => import('./pages/FlashcardDeckManager'));
+const FlashcardCardEditor = lazy(() => import('./pages/FlashcardCardEditor'));
 const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
 const LeetCodeLibrary = lazy(() => import('./pages/LeetCodeLibrary'));
 const CustomLists = lazy(() => import('./pages/CustomLists'));
@@ -29,45 +30,15 @@ const screenFallback = (
   </div>
 );
 
-// URL path for each screen, so pages are shareable endpoints (e.g. /revise).
-// Feature-flagged screens are left out entirely, so their URLs don't resolve.
-const SCREEN_PATHS = {
-  dashboard: '/dashboard',
-  problems: '/problems',
-  leetcode: '/leetcode',
-  'custom-lists': '/custom-lists',
-  templates: '/templates',
-  revise: '/revise',
-  ...(FEATURES.flashcards ? { flashcards: '/flashcards' } : {})
-};
-
-// '/problems/<id>' opens that problem's detail screen directly.
-// '/revise/<id>' lands on the revision screen (RevisionSession reads the id
-// itself and starts a session for that problem).
-function screenFromPath(pathname) {
-  const detailMatch = pathname.match(/^\/problems\/([^/]+)$/);
-  if (detailMatch) return { screen: 'detail', id: detailMatch[1] };
-  if (/^\/revise\/[^/]+$/.test(pathname)) return { screen: 'revise', id: null };
-  const entry = Object.entries(SCREEN_PATHS).find(([, path]) => path === pathname);
-  return entry ? { screen: entry[0], id: null } : null;
-}
-
-function pathForScreen(screen, selectedId) {
-  if (screen === 'detail' && selectedId) return `/problems/${selectedId}`;
-  return SCREEN_PATHS[screen] || '/dashboard';
-}
-
 function App() {
   // Persistent client-side state
   const [screen, setScreen] = useLocalStorage('dsa_screen', 'dashboard');
   const [selectedId, setSelectedId] = useLocalStorage('dsa_selected_id', null);
   const [problems, setProblems] = useState([]);
   const [problemsLoading, setProblemsLoading] = useState(true);
+  const [problemsError, setProblemsError] = useState(false);
   const [customLists, setCustomLists] = useState([]);
   const [customListsLoading, setCustomListsLoading] = useState(true);
-  // Read-only for now: cards are graded via the API once flashcards ship, and
-  // there's no theme switcher yet.
-  const [cards] = useLocalStorage('dsa_cards', INITIAL_CARDS);
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
@@ -77,39 +48,84 @@ function App() {
   // localStorage write this would otherwise race is a parent effect.
   api.setCurrentUserId(user?.id ?? null);
 
-  // A feature-flagged-off screen can still be remembered in localStorage from
-  // before the flag flipped — fall back to the dashboard.
+  // The backend gates flashcards at runtime too (ENABLE_FLASHCARDS), so narrow
+  // our build-time flags to what it actually serves. Until it answers we keep
+  // the build-time default — the two are normally in sync, and flickering the
+  // nav off and back on would be worse than a brief optimistic render.
+  const [serverFeaturesApplied, setServerFeaturesApplied] = useState(false);
   useEffect(() => {
-    if (!FEATURES.flashcards && screen === 'flashcards') setScreen('dashboard');
+    api.getFeatures()
+      .then((flags) => {
+        applyServerFeatures(flags);
+        setServerFeaturesApplied(true);
+      })
+      .catch(() => {
+        /* offline or older server — keep the build-time flags */
+      });
+  }, []);
+
+  // A feature-flagged-off screen can still be remembered in localStorage from
+  // before the flag flipped — fall back to the dashboard. Covers every
+  // flashcards surface (flashcards, flashcards-study, flashcards-editor).
+  // Re-runs once the server's flags land, in case they turn the feature off.
+  useEffect(() => {
+    if (!FEATURES.flashcards && screen.startsWith('flashcards')) setScreen('dashboard');
     // setScreen is a stable useState setter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen]);
+  }, [screen, serverFeaturesApplied]);
 
   // On first render, the URL wins over the remembered screen so direct links
   // like /revise or /problems/<id> land on the right page (render-phase update,
   // before anything paints).
   const adoptedUrlRef = useRef(false);
+  const bootUrlRef = useRef(null);
   if (!adoptedUrlRef.current) {
     adoptedUrlRef.current = true;
-    const fromUrl = screenFromPath(window.location.pathname);
+    bootUrlRef.current = screenFromPath(window.location.pathname, window.location.search);
+    const fromUrl = bootUrlRef.current;
     if (fromUrl) {
       if (fromUrl.screen !== screen) setScreen(fromUrl.screen);
       if (fromUrl.id && fromUrl.id !== selectedId) setSelectedId(fromUrl.id);
     }
   }
+  // Whatever the first load's URL carried, for the flashcards state below to
+  // seed from. Read once; later navigations go through handleNavigate.
+  const bootUrl = bootUrlRef.current || {};
+
+  // Seeded from the URL so a reload of /flashcards/study?deck=… or
+  // /flashcards/editor?card=… resumes what the user was actually doing.
+  const [studyDeckId, setStudyDeckId] = useState(
+    bootUrl.screen === 'flashcards-study' ? bootUrl.deckId ?? null : null
+  );
+  const [editorCardId, setEditorCardId] = useState(
+    bootUrl.screen === 'flashcards-editor' ? bootUrl.cardId ?? null : null
+  );
+  const [editorPresetDeckId, setEditorPresetDeckId] = useState(
+    bootUrl.screen === 'flashcards-editor' ? bootUrl.deckId ?? null : null
+  );
 
   // Keep the address bar in sync with the active screen. The first sync
   // replaces the history entry (so '/' doesn't linger); later ones push,
   // making the browser back/forward buttons work.
   const urlInitializedRef = useRef(false);
   useEffect(() => {
-    const path = pathForScreen(screen, selectedId);
+    const path = pathForScreen(screen, selectedId, {
+      studyDeckId,
+      editorCardId,
+      editorPresetDeckId,
+    });
     // Leave subpaths owned by the active screen alone (e.g. /revise/<id>,
-    // which RevisionSession manages itself).
-    const current = screenFromPath(window.location.pathname);
+    // which RevisionSession manages itself). The flashcards screens own no
+    // subpaths — their URL is fully derived from state, so any mismatch there
+    // is stale and must be rewritten rather than preserved.
+    const here = window.location.pathname + window.location.search;
+    const current = screenFromPath(window.location.pathname, window.location.search);
     const onSameScreen =
-      current && current.screen === screen && (screen !== 'detail' || current.id === selectedId);
-    if (!onSameScreen && window.location.pathname !== path) {
+      current &&
+      current.screen === screen &&
+      (screen !== 'detail' || current.id === selectedId) &&
+      !screen.startsWith('flashcards');
+    if (!onSameScreen && here !== path) {
       if (urlInitializedRef.current) {
         window.history.pushState(null, '', path);
       } else {
@@ -117,14 +133,22 @@ function App() {
       }
     }
     urlInitializedRef.current = true;
-  }, [screen, selectedId]);
+  }, [screen, selectedId, studyDeckId, editorCardId, editorPresetDeckId]);
 
   // Browser back/forward → restore the screen for that history entry.
   useEffect(() => {
     const handlePopState = () => {
-      const fromUrl = screenFromPath(window.location.pathname) || { screen: 'dashboard', id: null };
+      const fromUrl = screenFromPath(window.location.pathname, window.location.search) || {
+        screen: 'dashboard',
+        id: null,
+      };
       setScreen(fromUrl.screen);
       if (fromUrl.id) setSelectedId(fromUrl.id);
+      if (fromUrl.screen === 'flashcards-study') setStudyDeckId(fromUrl.deckId ?? null);
+      if (fromUrl.screen === 'flashcards-editor') {
+        setEditorCardId(fromUrl.cardId ?? null);
+        setEditorPresetDeckId(fromUrl.deckId ?? null);
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -142,9 +166,11 @@ function App() {
     api.getProblems()
       .then((data) => {
         setProblems(data || []);
+        setProblemsError(false);
       })
       .catch((err) => {
         console.warn('Could not load problems from backend:', err.message);
+        setProblemsError(true);
       })
       .finally(() => setProblemsLoading(false));
   }, [user?.id]);
@@ -214,19 +240,20 @@ function App() {
   const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
   const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
 
-  // The theme variables must live on <html>: Tailwind's @theme tokens
-  // (--color-accent etc.) are declared at :root and resolve their var()
-  // references there, so descendants inherit the *resolved* color. Setting
-  // --theme-accent on an inner div never reaches them — the violet theme
-  // silently rendered blue everywhere until this moved to the root.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--theme-accent', themeAccent);
-    root.style.setProperty('--theme-secondary', themeSecondary);
-  }, [themeAccent, themeSecondary]);
-
   // State to hold specific problems forced for revision
   const [revisionProblems, setRevisionProblems] = useState(null);
+  const [flashcardsDueCount, setFlashcardsDueCount] = useState(0);
+
+  const loadFlashcardsDue = React.useCallback(() => {
+    if (!user?.id || !FEATURES.flashcards) return;
+    api.getFlashcardsDueCount()
+      .then((data) => setFlashcardsDueCount(data?.count || 0))
+      .catch(() => {});
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadFlashcardsDue();
+  }, [loadFlashcardsDue, screen]);
 
   // Navigation controller
   const handleNavigate = (targetScreen, params = {}) => {
@@ -234,6 +261,19 @@ function App() {
       setInitialSearchQuery(params.query);
     } else {
       setInitialSearchQuery('');
+    }
+    if (params.deckId !== undefined) {
+      setStudyDeckId(params.deckId);
+    }
+    if (params.cardId !== undefined) {
+      setEditorCardId(params.cardId);
+    } else {
+      setEditorCardId(null);
+    }
+    if (params.presetDeckId !== undefined) {
+      setEditorPresetDeckId(params.presetDeckId);
+    } else {
+      setEditorPresetDeckId(null);
     }
     if (targetScreen !== 'revise') {
       setRevisionProblems(null);
@@ -367,33 +407,34 @@ function App() {
     );
   };
 
-  // Update a single problem in local state and database. Rethrows so callers
-  // that report save state to the user (ProblemDetail's autosave) can tell a
-  // completed write from a failed one instead of silently showing "saved".
-  // `opts.keepalive` is passed through for writes flushed during page unload.
-  const handleUpdateProblem = async (updatedProblem, opts = {}) => {
+  // Update a single problem in local state and database
+  const handleUpdateProblem = async (updatedProblem) => {
     try {
-      const res = await api.updateProblem(updatedProblem.id, updatedProblem, opts);
+      const res = await api.updateProblem(updatedProblem.id, updatedProblem);
       applyProblemUpdate(res);
-      return res;
     } catch (err) {
       console.error('Failed to update problem in database:', err.message);
-      throw err;
     }
   };
 
-  // Delete one or more problems
+  // Delete one or more problems. Partial failures are real: remove only the
+  // rows the server confirmed and return the failed ids so the caller can
+  // keep them selected and tell the user.
   const handleDeleteProblems = async (ids) => {
-    try {
-      await Promise.all(ids.map(id => api.deleteProblem(id)));
-      setProblems(prevProblems => prevProblems.filter(p => !ids.includes(p.id)));
-      if (selectedId && ids.includes(selectedId)) {
+    const results = await Promise.allSettled(ids.map(id => api.deleteProblem(id)));
+    const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+    const failedIds = ids.filter((_, i) => results[i].status === 'rejected');
+    if (deletedIds.length) {
+      setProblems(prevProblems => prevProblems.filter(p => !deletedIds.includes(p.id)));
+      if (selectedId && deletedIds.includes(selectedId)) {
         setSelectedId(null);
         setScreen('problems');
       }
-    } catch (err) {
-      console.error('Failed to delete problem(s):', err.message);
     }
+    if (failedIds.length) {
+      console.error(`Failed to delete ${failedIds.length} problem(s)`);
+    }
+    return failedIds;
   };
 
   // Add a problem imported from the LeetCode library (already created on the
@@ -402,13 +443,17 @@ function App() {
     setProblems(prevProblems => [newProblem, ...prevProblems]);
   };
 
-  // Streak for the sidebar widget. The backend computes it from the review
-  // heatmap; the old localStorage value was never written, so the sidebar
-  // permanently claimed "0 days" while the dashboard stat showed the truth.
-  const [serverStats, setServerStats] = useState(null);
+  // Dashboard/sidebar stats (streak, retention, weekly solves) — server-owned,
+  // fetched here so the sidebar streak and the dashboard cards share one source
+  // of truth. Refetched when the problem list changes so grading shows up.
+  const [stats, setStats] = useState(null);
+  const [statsError, setStatsError] = useState(false);
+  const [statsRetryTick, setStatsRetryTick] = useState(0);
 
+  // Clear on user change so a slow refetch never shows another user's stats.
   useEffect(() => {
-    setServerStats(null);
+    setStats(null);
+    setStatsError(false);
   }, [user?.id]);
 
   // Stats and topic mastery only move when a problem is added or removed, or a
@@ -428,14 +473,22 @@ function App() {
     if (!user?.id) return;
     let cancelled = false;
     api.getStats()
-      .then((data) => { if (!cancelled) setServerStats(data); })
+      .then((data) => {
+        if (!cancelled) {
+          setStats(data);
+          setStatsError(false);
+        }
+      })
       .catch((err) => {
-        if (!cancelled) console.warn('Could not load stats:', err.message);
+        if (!cancelled) {
+          console.warn('Could not load stats:', err.message);
+          setStatsError(true);
+        }
       });
     return () => { cancelled = true; };
     // problemsReviewSignature stands in for `problems` (see above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, problemsReviewSignature]);
+  }, [user?.id, problemsReviewSignature, statsRetryTick]);
 
   // Topic mastery. The backend is the source of truth (/api/topics: solved out
   // of total per topic, so the bar always matches the fraction); refetched
@@ -496,18 +549,27 @@ function App() {
         return (
           <Dashboard
             problems={problems}
+            problemsLoading={problemsLoading}
+            problemsError={problemsError}
+            onRetryProblems={loadProblems}
             topics={topics}
             userName={user?.name}
             userId={user?.id}
+            dailyGoal={user?.dailyGoal ?? 10}
+            stats={stats}
+            statsError={statsError}
+            onRetryStats={() => setStatsRetryTick((t) => t + 1)}
             onNavigate={handleNavigate}
             onOpenProblem={handleOpenProblem}
-            themeColor={themeAccent}
           />
         );
       case 'problems':
         return (
           <ProblemBank
             problems={problems}
+            problemsLoading={problemsLoading}
+            problemsError={problemsError}
+            onRetryProblems={loadProblems}
             onOpenProblem={handleOpenProblem}
             onNewProblem={() => handleNavigate('leetcode')}
             onDeleteProblems={handleDeleteProblems}
@@ -590,14 +652,34 @@ function App() {
           />
         );
       case 'flashcards':
-        // Flag off: render nothing for the frame before the fallback effect
-        // switches the screen to the dashboard.
+        if (!FEATURES.flashcards) return null;
+        return (
+          <FlashcardDeckManager
+            onNavigate={handleNavigate}
+            onCardsChanged={loadFlashcardsDue}
+            onStartStudy={({ deckId }) => {
+              setStudyDeckId(deckId || null);
+              handleNavigate('flashcards-study');
+            }}
+          />
+        );
+      case 'flashcards-study':
         if (!FEATURES.flashcards) return null;
         return (
           <FlashcardSession
-            cards={cards}
+            deckId={studyDeckId}
+            onCardsChanged={loadFlashcardsDue}
             onNavigate={handleNavigate}
-            themeColor={themeAccent}
+          />
+        );
+      case 'flashcards-editor':
+        if (!FEATURES.flashcards) return null;
+        return (
+          <FlashcardCardEditor
+            cardId={editorCardId}
+            presetDeckId={editorPresetDeckId}
+            onNavigate={handleNavigate}
+            onSaveSuccess={() => handleNavigate('flashcards')}
           />
         );
       default:
@@ -615,7 +697,13 @@ function App() {
   // Rendered full-screen without the sidebar, matching the design.
   if (!user || isEditingProfile) {
     return (
-      <div className="h-screen bg-bg-main text-text-main overflow-hidden">
+      <div
+        className="h-screen bg-bg-main text-text-main overflow-hidden"
+        style={{
+          '--theme-accent': themeAccent,
+          '--theme-secondary': themeSecondary
+        }}
+      >
         <Suspense fallback={null}>
           <ProfileSetup
             user={user}
@@ -629,7 +717,13 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-bg-main text-text-main overflow-hidden relative">
+    <div
+      className="flex h-screen bg-bg-main text-text-main overflow-hidden relative"
+      style={{
+        '--theme-accent': themeAccent,
+        '--theme-secondary': themeSecondary
+      }}
+    >
       {/* Sidebar Navigation */}
       <Sidebar
         activeScreen={screen}
@@ -638,8 +732,8 @@ function App() {
         customListsCount={customLists.length}
         templatesCount={templatePatterns.length}
         reviseCount={dueReviseCount}
-        flashcardsCount={cards.length}
-        streakDays={serverStats?.streakDays ?? 0}
+        flashcardsCount={flashcardsDueCount}
+        streakDays={stats ? stats.streakDays : null}
         user={user}
         onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}

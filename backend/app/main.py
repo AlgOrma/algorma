@@ -10,6 +10,7 @@ from .db import check_setup, init_db
 from .routers import (
     curriculums,
     custom_lists,
+    decks,
     flashcards,
     leetcode_questions,
     leetcode_sync,
@@ -58,11 +59,23 @@ def health():
     return {"ok": True}
 
 
+@app.get("/api/features", tags=["health"])
+def features():
+    """Runtime feature flags, so the SPA can hide UI this API isn't serving.
+
+    The frontend has its own build-time flags (frontend/src/features.js); this
+    lets it intersect them with the server's, instead of shipping a fully
+    visible Flashcards section whose every request 404s.
+    """
+    return {"flashcards": settings.enable_flashcards}
+
+
 app.include_router(users.router)
 app.include_router(problems.router)
 app.include_router(topics.router)
 app.include_router(templates.router)
-if settings.enable_flashcards:  # feature-flagged: UI not implemented yet
+if settings.enable_flashcards:
+    app.include_router(decks.router)
     app.include_router(flashcards.router)
 app.include_router(stats.router)
 app.include_router(leetcode_questions.router)
