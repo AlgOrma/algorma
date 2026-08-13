@@ -25,7 +25,7 @@ const Button = forwardRef(function Button({
   } else if (variant === 'orange') {
     variantClasses = "btn-3d-orange";
   } else if (variant === 'ghost') {
-    baseClasses = "font-sans text-fs-13 font-bold cursor-pointer inline-flex items-center justify-center gap-2 select-none transition-all duration-150 outline-none rounded-lg py-2 px-3.5";
+    baseClasses = "font-sans text-fs-13 font-bold cursor-pointer inline-flex items-center justify-center gap-2 select-none transition-all duration-150 outline-none rounded-lg py-2 px-3.5 disabled:opacity-45 disabled:cursor-not-allowed";
     variantClasses = "text-text-muted bg-transparent border-none hover:text-text-main hover:bg-bg-element-hover";
   }
 

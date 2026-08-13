@@ -6,7 +6,8 @@ import Heatmap from './Heatmap';
 // The component paints day cells as `rgba(<colorBase>, <opacity>)` and unused
 // weekday rows as `transparent`. We classify cells by that inline color rather
 // than class names, and read the alpha channel to check intensity buckets.
-const CELL_COLOR = /^rgba\(111,\s*191,\s*146,\s*([\d.]+)\)$/;
+// The default colorBase matches --color-accent-green-hover (5, 150, 105).
+const CELL_COLOR = /^rgba\(5,\s*150,\s*105,\s*([\d.]+)\)$/;
 
 const opacityOf = (el) => {
   const match = el.style.backgroundColor.match(CELL_COLOR);
@@ -83,7 +84,7 @@ describe('Heatmap', () => {
 
       const cells = getDayCells(container);
       expect(opacityOf(cells[1])).toBe(0.88);
-      expect(opacityOf(cells[2])).toBe(0.1);
+      expect(opacityOf(cells[2])).toBe(0.18);
       expect(opacityOf(cells[3])).toBe(0.34);
       expect(opacityOf(cells[4])).toBe(0.58);
     });
