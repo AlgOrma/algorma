@@ -59,6 +59,20 @@ const AUTOSAVE_DELAY_MS = 1200;
 
 const NEW_APPROACH_CODE = '// Add your code solution here';
 
+// Seeded scaffolding isn't work — a problem whose only "solution" is the
+// starter comment has not been started.
+const isBlankCode = (code) =>
+  !code || !code.trim() || code.trim() === NEW_APPROACH_CODE;
+
+// The single definition of "this problem has been worked on", shared by the
+// autosave promotion and the checklist so they can never disagree about
+// whether a problem is Not started or Solving.
+const hasWork = (approaches, notes) =>
+  (notes || '').trim().length > 0 ||
+  (approaches || []).some(
+    (a) => !isBlankCode(a.code) || (a.approach || '').trim() || (a.complexityTime || '').trim() || (a.complexitySpace || '').trim()
+  );
+
 const StatusDot = ({ className = '', filled = true }) => (
   <svg width="7" height="7" viewBox="0 0 8 8" className={className} aria-hidden="true">
     <circle
@@ -241,8 +255,16 @@ export default function ProblemDetail({
       const { approaches: liveApproaches, notes: liveNotes } = workspaceRef.current;
       const primary = liveApproaches[0] || {};
 
+      // First real edit on an untouched problem is the moment it becomes
+      // "Solving" — the state you'd otherwise have to go and set by hand.
+      const started =
+        current.status === 'Not started' && hasWork(liveApproaches, liveNotes)
+          ? 'Solving'
+          : current.status;
+
       const payload = {
         ...current,
+        status: started,
         approach: primary.approach || '',
         solution: primary.code || '',
         notes: liveNotes,
@@ -423,20 +445,29 @@ export default function ProblemDetail({
     onBack();
   };
 
-  const handleMarkComplete = () => {
+  const isDone = problem.status === 'Done';
+
+  // Done ⇄ Solving. Reopening lands on Solving rather than Not started — the
+  // work is still there, so claiming otherwise would be a lie.
+  const handleToggleComplete = () => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    void persist({
-      status: 'Done',
-      due: false,
-      lastRevised: 'just now',
-      nextLabel: 'in 6 days',
-      revisions: (problem.revisions || 0) + 1
-    });
 
-    setToastMessage('Problem completed!');
+    if (isDone) {
+      void persist({ status: 'Solving' });
+      setToastMessage('Reopened — back to solving.');
+    } else {
+      void persist({
+        status: 'Done',
+        due: false,
+        lastRevised: 'just now',
+        nextLabel: 'in 6 days',
+        revisions: (problem.revisions || 0) + 1
+      });
+      setToastMessage('Problem completed!');
+    }
     setTimeout(() => setToastMessage(''), 2500);
   };
 
@@ -459,7 +490,10 @@ export default function ProblemDetail({
     'Mark complete'
   ];
 
-  const defaultDoneCount = problem.status === 'Done' ? 6 : problem.status === 'Solving' ? 4 : 0;
+  // Without stored progress, only "Done" can be inferred — a Solving problem
+  // used to be shown with four steps pre-ticked, which invented progress the
+  // user never made.
+  const defaultDoneCount = problem.status === 'Done' ? checklistLabels.length : 0;
 
   const checklistProgress = problem.checklistProgress
     ? checklistLabels.map((_, idx) => !!problem.checklistProgress[idx])
@@ -485,14 +519,16 @@ export default function ProblemDetail({
 
     currentProgress[stepIndex] = !currentProgress[stepIndex];
     
-    let newStatus = problem.status;
+    let newStatus;
     let isDue = problem.due;
-    
+
     const checkedCount = currentProgress.filter(Boolean).length;
-    if (currentProgress[5]) { 
+    if (currentProgress[checklistLabels.length - 1]) {
       newStatus = 'Done';
       isDue = false;
-    } else if (checkedCount > 0) {
+    } else if (checkedCount > 0 || hasWork(approaches, notes)) {
+      // Written code counts even with every box cleared — unticking the
+      // checklist shouldn't erase the fact that the problem was worked on.
       newStatus = 'Solving';
     } else {
       newStatus = 'Not started';
@@ -557,12 +593,18 @@ export default function ProblemDetail({
           )}
           <SaveStatus state={saveState} onRetry={() => void persist()} />
 
-          <Button 
-            onClick={handleMarkComplete}
-            disabled={problem.status === 'Done'}
+          <Button
+            onClick={handleToggleComplete}
+            variant={isDone ? 'secondary' : 'primary'}
             className="cursor-pointer"
+            title={isDone ? 'Reopen this problem' : 'Mark this problem complete'}
           >
-            {problem.status === 'Done' ? '✓ Completed' : 'Mark complete'}
+            {isDone && (
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 5 8 15 3 10" />
+              </svg>
+            )}
+            {isDone ? 'Completed' : 'Mark complete'}
           </Button>
 
           {/* Three dot actions menu */}
