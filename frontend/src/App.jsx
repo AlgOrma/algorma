@@ -58,6 +58,12 @@ function App() {
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
+  // Mirror the active profile into the API client during render, so it is set
+  // before any child's mount effect can fire its first request. Doing this in
+  // an effect would be too late: children run their effects first, and the
+  // localStorage write this would otherwise race is a parent effect.
+  api.setCurrentUserId(user?.id ?? null);
+
   // A feature-flagged-off screen can still be remembered in localStorage from
   // before the flag flipped — fall back to the dashboard.
   useEffect(() => {
@@ -167,6 +173,31 @@ function App() {
   // Temporary UI state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
+
+  // Focus view: opening a problem drops the nav to an icon rail so the
+  // statement and the editor get the width, and leaving the problem screen
+  // restores it. Within a screen the choice is the user's — the rail's chevron
+  // or ⌘B / Ctrl+B — and is not overridden until they navigate again.
+  const [navCollapsed, setNavCollapsed] = useState(screen === 'detail');
+  const lastScreenRef = useRef(screen);
+  useEffect(() => {
+    if (lastScreenRef.current === screen) return;
+    const leftDetail = lastScreenRef.current === 'detail';
+    lastScreenRef.current = screen;
+    if (screen === 'detail') setNavCollapsed(true);
+    else if (leftDetail) setNavCollapsed(false);
+  }, [screen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setNavCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Theme settings mapping
   const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
@@ -444,6 +475,7 @@ function App() {
             onRetryProblems={loadProblems}
             topics={topics}
             userName={user?.name}
+            userId={user?.id}
             dailyGoal={user?.dailyGoal ?? 10}
             stats={stats}
             statsError={statsError}
@@ -605,6 +637,8 @@ function App() {
         onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
         themeColorSecondary={themeSecondary}
+        collapsed={navCollapsed}
+        onToggleCollapse={() => setNavCollapsed((c) => !c)}
       />
 
       {/* Main View Container */}

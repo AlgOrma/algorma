@@ -24,6 +24,7 @@ export default function Dashboard({
   onRetryProblems,
   topics = [],
   userName,
+  userId,
   dailyGoal = 10,
   stats = null,
   statsError = false,
@@ -36,16 +37,25 @@ export default function Dashboard({
 
   const [activity, setActivity] = useState(null);
   const [activityError, setActivityError] = useState(false);
-  const loadActivity = () => {
+  const [activityRetryTick, setActivityRetryTick] = useState(0);
+
+  // The activity endpoint is user-scoped, so it waits for a profile and refetches
+  // when that profile changes. The cancelled flag drops a previous profile's
+  // response if one is still in flight, so a switch can't leave someone else's
+  // heatmap on screen.
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
     setActivityError(false);
     getActivity()
-      .then(setActivity)
+      .then((data) => { if (!cancelled) setActivity(data); })
       .catch((err) => {
+        if (cancelled) return;
         console.warn('Could not load activity:', err.message);
         setActivityError(true);
       });
-  };
-  useEffect(loadActivity, []);
+    return () => { cancelled = true; };
+  }, [userId, activityRetryTick]);
 
   // ⌘K / Ctrl+K focuses the search field (the badge advertises it).
   useEffect(() => {
@@ -252,7 +262,7 @@ export default function Dashboard({
             Couldn't load activity —{' '}
             <button
               type="button"
-              onClick={loadActivity}
+              onClick={() => setActivityRetryTick((t) => t + 1)}
               className="font-mono text-fs-12 text-accent-text cursor-pointer bg-transparent p-0 hover:underline"
             >
               Try again
