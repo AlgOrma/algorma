@@ -9,6 +9,11 @@ from ..utils import utcnow
 from .common import get_owned
 
 
+def _blank_to_none(value: str | None) -> str | None:
+    """One stored representation for "no value": "" and "   " both become None."""
+    return (value or "").strip() or None
+
+
 def list_decks(session: Session, user: User) -> list[Deck]:
     return session.exec(
         select(Deck)
@@ -21,9 +26,9 @@ def list_decks(session: Session, user: User) -> list[Deck]:
 def create_deck(session: Session, user: User, payload: DeckCreate) -> Deck:
     deck = Deck(
         user_id=user.id,
-        name=payload.name.strip(),
-        description=payload.description.strip() if payload.description else None,
-        color=payload.color.strip() if payload.color else None,
+        name=payload.name,  # stripped and checked non-blank by DeckCreate
+        description=_blank_to_none(payload.description),
+        color=_blank_to_none(payload.color),
     )
     session.add(deck)
     session.commit()
@@ -40,11 +45,11 @@ def update_deck(
 ) -> Deck:
     deck = get_deck(session, user, deck_id)
     if payload.name is not None:
-        deck.name = payload.name.strip()
+        deck.name = payload.name  # stripped and checked non-blank by DeckUpdate
     if payload.description is not None:
-        deck.description = payload.description.strip() if payload.description else None
+        deck.description = _blank_to_none(payload.description)
     if payload.color is not None:
-        deck.color = payload.color.strip() if payload.color else None
+        deck.color = _blank_to_none(payload.color)
     deck.updated_at = utcnow()
     session.add(deck)
     session.commit()

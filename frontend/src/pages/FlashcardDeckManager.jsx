@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Button from '../components/common/Button';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as api from '../api';
-import { UNASSIGNED_DECK } from '../data/initialData';
+import { UNASSIGNED_DECK, cardInDeck } from '../data/initialData';
 
 const DECK_COLORS = [
   { name: 'Blue', hex: '#3b82f6' },
@@ -120,8 +120,8 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy, onCards
 
   // Card CRUD Handlers
   const openCreateCardModal = (presetDeckId = null) => {
-    // The unassigned pseudo-deck maps to an explicit "no deck" preset.
-    if (presetDeckId === UNASSIGNED_DECK) presetDeckId = '';
+    // UNASSIGNED_DECK passes straight through — the editor offers it as an
+    // option and the API stores it as "no deck".
     onNavigate('flashcards-editor', { presetDeckId });
   };
 
@@ -146,11 +146,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy, onCards
 
   // Filtered Cards for browser view
   const filteredCards = cards.filter((card) => {
-    if (selectedDeckId === UNASSIGNED_DECK) {
-      if (card.deckId) return false;
-    } else if (selectedDeckId && card.deckId !== selectedDeckId) {
-      return false;
-    }
+    if (!cardInDeck(card, selectedDeckId)) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchFront = card.front.toLowerCase().includes(q);
@@ -163,11 +159,7 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy, onCards
 
   // Cards belonging to the currently selected deck (before search filtering),
   // used to decide whether the "Study" button should be enabled.
-  const selectedDeckCards = cards.filter((card) =>
-    selectedDeckId === UNASSIGNED_DECK
-      ? !card.deckId
-      : card.deckId === selectedDeckId
-  );
+  const selectedDeckCards = cards.filter((card) => cardInDeck(card, selectedDeckId));
 
   const selectedDeck =
     selectedDeckId === UNASSIGNED_DECK
@@ -262,9 +254,11 @@ export default function FlashcardDeckManager({ onNavigate, onStartStudy, onCards
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {decks.map((deck) => {
-                  const deckCards = cards.filter((c) => c.deckId === deck.id);
-                  const deckCardCount = deckCards.length;
-                  const deckDueCount = deckCards.filter((c) => c.due).length;
+                  // serialize_deck already counted these server-side; recounting
+                  // them here just made that work pointless and gave the same
+                  // number two implementations.
+                  const deckCardCount = deck.cardCount || 0;
+                  const deckDueCount = deck.dueCount || 0;
 
                   return (
                     <div

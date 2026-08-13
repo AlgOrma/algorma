@@ -18,16 +18,26 @@ router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 def list_flashcards(
     due: Optional[bool] = None,
     deck_id: Optional[str] = None,
+    intervals: bool = False,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    """List the current user's cards.
+
+    ``deck_id`` takes a deck id, or ``__unassigned__`` for cards with no deck.
+    ``intervals=true`` adds the per-grade FSRS preview (``nextIntervals``) that
+    the study screen labels its grade buttons with; it costs four scheduler
+    passes per card, so the browse list leaves it off.
+    """
     now = utcnow()
     cards = flashcard_service.list_flashcards(session, user, deck_id=deck_id)
-    # Filter due cards before serializing so preview_intervals (4 FSRS passes
-    # per card) only runs for the rows actually returned.
+    # Filter before serializing, so nothing is computed for rows we drop.
     if due is True:
         cards = [c for c in cards if flashcard_is_due(c.revision, now)]
-    return [serialize_flashcard(c, c.revision, now) for c in cards]
+    return [
+        serialize_flashcard(c, c.revision, now, with_intervals=intervals)
+        for c in cards
+    ]
 
 
 @router.get("/due-count")
@@ -35,10 +45,8 @@ def flashcard_due_count(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Cheap due-card count for the sidebar badge — no per-card serialization."""
-    now = utcnow()
-    cards = flashcard_service.list_flashcards(session, user)
-    return {"count": sum(1 for c in cards if flashcard_is_due(c.revision, now))}
+    """Due-card count for the sidebar badge — a single COUNT, no rows loaded."""
+    return {"count": flashcard_service.count_due_flashcards(session, user)}
 
 
 @router.post("", status_code=201)

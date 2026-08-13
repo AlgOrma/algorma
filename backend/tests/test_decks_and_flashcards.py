@@ -15,6 +15,7 @@ from app.routers.flashcards import (
     update_flashcard,
 )
 from app.schemas import DeckCreate, DeckUpdate, FlashcardCreate, FlashcardUpdate, GradeIn
+from app.services.flashcards import UNASSIGNED_DECK_ID
 
 
 def make_user(session, name="Deck User"):
@@ -185,3 +186,165 @@ def test_delete_deck_preserves_review_logs(session, user):
     assert len(logs) == 1
     assert logs[0].flashcard_id is not None  # card survives detached, log intact
     assert logs[0].grade == "Easy"
+
+
+# --- deck ownership on card writes ---
+
+
+def test_create_flashcard_rejects_another_users_deck(session, user):
+    other_user = make_user(session, name="Deck Owner")
+    their_deck = create_deck(DeckCreate(name="Theirs"), user=other_user, session=session)
+
+    with pytest.raises(HTTPException) as exc:
+        create_flashcard(
+            FlashcardCreate(front="Q", back="A", deck_id=their_deck["id"]),
+            user=user,
+            session=session,
+        )
+    assert exc.value.status_code == 404
+
+
+def test_update_flashcard_rejects_another_users_deck(session, user):
+    other_user = make_user(session, name="Deck Owner")
+    their_deck = create_deck(DeckCreate(name="Theirs"), user=other_user, session=session)
+    card = create_flashcard(
+        FlashcardCreate(front="Q", back="A"), user=user, session=session
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        update_flashcard(
+            card["id"],
+            FlashcardUpdate(deck_id=their_deck["id"]),
+            user=user,
+            session=session,
+        )
+    assert exc.value.status_code == 404
+    # The rejected write left the card where it was.
+    assert list_flashcards(user=user, session=session)[0]["deckId"] is None
+
+
+def test_update_flashcard_deck_id_move_clear_and_leave_alone(session, user):
+    first = create_deck(DeckCreate(name="First"), user=user, session=session)
+    second = create_deck(DeckCreate(name="Second"), user=user, session=session)
+    card = create_flashcard(
+        FlashcardCreate(front="Q", back="A", deck_id=first["id"]),
+        user=user,
+        session=session,
+    )
+
+    # A real id moves the card.
+    moved = update_flashcard(
+        card["id"], FlashcardUpdate(deck_id=second["id"]), user=user, session=session
+    )
+    assert moved["deckId"] == second["id"]
+    assert moved["deckName"] == "Second"
+
+    # None means "field omitted" — the deck is left alone.
+    untouched = update_flashcard(
+        card["id"], FlashcardUpdate(tag="Graphs"), user=user, session=session
+    )
+    assert untouched["deckId"] == second["id"]
+
+    # "" clears it back to unassigned.
+    cleared = update_flashcard(
+        card["id"], FlashcardUpdate(deck_id=""), user=user, session=session
+    )
+    assert cleared["deckId"] is None
+    assert cleared["deckName"] is None
+
+
+# --- the unassigned bucket is a real filter value, not a client-side fiction ---
+
+
+def test_unassigned_deck_id_filters_cards_without_a_deck(session, user):
+    deck = create_deck(DeckCreate(name="Trees"), user=user, session=session)
+    in_deck = create_flashcard(
+        FlashcardCreate(front="Q1", back="A1", deck_id=deck["id"]),
+        user=user,
+        session=session,
+    )
+    loose = create_flashcard(
+        FlashcardCreate(front="Q2", back="A2"), user=user, session=session
+    )
+
+    unassigned = list_flashcards(deck_id=UNASSIGNED_DECK_ID, user=user, session=session)
+
+    assert [c["id"] for c in unassigned] == [loose["id"]]
+    assert [c["id"] for c in list_flashcards(deck_id=deck["id"], user=user, session=session)] == [
+        in_deck["id"]
+    ]
+
+
+def test_unassigned_sentinel_is_accepted_as_no_deck_on_writes(session, user):
+    created = create_flashcard(
+        FlashcardCreate(front="Q", back="A", deck_id=UNASSIGNED_DECK_ID),
+        user=user,
+        session=session,
+    )
+    assert created["deckId"] is None
+
+    deck = create_deck(DeckCreate(name="Somewhere"), user=user, session=session)
+    update_flashcard(
+        created["id"], FlashcardUpdate(deck_id=deck["id"]), user=user, session=session
+    )
+    back_out = update_flashcard(
+        created["id"],
+        FlashcardUpdate(deck_id=UNASSIGNED_DECK_ID),
+        user=user,
+        session=session,
+    )
+    assert back_out["deckId"] is None
+
+
+# --- text validation ---
+
+
+def test_blank_flashcard_text_is_rejected(session, user):
+    with pytest.raises(ValidationError):
+        FlashcardCreate(front="   ", back="A")
+    with pytest.raises(ValidationError):
+        FlashcardCreate(front="Q", back="")
+    with pytest.raises(ValidationError):
+        FlashcardUpdate(front=" \n ")
+
+
+def test_flashcard_text_is_stripped(session, user):
+    card = create_flashcard(
+        FlashcardCreate(front="  Q  ", back="  A  "), user=user, session=session
+    )
+    assert card["front"] == "Q"
+    assert card["back"] == "A"
+
+
+def test_deck_update_treats_null_name_as_omitted(session, user):
+    deck = create_deck(DeckCreate(name="Keep Me"), user=user, session=session)
+
+    # An explicit null must validate as "leave the name alone", not blow up.
+    updated = update_deck(
+        deck["id"],
+        DeckUpdate(name=None, description="Now described"),
+        user=user,
+        session=session,
+    )
+
+    assert updated["name"] == "Keep Me"
+    assert updated["description"] == "Now described"
+
+
+def test_deck_blank_description_and_color_normalize_to_none(session, user):
+    created = create_deck(
+        DeckCreate(name="Sparse", description="   ", color=""),
+        user=user,
+        session=session,
+    )
+    assert created["description"] is None
+    assert created["color"] is None
+
+    cleared = update_deck(
+        created["id"],
+        DeckUpdate(description=" \t ", color="  "),
+        user=user,
+        session=session,
+    )
+    assert cleared["description"] is None
+    assert cleared["color"] is None

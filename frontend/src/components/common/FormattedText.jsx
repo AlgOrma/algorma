@@ -112,8 +112,18 @@ function parseInlineFormatting(str) {
   if (!str) return '';
 
   // Tokenize inline syntax
-  // Pattern matches `inline code`, $math$, **bold**, *italic*
-  const tokenRegex = /(`[^`]+`|\$[^$]+\$|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  // Pattern matches `inline code`, $math$, **bold**, *italic*.
+  //
+  // Emphasis and math delimiters must hug their content (CommonMark's rule): the
+  // opening one is followed by a non-space and the closing one preceded by one.
+  // Without that, prose asterisks and dollar signs get eaten — `O(n * m) + O(n * k)`
+  // would render the middle as italics, and `costs $5 and $10` as a math chip.
+  // The hugging character must also not be the delimiter itself, or a bare run
+  // like `*****` or `$$$` matches with a delimiter as its "content" — the same
+  // false positive in a different costume. Code spans keep the loose rule,
+  // since backticks are unambiguous.
+  const tokenRegex =
+    /(`[^`]+`|\$(?=[^\s$])(?:[^$]*?[^\s$])?\$|\*\*(?=[^\s*])(?:[^*]*?[^\s*])?\*\*|\*(?=[^\s*])(?:[^*]*?[^\s*])?\*)/g;
   const parts = str.split(tokenRegex);
 
   return parts.map((part, i) => {

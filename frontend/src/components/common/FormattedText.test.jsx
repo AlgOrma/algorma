@@ -44,3 +44,48 @@ describe('FormattedText code blocks', () => {
     expect(screen.getByText('Empty content')).toBeInTheDocument();
   });
 });
+
+describe('FormattedText inline formatting', () => {
+  it('renders bold, italic, inline code and math', () => {
+    render(<FormattedText content={'**b** and *i* and `c` and $x^2$'} />);
+    expect(screen.getByText('b').tagName).toBe('STRONG');
+    expect(screen.getByText('i').tagName).toBe('EM');
+    expect(screen.getByText('c').tagName).toBe('CODE');
+    expect(screen.getByText('x^2')).toBeInTheDocument();
+  });
+
+  it('leaves multiplication asterisks in complexity notation alone', () => {
+    const { container } = render(
+      <FormattedText content={'Time: O(n * m) and space O(n * k)'} />
+    );
+    expect(container.querySelector('em')).toBeNull();
+    expect(container.textContent).toBe('Time: O(n * m) and space O(n * k)');
+  });
+
+  it('leaves literal dollar amounts alone', () => {
+    const { container } = render(<FormattedText content={'The pass costs $5 and $10'} />);
+    expect(container.textContent).toBe('The pass costs $5 and $10');
+  });
+
+  it('does not italicise across a space-padded delimiter', () => {
+    const { container } = render(<FormattedText content={'a * b * c'} />);
+    expect(container.querySelector('em')).toBeNull();
+  });
+
+  it('leaves bare delimiter runs alone', () => {
+    const { container } = render(
+      <FormattedText content={'5 stars ***** and I paid $$$ for it'} />
+    );
+    expect(container.querySelector('em')).toBeNull();
+    expect(container.querySelector('strong')).toBeNull();
+    expect(container.textContent).toBe('5 stars ***** and I paid $$$ for it');
+  });
+
+  it('does not let a bold+italic wrap swallow its own delimiters', () => {
+    // The editor toolbar produces this by applying Bold then Italic to one
+    // selection, so the live preview hits it constantly.
+    const { container } = render(<FormattedText content={'***text***'} />);
+    expect(container.querySelector('strong')?.textContent).toBe('text');
+    expect(container.textContent).toBe('*text*');
+  });
+});

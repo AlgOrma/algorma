@@ -13,43 +13,8 @@ import FlashcardCardEditor from './pages/FlashcardCardEditor';
 import ProfileSetup from './pages/ProfileSetup';
 import LeetCodeLibrary from './pages/LeetCodeLibrary';
 import CustomLists from './pages/CustomLists';
-import { FEATURES } from './features';
-
-// URL path for each screen, so pages are shareable endpoints (e.g. /revise).
-// Feature-flagged screens are left out entirely, so their URLs don't resolve.
-const SCREEN_PATHS = {
-  dashboard: '/dashboard',
-  problems: '/problems',
-  leetcode: '/leetcode',
-  'custom-lists': '/custom-lists',
-  templates: '/templates',
-  revise: '/revise',
-  ...(FEATURES.flashcards
-    ? {
-        flashcards: '/flashcards',
-        'flashcards-study': '/flashcards/study',
-        'flashcards-editor': '/flashcards/editor',
-      }
-    : {})
-};
-
-// '/problems/<id>' opens that problem's detail screen directly.
-// '/revise/<id>' lands on the revision screen (RevisionSession reads the id
-// itself and starts a session for that problem).
-function screenFromPath(pathname) {
-  const detailMatch = pathname.match(/^\/problems\/([^/]+)$/);
-  if (detailMatch) return { screen: 'detail', id: detailMatch[1] };
-  if (/^\/revise\/[^/]+$/.test(pathname)) return { screen: 'revise', id: null };
-  if (/^\/flashcards\/study$/.test(pathname)) return { screen: 'flashcards-study', id: null };
-  if (/^\/flashcards\/editor$/.test(pathname)) return { screen: 'flashcards-editor', id: null };
-  const entry = Object.entries(SCREEN_PATHS).find(([, path]) => path === pathname);
-  return entry ? { screen: entry[0], id: null } : null;
-}
-
-function pathForScreen(screen, selectedId) {
-  if (screen === 'detail' && selectedId) return `/problems/${selectedId}`;
-  return SCREEN_PATHS[screen] || '/dashboard';
-}
+import { FEATURES, applyServerFeatures } from './features';
+import { screenFromPath, pathForScreen } from './routes';
 
 function App() {
   // Persistent client-side state
@@ -63,40 +28,84 @@ function App() {
   const [theme] = useLocalStorage('dsa_theme', 'blue'); // 'blue' or 'purple'
   const [user, setUser] = useLocalStorage('dsa_user', null);
 
+  // The backend gates flashcards at runtime too (ENABLE_FLASHCARDS), so narrow
+  // our build-time flags to what it actually serves. Until it answers we keep
+  // the build-time default — the two are normally in sync, and flickering the
+  // nav off and back on would be worse than a brief optimistic render.
+  const [serverFeaturesApplied, setServerFeaturesApplied] = useState(false);
+  useEffect(() => {
+    api.getFeatures()
+      .then((flags) => {
+        applyServerFeatures(flags);
+        setServerFeaturesApplied(true);
+      })
+      .catch(() => {
+        /* offline or older server — keep the build-time flags */
+      });
+  }, []);
+
   // A feature-flagged-off screen can still be remembered in localStorage from
   // before the flag flipped — fall back to the dashboard. Covers every
   // flashcards surface (flashcards, flashcards-study, flashcards-editor).
+  // Re-runs once the server's flags land, in case they turn the feature off.
   useEffect(() => {
     if (!FEATURES.flashcards && screen.startsWith('flashcards')) setScreen('dashboard');
     // setScreen is a stable useState setter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen]);
+  }, [screen, serverFeaturesApplied]);
 
   // On first render, the URL wins over the remembered screen so direct links
   // like /revise or /problems/<id> land on the right page (render-phase update,
   // before anything paints).
   const adoptedUrlRef = useRef(false);
+  const bootUrlRef = useRef(null);
   if (!adoptedUrlRef.current) {
     adoptedUrlRef.current = true;
-    const fromUrl = screenFromPath(window.location.pathname);
+    bootUrlRef.current = screenFromPath(window.location.pathname, window.location.search);
+    const fromUrl = bootUrlRef.current;
     if (fromUrl) {
       if (fromUrl.screen !== screen) setScreen(fromUrl.screen);
       if (fromUrl.id && fromUrl.id !== selectedId) setSelectedId(fromUrl.id);
     }
   }
+  // Whatever the first load's URL carried, for the flashcards state below to
+  // seed from. Read once; later navigations go through handleNavigate.
+  const bootUrl = bootUrlRef.current || {};
+
+  // Seeded from the URL so a reload of /flashcards/study?deck=… or
+  // /flashcards/editor?card=… resumes what the user was actually doing.
+  const [studyDeckId, setStudyDeckId] = useState(
+    bootUrl.screen === 'flashcards-study' ? bootUrl.deckId ?? null : null
+  );
+  const [editorCardId, setEditorCardId] = useState(
+    bootUrl.screen === 'flashcards-editor' ? bootUrl.cardId ?? null : null
+  );
+  const [editorPresetDeckId, setEditorPresetDeckId] = useState(
+    bootUrl.screen === 'flashcards-editor' ? bootUrl.deckId ?? null : null
+  );
 
   // Keep the address bar in sync with the active screen. The first sync
   // replaces the history entry (so '/' doesn't linger); later ones push,
   // making the browser back/forward buttons work.
   const urlInitializedRef = useRef(false);
   useEffect(() => {
-    const path = pathForScreen(screen, selectedId);
+    const path = pathForScreen(screen, selectedId, {
+      studyDeckId,
+      editorCardId,
+      editorPresetDeckId,
+    });
     // Leave subpaths owned by the active screen alone (e.g. /revise/<id>,
-    // which RevisionSession manages itself).
-    const current = screenFromPath(window.location.pathname);
+    // which RevisionSession manages itself). The flashcards screens own no
+    // subpaths — their URL is fully derived from state, so any mismatch there
+    // is stale and must be rewritten rather than preserved.
+    const here = window.location.pathname + window.location.search;
+    const current = screenFromPath(window.location.pathname, window.location.search);
     const onSameScreen =
-      current && current.screen === screen && (screen !== 'detail' || current.id === selectedId);
-    if (!onSameScreen && window.location.pathname !== path) {
+      current &&
+      current.screen === screen &&
+      (screen !== 'detail' || current.id === selectedId) &&
+      !screen.startsWith('flashcards');
+    if (!onSameScreen && here !== path) {
       if (urlInitializedRef.current) {
         window.history.pushState(null, '', path);
       } else {
@@ -104,14 +113,22 @@ function App() {
       }
     }
     urlInitializedRef.current = true;
-  }, [screen, selectedId]);
+  }, [screen, selectedId, studyDeckId, editorCardId, editorPresetDeckId]);
 
   // Browser back/forward → restore the screen for that history entry.
   useEffect(() => {
     const handlePopState = () => {
-      const fromUrl = screenFromPath(window.location.pathname) || { screen: 'dashboard', id: null };
+      const fromUrl = screenFromPath(window.location.pathname, window.location.search) || {
+        screen: 'dashboard',
+        id: null,
+      };
       setScreen(fromUrl.screen);
       if (fromUrl.id) setSelectedId(fromUrl.id);
+      if (fromUrl.screen === 'flashcards-study') setStudyDeckId(fromUrl.deckId ?? null);
+      if (fromUrl.screen === 'flashcards-editor') {
+        setEditorCardId(fromUrl.cardId ?? null);
+        setEditorPresetDeckId(fromUrl.deckId ?? null);
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -180,9 +197,6 @@ function App() {
 
   // State to hold specific problems forced for revision
   const [revisionProblems, setRevisionProblems] = useState(null);
-  const [studyDeckId, setStudyDeckId] = useState(null);
-  const [editorCardId, setEditorCardId] = useState(null);
-  const [editorPresetDeckId, setEditorPresetDeckId] = useState(null);
   const [flashcardsDueCount, setFlashcardsDueCount] = useState(0);
 
   const loadFlashcardsDue = React.useCallback(() => {

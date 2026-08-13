@@ -2,45 +2,56 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Button from '../components/common/Button';
 import FormattedText from '../components/common/FormattedText';
 import * as api from '../api';
-import { GRADES, UNASSIGNED_DECK, gradeIntervalLabel } from '../data/initialData';
+import { GRADES, gradeIntervalLabel } from '../data/initialData';
+
+const EMPTY_REVIEW_STATS = {
+  reviewedCount: 0,
+  againCount: 0,
+  hardCount: 0,
+  goodCount: 0,
+  easyCount: 0,
+};
 
 export default function FlashcardSession({ deckId, onNavigate, onCardsChanged }) {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Two very different failures. A load error means there is no session to show,
+  // so it takes over the screen. A grade error happens mid-session: the card
+  // stays put and the message goes inline, under the grade buttons.
+  const [loadError, setLoadError] = useState(null);
+  const [gradeError, setGradeError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
   const isGradingRef = useRef(false);
   const [allCaughtUp, setAllCaughtUp] = useState(false);
-  const [reviewStats, setReviewStats] = useState({
-    reviewedCount: 0,
-    againCount: 0,
-    hardCount: 0,
-    goodCount: 0,
-    easyCount: 0,
-  });
+  const [reviewStats, setReviewStats] = useState(EMPTY_REVIEW_STATS);
 
   const loadCards = useCallback(
     async (opts = {}) => {
       try {
         setLoading(true);
-        setError(null);
-        const params = { due: true };
-        if (deckId && deckId !== UNASSIGNED_DECK) params.deck_id = deckId;
-        let dueCards = await api.getFlashcards(params);
-        if (deckId === UNASSIGNED_DECK) {
-          dueCards = (dueCards || []).filter((c) => !c.deckId);
-        }
+        setLoadError(null);
+        setGradeError(null);
+        // Every load returns a different array, so the walk through it starts
+        // over. Without this, a reload mid-session keeps the old index and
+        // silently skips the cards now sitting in front of it.
+        setCurrentIndex(0);
+        setFlipped(false);
+        setReviewStats(EMPTY_REVIEW_STATS);
+
+        // deckId may be the unassigned sentinel — the API filters on it
+        // directly, so there is nothing to translate here.
+        const params = { due: true, intervals: true };
+        if (deckId) params.deck_id = deckId;
+        const dueCards = await api.getFlashcards(params);
 
         if ((!dueCards || dueCards.length === 0) && opts.studyAhead) {
           // Explicit "study ahead" opt-in: pull every card for this filter so
           // the user can review early without silently re-scheduling due cards.
-          const allParams = deckId && deckId !== UNASSIGNED_DECK ? { deck_id: deckId } : {};
-          let allCards = await api.getFlashcards(allParams);
-          if (deckId === UNASSIGNED_DECK) {
-            allCards = (allCards || []).filter((c) => !c.deckId);
-          }
+          const allParams = { intervals: true };
+          if (deckId) allParams.deck_id = deckId;
+          const allCards = await api.getFlashcards(allParams);
           setAllCaughtUp(false);
           setCards(allCards || []);
         } else {
@@ -49,7 +60,7 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
         }
       } catch (err) {
         console.error('Failed to load cards for study session:', err);
-        setError('Could not load flashcards for review.');
+        setLoadError('Could not load flashcards for review.');
       } finally {
         setLoading(false);
       }
@@ -71,7 +82,7 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
 
       isGradingRef.current = true;
       setIsGrading(true);
-      setError(null);
+      setGradeError(null);
       try {
         await api.reviewFlashcard(currentCard.id, gradeObj.key);
         setReviewStats((prev) => ({
@@ -86,9 +97,11 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
         setCurrentIndex((prev) => prev + 1);
         if (onCardsChanged) onCardsChanged();
       } catch (err) {
-        // Hold the card: a failed review must not be counted as a success.
+        // Hold the card: a failed review must not be counted as a success — and
+        // must not tear the session down either. The banner renders under the
+        // grade buttons so the user can just try the same card again.
         console.error('Failed to record review grade:', err);
-        setError(
+        setGradeError(
           err.message || 'Could not save your review. The card was not advanced — try again.'
         );
       } finally {
@@ -143,9 +156,9 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
     );
   }
 
-  if (error || cards.length === 0) {
+  if (loadError || cards.length === 0) {
     // Load failure: surface it rather than pretending the session is empty.
-    if (error) {
+    if (loadError) {
       return (
         <div className="w-full h-full flex items-center justify-center p-6">
           <div className="max-w-md w-full text-center bg-bg-card-grad-start border border-red-500/20 rounded-2xl p-8 shadow-card">
@@ -157,7 +170,7 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
               </svg>
             </div>
             <h3 className="text-fs-18 font-bold text-text-main mb-2">Session Unavailable</h3>
-            <p className="text-fs-13 text-text-muted mb-6">{error}</p>
+            <p className="text-fs-13 text-text-muted mb-6">{loadError}</p>
             <div className="flex justify-center gap-3">
               <Button variant="secondary" onClick={() => loadCards()}>Retry</Button>
               <Button onClick={() => onNavigate('flashcards')}>Back to Decks</Button>
@@ -295,9 +308,9 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
                     How well did you recall it? <span className="opacity-70">(Keys 1-4)</span>
                   </div>
 
-                  {error && (
+                  {gradeError && (
                     <div className="mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-fs-12 font-mono text-center">
-                      {error}
+                      {gradeError}
                     </div>
                   )}
 
@@ -382,12 +395,7 @@ export default function FlashcardSession({ deckId, onNavigate, onCardsChanged })
         <div className="flex gap-3">
           <Button
             variant="secondary"
-            onClick={() => {
-              setCurrentIndex(0);
-              setFlipped(false);
-              setReviewStats({ reviewedCount: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 });
-              loadCards();
-            }}
+            onClick={() => loadCards()}
           >
             Review Again
           </Button>

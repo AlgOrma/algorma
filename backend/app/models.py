@@ -332,7 +332,11 @@ class ReviewLog(SQLModel, table=True):
     reviewed_at: datetime = Field(default_factory=utcnow, index=True)
 
     problem_id: Optional[str] = Field(default=None, foreign_key="problem.id")
-    flashcard_id: Optional[str] = Field(default=None, foreign_key="flashcard.id")
+    # Indexed: deleting a card detaches its logs by this column, and the table is
+    # append-only — rows outlive the cards they came from, so it only grows.
+    flashcard_id: Optional[str] = Field(
+        default=None, foreign_key="flashcard.id", index=True
+    )
 
     user: Optional[User] = Relationship(back_populates="review_logs")
     problem: Optional[Problem] = Relationship(back_populates="review_logs")

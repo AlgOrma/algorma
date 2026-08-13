@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Button from '../components/common/Button';
 import FormattedText from '../components/common/FormattedText';
 import * as api from '../api';
+import { UNASSIGNED_DECK } from '../data/initialData';
 
 export default function FlashcardCardEditor({ cardId = null, presetDeckId = null, onNavigate, onSaveSuccess }) {
   const [decks, setDecks] = useState([]);
@@ -12,7 +13,7 @@ export default function FlashcardCardEditor({ cardId = null, presetDeckId = null
   const [form, setForm] = useState({
     front: '',
     back: '',
-    deckId: presetDeckId || '',
+    deckId: presetDeckId || UNASSIGNED_DECK,
     tag: 'General',
     type: 'concept',
   });
@@ -37,13 +38,14 @@ export default function FlashcardCardEditor({ cardId = null, presetDeckId = null
             setForm({
               front: card.front || '',
               back: card.back || '',
-              deckId: card.deckId || '',
+              deckId: card.deckId || UNASSIGNED_DECK,
               tag: card.tag || 'General',
               type: card.type || 'concept',
             });
           }
-        } else if (presetDeckId !== null && presetDeckId !== undefined) {
-          // An explicit preset wins — including '' for "(General / Unassigned)".
+        } else if (presetDeckId) {
+          // An explicit preset wins — including UNASSIGNED_DECK, which the API
+          // stores as "no deck".
           setForm((prev) => ({ ...prev, deckId: presetDeckId }));
         } else if (fetchedDecks && fetchedDecks.length > 0) {
           setForm((prev) => ({ ...prev, deckId: fetchedDecks[0].id }));
@@ -212,7 +214,7 @@ export default function FlashcardCardEditor({ cardId = null, presetDeckId = null
             onChange={(e) => setForm({ ...form, deckId: e.target.value })}
             className="px-3 py-1.5 bg-bg-track border border-border-btn rounded-xl text-fs-12 text-text-main focus:outline-none focus:border-accent"
           >
-            <option value="">(General / Unassigned)</option>
+            <option value={UNASSIGNED_DECK}>(General / Unassigned)</option>
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}

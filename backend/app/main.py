@@ -59,6 +59,17 @@ def health():
     return {"ok": True}
 
 
+@app.get("/api/features", tags=["health"])
+def features():
+    """Runtime feature flags, so the SPA can hide UI this API isn't serving.
+
+    The frontend has its own build-time flags (frontend/src/features.js); this
+    lets it intersect them with the server's, instead of shipping a fully
+    visible Flashcards section whose every request 404s.
+    """
+    return {"flashcards": settings.enable_flashcards}
+
+
 app.include_router(users.router)
 app.include_router(problems.router)
 app.include_router(topics.router)

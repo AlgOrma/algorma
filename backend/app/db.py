@@ -74,6 +74,15 @@ def init_db() -> None:
             ))
             conn.commit()
 
+        if inspector.has_table("reviewlog"):
+            # Same story for ReviewLog.flashcard_id (index=True on the model):
+            # deleting a card detaches its logs by this column.
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_reviewlog_flashcard_id "
+                "ON reviewlog (flashcard_id)"
+            ))
+            conn.commit()
+
     # 2. Migrate existing flat approaches / solutions to problem_approach table
     with Session(engine) as session:
         from .models import Problem, ProblemApproach

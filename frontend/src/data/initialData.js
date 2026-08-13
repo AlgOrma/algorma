@@ -7,9 +7,20 @@ export const INITIAL_PROBLEMS = [];
 
 export const INITIAL_CARDS = [];
 
-// Pseudo-deck id for flashcards with no deck (the "(General / Unassigned)"
-// bucket in the deck manager / card editor).
+// Id for the "(General / Unassigned)" bucket — flashcards with no deck. The API
+// accepts it wherever a deck id goes (filter, create, update), so it is a real
+// wire value rather than a UI-only sentinel each caller has to translate:
+// see UNASSIGNED_DECK_ID in backend/app/services/flashcards.py.
 export const UNASSIGNED_DECK = '__unassigned__';
+
+// Does `card` sit in `deckId`? null/undefined means "any deck". Keeping the
+// UNASSIGNED_DECK special case here means a caller can't forget it and quietly
+// filter everything out.
+export const cardInDeck = (card, deckId) => {
+  if (deckId == null) return true;
+  if (deckId === UNASSIGNED_DECK) return !card.deckId;
+  return card.deckId === deckId;
+};
 
 export const DIFF_MAP = {
   Easy: { c: 'var(--color-accent-green-hover)', bg: 'var(--color-badge-easy-bg)', bd: 'var(--color-badge-easy-border)', l: 'EASY' },

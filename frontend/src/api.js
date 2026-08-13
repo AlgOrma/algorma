@@ -82,6 +82,10 @@ export function updateUser(payload) {
   return request('/users/me', { method: 'PATCH', body: payload });
 }
 
+// Runtime feature flags, intersected with the build-time ones in features.js.
+// Not user-scoped, so it carries no X-User-Id header.
+export const getFeatures = () => request('/features', { auth: false });
+
 // --- Reads ---
 // Minutes east of UTC, so the backend buckets streaks/heatmap days by the
 // user's local calendar instead of UTC.
