@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
-export default function Button({ 
-  children, 
-  onClick, 
-  variant = 'primary', 
+const Button = forwardRef(function Button({
+  children,
+  onClick,
+  variant = 'primary',
   size = 'md',
   className = '',
   style = {},
-  ...props 
-}) {
+  ...props
+}, ref) {
   let baseClasses = "btn-3d font-sans text-fs-13 font-bold select-none cursor-pointer outline-none transition-all duration-100 ease-out";
 
   let variantClasses = "";
@@ -35,6 +35,7 @@ export default function Button({
 
   return (
     <button
+      ref={ref}
       onClick={onClick}
       className={`${baseClasses} ${variantClasses} ${className}`}
       style={style}
@@ -43,4 +44,6 @@ export default function Button({
       {children}
     </button>
   );
-}
+});
+
+export default Button;
