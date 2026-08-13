@@ -172,6 +172,31 @@ function App() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
+  // Focus view: opening a problem drops the nav to an icon rail so the
+  // statement and the editor get the width, and leaving the problem screen
+  // restores it. Within a screen the choice is the user's — the rail's chevron
+  // or ⌘B / Ctrl+B — and is not overridden until they navigate again.
+  const [navCollapsed, setNavCollapsed] = useState(screen === 'detail');
+  const lastScreenRef = useRef(screen);
+  useEffect(() => {
+    if (lastScreenRef.current === screen) return;
+    const leftDetail = lastScreenRef.current === 'detail';
+    lastScreenRef.current = screen;
+    if (screen === 'detail') setNavCollapsed(true);
+    else if (leftDetail) setNavCollapsed(false);
+  }, [screen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setNavCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Theme settings mapping
   const themeAccent = theme === 'blue' ? '#0070F3' : '#7928CA';
   const themeSecondary = theme === 'blue' ? '#0051CB' : '#4D1A80';
@@ -563,6 +588,8 @@ function App() {
         onEditProfile={() => setIsEditingProfile(true)}
         themeColor={themeAccent}
         themeColorSecondary={themeSecondary}
+        collapsed={navCollapsed}
+        onToggleCollapse={() => setNavCollapsed((c) => !c)}
       />
 
       {/* Main View Container */}
