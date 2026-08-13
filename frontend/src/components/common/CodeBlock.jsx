@@ -34,7 +34,7 @@ export default function CodeBlock({
             {title}
           </span>
           {isSpoiler && (
-            <span className="font-mono text-fs-10-5 text-accent bg-accent/10 px-sp-7 py-sp-1 rounded-card-xxs">
+            <span className="font-mono text-fs-10-5 text-accent-text bg-accent/10 px-sp-7 py-sp-1 rounded-card-xxs">
               spoiler-free
             </span>
           )}
