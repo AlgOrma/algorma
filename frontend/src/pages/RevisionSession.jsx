@@ -30,6 +30,10 @@ export default function RevisionSession({
   // Shown when saving a grade fails (otherwise the buttons look dead)
   const [gradeError, setGradeError] = useState(null);
 
+  // A grade in flight — blocks double-grading the same card while the
+  // review POST is still being answered.
+  const [isGrading, setIsGrading] = useState(false);
+
   // Keep the queue fresh while on the overview; freeze it once the session starts
   useEffect(() => {
     if (!sessionStarted && currentIndex === 0) {
@@ -88,8 +92,9 @@ export default function RevisionSession({
   // reviewProblem already persists the schedule and returns the fresh problem,
   // so we only sync local state — advancing only if the review succeeded.
   const handleGrade = async (gradeItem) => {
-    if (!currentCard) return;
+    if (!currentCard || isGrading) return;
 
+    setIsGrading(true);
     setGradeError(null);
     try {
       const res = await api.reviewProblem(currentCard.id, gradeItem.key);
@@ -99,6 +104,8 @@ export default function RevisionSession({
     } catch (err) {
       console.error('Failed to review problem:', err.message);
       setGradeError(`Couldn't save your "${gradeItem.key}" grade — check that the backend is running, then try again.`);
+    } finally {
+      setIsGrading(false);
     }
   };
 
@@ -132,14 +139,18 @@ export default function RevisionSession({
   };
 
   // Deep link: opening /revise/<id> starts a session for that problem as soon
-  // as the problem list has loaded.
+  // as the problem list has loaded. The id is captured at first render — the
+  // URL-sync effect below rewrites /revise/<id> to /revise while the queue is
+  // showing, which used to erase the deep link before the problems arrived.
+  const deepLinkIdRef = useRef(
+    window.location.pathname.match(/^\/revise\/([^/]+)$/)?.[1] ?? null
+  );
   const deepLinkTriedRef = useRef(false);
   useEffect(() => {
     if (deepLinkTriedRef.current || sessionStarted || problems.length === 0) return;
     deepLinkTriedRef.current = true;
-    const match = window.location.pathname.match(/^\/revise\/([^/]+)$/);
-    if (!match) return;
-    const target = problems.find(p => p.id === match[1]);
+    if (!deepLinkIdRef.current) return;
+    const target = problems.find(p => p.id === deepLinkIdRef.current);
     if (target) handleReviseOne(target);
     // handleReviseOne only touches state setters; safe to omit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,7 +216,7 @@ export default function RevisionSession({
               <div className="font-mono text-fs-12 text-text-muted mt-1">
                 {totalCards} {totalCards === 1 ? 'problem' : 'problems'} · spoiler-free recall session
                 {selectedIds.length > 0 && (
-                  <span className="text-accent"> · {selectedIds.length} selected</span>
+                  <span className="text-accent-text"> · {selectedIds.length} selected</span>
                 )}
               </div>
             </div>
@@ -220,7 +231,7 @@ export default function RevisionSession({
           {/* Queue list */}
           <div className="bg-bg-card border border-border-card rounded-xl overflow-hidden flex flex-col">
             {/* Table Header */}
-            <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_78px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-border-accent tracking-[0.06em] text-left items-center">
+            <div className="grid grid-cols-[38px_2.1fr_0.95fr_62px_116px_78px] gap-3 px-sp-18 py-sp-11 border-b border-border-muted font-mono text-fs-9-5 text-text-muted tracking-[0.06em] text-left items-center">
               <div className="flex items-center justify-center">
                 {allSelected ? (
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="cursor-pointer" onClick={toggleSelectAll}>
@@ -273,7 +284,7 @@ export default function RevisionSession({
                     <span className="font-mono text-fs-11 text-text-muted">
                       {row.lastRevised || '—'}
                     </span>
-                    <span className={`font-mono text-fs-11 text-right ${row.due ? 'text-accent' : 'text-text-muted'}`}>
+                    <span className={`font-mono text-fs-11 text-right ${row.due ? 'text-accent-text' : 'text-text-muted'}`}>
                       {row.due ? 'today' : row.nextLabel || '—'}
                     </span>
                   </div>
@@ -295,13 +306,13 @@ export default function RevisionSession({
   // Active Deck View
   if (!isFinished && currentCard) {
     return (
-      <div className="w-full h-full flex overflow-hidden bg-[#050505]">
+      <div className="w-full h-full flex overflow-hidden bg-bg-panel-dark">
         {/* LEFT PANE (Problem Details) */}
-        <div className="w-[45%] h-full border-r border-border-main flex flex-col bg-[#080808] min-w-[350px]">
+        <div className="w-[45%] h-full border-r border-border-main flex flex-col bg-bg-card min-w-[350px]">
           {/* Header bar */}
-          <div className="bg-[#000] border-b border-border-muted px-6 py-4 shrink-0 text-fs-11 font-mono">
+          <div className="bg-bg-main border-b border-border-muted px-6 py-4 shrink-0 text-fs-11 font-mono">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-fs-11 text-accent tracking-[0.06em]">
+              <span className="font-mono text-fs-11 text-accent-text tracking-[0.06em]">
                 {customProblems ? 'FORCED REVISION · SPOILER-FREE' : 'REVISION · SPOILER-FREE'}
               </span>
               <div className="flex items-center gap-3">
@@ -392,7 +403,7 @@ export default function RevisionSession({
                 }`}
               >
                 HISTORY
-                <span className="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-accent/15 border border-accent/30 text-accent text-[10px]">
+                <span className="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-accent/15 border border-accent/30 text-accent-text text-[10px]">
                   {reviewHistory ? reviewHistory.length : currentCard.revisions || 0}
                 </span>
               </button>
@@ -402,18 +413,18 @@ export default function RevisionSession({
               <>
                 {/* Problem Statement */}
                 <div className="mt-5">
-                  <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-3">
+                  <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-3">
                     PROBLEM STATEMENT
                   </div>
                   <div
-                    className="text-fs-13.5 leading-relaxed text-text-code select-text"
+                    className="leetcode-statement select-text"
                     dangerouslySetInnerHTML={{ __html: currentCard.statement }}
                   />
                 </div>
 
                 {/* Examples */}
                 {(currentCard.exIn || currentCard.exOut) && (
-                  <div className="mt-5 bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre">
+                  <div className="mt-5 bg-bg-code border border-border-muted rounded-lg p-4 font-mono text-fs-12 text-text-code whitespace-pre-wrap break-words">
                     {currentCard.exIn && (
                       <div>
                         <span className="text-text-muted select-none">Input: </span>
@@ -439,7 +450,7 @@ export default function RevisionSession({
                     <span className="w-[3px] h-[14px] rounded-full bg-accent inline-block" />
                     REVISION HISTORY
                   </div>
-                  <span className="font-mono text-fs-11 text-accent bg-accent/10 border border-accent/25 rounded-md px-2 py-0.5">
+                  <span className="font-mono text-fs-11 text-accent-text bg-accent/10 border border-accent/25 rounded-md px-2 py-0.5">
                     {reviewHistory ? reviewHistory.length : currentCard.revisions || 0}×
                   </span>
                 </div>
@@ -483,10 +494,10 @@ export default function RevisionSession({
         </div>
 
         {/* RIGHT PANE (Variations & Code Showcase) */}
-        <div className="flex-1 h-full flex flex-col bg-[#050505] min-w-0 overflow-hidden">
-          
+        <div className="flex-1 h-full flex flex-col bg-bg-panel-dark min-w-0 overflow-hidden">
+
           {/* Approaches tabs */}
-          <div className="bg-[#000] border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
+          <div className="bg-bg-main border-b border-border-muted px-4 shrink-0 text-fs-11 font-mono">
             <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar select-none w-full">
               {approaches.map((appr, idx) => {
                 const isApprRevealed = !!revealedApproaches[appr.id || idx];
@@ -496,7 +507,7 @@ export default function RevisionSession({
                     onClick={() => setActiveApproachIdx(idx)}
                     className={`flex items-center gap-2 px-4 py-3 border-r border-border-muted cursor-pointer transition-colors relative ${
                       activeApproachIdx === idx
-                        ? 'bg-[#050505] text-text-main border-b-2 border-b-accent font-semibold'
+                        ? 'bg-bg-panel-dark text-text-main border-b-2 border-b-accent font-semibold'
                         : 'hover:bg-bg-element-hover hover:text-text-hover'
                     }`}
                   >
@@ -517,7 +528,7 @@ export default function RevisionSession({
               <label className="font-mono text-fs-11 text-text-muted tracking-[0.05em] uppercase">
                 // CODE scratchpad — type your solution from memory here
               </label>
-              <div className="bg-[#0c0c0c] border border-border-main rounded-xl overflow-hidden focus-within:border-accent transition-colors">
+              <div className="bg-bg-card border border-border-main rounded-xl overflow-hidden focus-within:border-accent transition-colors">
                 <CodeEditor
                   value={scratchpadText}
                   onChange={setScratchpadText}
@@ -549,18 +560,18 @@ export default function RevisionSession({
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col gap-5 animate-fadeIn">
+              <div className="flex flex-col gap-5 animate-fade-in">
                 {/* Complexity analysis indicators */}
                 <div className="grid grid-cols-2 gap-4 shrink-0">
                   <div className="bg-bg-code border border-border-main rounded-xl p-4 flex flex-col gap-1">
                     <span className="font-mono text-[9px] text-text-muted tracking-[0.05em] uppercase">Time Complexity</span>
-                    <span className="font-mono text-fs-14 font-semibold text-accent">
+                    <span className="font-mono text-fs-14 font-semibold text-accent-text">
                       {activeApproach?.complexityTime || 'N/A'}
                     </span>
                   </div>
                   <div className="bg-bg-code border border-border-main rounded-xl p-4 flex flex-col gap-1">
                     <span className="font-mono text-[9px] text-text-muted tracking-[0.05em] uppercase">Space Complexity</span>
-                    <span className="font-mono text-fs-14 font-semibold text-accent">
+                    <span className="font-mono text-fs-14 font-semibold text-accent-text">
                       {activeApproach?.complexitySpace || 'N/A'}
                     </span>
                   </div>
@@ -569,7 +580,7 @@ export default function RevisionSession({
                 {/* Explanation text */}
                 {activeApproach?.approach && (
                   <div className="bg-bg-card border border-border-card rounded-xl p-5">
-                    <div className="font-mono text-[10px] text-border-accent tracking-[0.05em] mb-2.5 uppercase">
+                    <div className="font-mono text-[10px] text-text-muted tracking-[0.05em] mb-2.5 uppercase">
                       APPROACH EXPLANATION
                     </div>
                     <div className="text-fs-13 leading-relaxed text-text-hover whitespace-pre-wrap select-text">
@@ -592,7 +603,7 @@ export default function RevisionSession({
 
           {/* Rating panel — only appears once a solution has been revealed */}
           {hasRevealedAny && (
-          <div className="bg-[#000] border-t border-border-muted px-6 py-4 shrink-0 select-none">
+          <div className="bg-bg-main border-t border-border-muted px-6 py-4 shrink-0 select-none">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-fs-12 font-medium text-text-main">
@@ -606,7 +617,7 @@ export default function RevisionSession({
                   </button>
                 </div>
                 {gradeError && (
-                  <div className="text-fs-12 text-center" style={{ color: 'var(--color-accent-red)' }}>
+                  <div className="text-fs-12 text-center text-accent-red-text">
                     {gradeError}
                   </div>
                 )}
@@ -615,6 +626,7 @@ export default function RevisionSession({
                     <button
                       key={g.key}
                       onClick={() => handleGrade(g)}
+                      disabled={isGrading}
                       className="btn-card-3d flex-1 flex flex-col items-center gap-1 py-2 px-2 cursor-pointer select-none"
                     >
                       <span 
@@ -639,7 +651,7 @@ export default function RevisionSession({
 
   // Completion View
   return (
-    <div className="w-full h-full flex items-center justify-center bg-[#050505]">
+    <div className="w-full h-full flex items-center justify-center bg-bg-panel-dark">
       <div className="max-w-[760px] mx-auto px-9 pt-sp-28 pb-11 flex flex-col items-center">
         <div className="flex flex-col items-center text-center py-16 px-5">
           <div className="w-16 h-16 rounded-full bg-accent-green-hover/12 border border-accent-green-hover/32 flex items-center justify-center mb-5">
@@ -652,8 +664,8 @@ export default function RevisionSession({
             Revision session complete
           </div>
           <div className="text-fs-14 text-text-mid mt-2 max-w-[380px] leading-[1.6]">
-            {totalCards > 0 
-              ? `You reviewed ${totalCards} problems. Each one was rescheduled by how you graded it — the next batch is already on your calendar.`
+            {totalCards > 0
+              ? `You reviewed ${totalCards} ${totalCards === 1 ? 'problem' : 'problems'}. Each one was rescheduled by how you graded it — the next batch is already on your calendar.`
               : "No revision tasks due right now. Nice job staying on top of your schedule!"
             }
           </div>

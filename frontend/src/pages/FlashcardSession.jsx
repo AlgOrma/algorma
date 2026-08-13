@@ -30,7 +30,7 @@ export default function FlashcardSession({
         <div className="max-w-[680px] mx-auto px-9 pt-sp-28 pb-11 flex flex-col">
         {/* Header bar */}
         <div className="flex items-center justify-between">
-          <span className="font-mono text-fs-11 text-accent tracking-[0.06em]">
+          <span className="font-mono text-fs-11 text-accent-text tracking-[0.06em]">
             FLASHCARDS · SRS
           </span>
           <div className="flex items-center gap-3">
@@ -60,10 +60,10 @@ export default function FlashcardSession({
         <div className="mt-5 bg-gradient-to-br from-bg-card-grad-start to-bg-card-grad-end border border-border-btn rounded-2xl pt-sp-26 pb-sp-22 px-sp-26 min-h-[300px] flex flex-col shadow-card">
           {/* Card internal header */}
           <div className="flex items-center justify-between">
-            <span className="font-mono text-fs-10-5 text-accent tracking-[0.06em] uppercase">
+            <span className="font-mono text-fs-10-5 text-accent-text tracking-[0.06em] uppercase">
               {currentCard.type} · {currentCard.tag}
             </span>
-            <span className="font-mono text-fs-10 text-border-accent tracking-[0.05em]">
+            <span className="font-mono text-fs-10 text-text-muted tracking-[0.05em]">
               FLASHCARD
             </span>
           </div>
@@ -71,7 +71,7 @@ export default function FlashcardSession({
           {/* Front Side */}
           {!flipped ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center py-4.5 px-0">
-              <div className="text-fs-21 font-semibold text-text-main max-w-[480px] leading-1.4 tracking-[-0.01em]">
+              <div className="text-fs-21 font-semibold text-text-main max-w-[480px] leading-[1.4] tracking-[-0.01em]">
                 {currentCard.front}
               </div>
               <Button onClick={() => setFlipped(true)}>
@@ -134,7 +134,7 @@ export default function FlashcardSession({
       <div className="max-w-[680px] mx-auto px-9 pt-sp-28 pb-11 flex flex-col items-center">
       <div className="flex flex-col items-center text-center py-16 px-5">
         <div className="w-16 h-16 rounded-full bg-accent/12 border border-accent/32 flex items-center justify-center mb-5">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12.5l4.5 4.5L19 7"/>
           </svg>
         </div>
@@ -142,7 +142,7 @@ export default function FlashcardSession({
         <div className="text-fs-22 font-bold text-text-main tracking-[-0.015em]">
           All caught up
         </div>
-        <div className="text-fs-14 text-text-mid mt-2 max-w-[380px] leading-1.6">
+        <div className="text-fs-14 text-text-mid mt-2 max-w-[380px] leading-[1.6]">
           You graded {totalCards} cards. They're rescheduled by ease — come back when the next ones are due.
         </div>
         
