@@ -12,11 +12,12 @@ item the user has never scheduled).
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from .models import (
     Curriculum,
+    Deck,
     Flashcard,
     LeetCodeQuestion,
     Problem,
@@ -41,6 +42,20 @@ def _days_delta(target: datetime, now: datetime) -> int:
 
 def _iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() + "Z" if dt else None
+
+
+# ``_days_delta`` rounds to whole days, so "due" has always covered dates up to
+# half a day out (round(0.5) == 0). Naming that window lets the SQL count in
+# services.flashcards apply the identical rule without re-deriving the rounding.
+DUE_WINDOW = timedelta(hours=12)
+
+
+def flashcard_is_due(revision: Optional[Revision], now: datetime) -> bool:
+    """A card is due when it was never reviewed or its due date has arrived."""
+    if revision is None:
+        return True
+    due_at = revision.due_at
+    return due_at is not None and due_at <= now + DUE_WINDOW
 
 
 def serialize_user(u: User) -> dict:
@@ -304,24 +319,52 @@ def serialize_curriculum_detail(
     }
 
 
-def serialize_flashcard(
-    c: Flashcard, revision: Optional[Revision] = None, now: Optional[datetime] = None
+def serialize_deck(
+    deck: Deck, cards: Optional[list[Flashcard]] = None, now: Optional[datetime] = None
 ) -> dict:
     now = now or utcnow()
+    cards_list = cards if cards is not None else deck.flashcards or []
+    card_count = len(cards_list)
+    due_count = sum(1 for card in cards_list if flashcard_is_due(card.revision, now))
+
+    return {
+        "id": deck.id,
+        "name": deck.name,
+        "description": deck.description,
+        "color": deck.color,
+        "cardCount": card_count,
+        "dueCount": due_count,
+        "createdAt": _iso(deck.created_at),
+        "updatedAt": _iso(deck.updated_at),
+    }
+
+
+def serialize_flashcard(
+    c: Flashcard,
+    revision: Optional[Revision] = None,
+    now: Optional[datetime] = None,
+    with_intervals: bool = True,
+) -> dict:
+    """``with_intervals=False`` drops ``nextIntervals``, which costs four FSRS
+    scheduler passes per card — worth it for the study queue, pure waste for the
+    browse list, which never reads it."""
+    now = now or utcnow()
+    due = flashcard_is_due(revision, now)
     due_at = revision.due_at if revision else None
-    due = due_at is not None and _days_delta(due_at, now) <= 0
     review_count = revision.review_count if revision else 0
     last_reviewed_at = revision.last_reviewed_at if revision else None
     stability = revision.stability if revision else None
     difficulty = revision.difficulty if revision else None
 
-    if stability is not None or not review_count:
+    if with_intervals and (stability is not None or not review_count):
         next_intervals = preview_intervals(stability, difficulty, last_reviewed_at, now)
     else:
         next_intervals = None
 
     return {
         "id": c.id,
+        "deckId": c.deck_id,
+        "deckName": c.deck.name if c.deck else None,
         "type": c.type,
         "tag": c.tag,
         "front": c.front,

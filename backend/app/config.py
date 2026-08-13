@@ -12,10 +12,10 @@ class Settings(BaseSettings):
     # from the uvicorn --port flag, not from settings.
     web_origin: str = "http://localhost:5199"
 
-    # Feature flags. Flashcards aren't implemented in the UI yet, so the API
-    # surface stays off by default (set ENABLE_FLASHCARDS=true to expose it).
+    # Feature flags. Flashcards ship enabled by default now; set
+    # ENABLE_FLASHCARDS=false to hide the API surface.
     # Mirrors FEATURES.flashcards in frontend/src/features.js.
-    enable_flashcards: bool = False
+    enable_flashcards: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
