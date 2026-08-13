@@ -5,44 +5,11 @@ import Checklist from '../components/common/Checklist';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import CodeEditor from '../components/common/CodeEditor';
 import CustomListsModal from '../components/common/CustomListsModal';
+import * as api from '../api';
+import { FEATURES } from '../features';
+import { formatMarkdown } from '../components/common/formatMarkdown';
 import useDismissOnOutside from '../hooks/useDismissOnOutside';
 
-// Simple Markdown to HTML formatter for editorial solutions (matching LeetCodeLibrary)
-const formatMarkdown = (text) => {
-  if (!text) return '';
-  let html = text
-    .replace(/^### (.*$)/gim, '<h4 class="text-fs-14 font-semibold text-text-main mt-4 mb-1.5">$1</h4>')
-    .replace(/^## (.*$)/gim, '<h3 class="text-fs-16 font-bold text-text-main mt-5 mb-2 border-b border-border-main pb-1">$1</h3>')
-    .replace(/^# (.*$)/gim, '<h2 class="text-fs-18 font-extrabold text-text-main mt-6 mb-3">$1</h2>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-text-main font-semibold">$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-    .replace(/`(.*?)`/g, '<code class="bg-bg-code border border-border-muted px-1.5 py-0.5 rounded text-fs-12 font-mono text-accent-text">$1</code>')
-    .replace(/```python([\s\S]*?)```/g, '<pre class="bg-bg-code border border-border-muted rounded-lg p-3 my-3.5 font-mono text-fs-12 text-left overflow-x-auto whitespace-pre"><code class="text-text-main">$1</code></pre>')
-    .replace(/```javascript([\s\S]*?)```/g, '<pre class="bg-bg-code border border-border-muted rounded-lg p-3 my-3.5 font-mono text-fs-12 text-left overflow-x-auto whitespace-pre"><code class="text-text-main">$1</code></pre>')
-    .replace(/```java([\s\S]*?)```/g, '<pre class="bg-bg-code border border-border-muted rounded-lg p-3 my-3.5 font-mono text-fs-12 text-left overflow-x-auto whitespace-pre"><code class="text-text-main">$1</code></pre>')
-    .replace(/```cpp([\s\S]*?)```/g, '<pre class="bg-bg-code border border-border-muted rounded-lg p-3 my-3.5 font-mono text-fs-12 text-left overflow-x-auto whitespace-pre"><code class="text-text-main">$1</code></pre>')
-    .replace(/```([\s\S]*?)```/g, '<pre class="bg-bg-code border border-border-muted rounded-lg p-3 my-3.5 font-mono text-fs-12 text-left overflow-x-auto whitespace-pre"><code class="text-text-main">$1</code></pre>')
-    .replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc my-1 text-fs-13-5">$1</li>')
-    .replace(/^- (.*$)/gim, '<li class="ml-4 list-disc my-1 text-fs-13-5">$1</li>')
-    .replace(/\$\$(.*?)\$\$/g, '<span class="font-mono bg-bg-code/30 px-1 py-0.5 rounded text-fs-12">$1</span>');
-
-  return html
-    .split('\n')
-    .map((line) => {
-      if (
-        line.trim().startsWith('<h') ||
-        line.trim().startsWith('<li') ||
-        line.trim().startsWith('<pre') ||
-        line.trim().startsWith('</pre') ||
-        line.trim().startsWith('<code') ||
-        line.trim().startsWith('</code')
-      ) {
-        return line;
-      }
-      return line ? `<p class="my-2 text-fs-13-5 leading-relaxed text-text-hover">${line}</p>` : '';
-    })
-    .join('');
-};
 
 const LANGUAGES = ['Python', 'JavaScript', 'Java', 'C++', 'Go', 'Rust', 'TypeScript'];
 
@@ -195,6 +162,44 @@ export default function ProblemDetail({
   // Autosave: 'clean' before anything is touched, then dirty → saving → saved,
   // or 'error' when the write failed and the user's work is only in the tab.
   const [saveState, setSaveState] = useState('clean');
+
+  // Flashcard modal state
+  const [isFlashcardModalOpen, setIsFlashcardModalOpen] = useState(false);
+  const [flashcardDecks, setFlashcardDecks] = useState([]);
+  const [targetDeckId, setTargetDeckId] = useState('');
+
+  const handleOpenFlashcardModal = async () => {
+    try {
+      const decks = await api.getDecks();
+      setFlashcardDecks(decks || []);
+      if (decks && decks.length > 0) setTargetDeckId(decks[0].id);
+    } catch {
+      // offline or error fallback
+    }
+    setIsFlashcardModalOpen(true);
+  };
+
+  const handleCreateFlashcardFromProblem = async () => {
+    if (!problem) return;
+    const primaryApproach = approaches[0] || {};
+    const frontText = `[${problem.topic}] ${problem.title}\n\n${problem.statement ? problem.statement.slice(0, 300) : ''}`;
+    const backText = `Approach: ${primaryApproach.name || 'Main Solution'}\n\nTime: ${primaryApproach.complexityTime || 'N/A'} | Space: ${primaryApproach.complexitySpace || 'N/A'}\n\n${primaryApproach.approach || ''}\n\n\`\`\`${primaryApproach.lang || 'python'}\n${primaryApproach.code || ''}\n\`\`\``;
+
+    try {
+      await api.createFlashcard({
+        front: frontText,
+        back: backText,
+        deck_id: targetDeckId || null,
+        tag: problem.topic || 'General',
+        type: 'problem',
+      });
+      setIsFlashcardModalOpen(false);
+      setToastMessage('Flashcard created successfully!');
+      setTimeout(() => setToastMessage(''), 3000);
+    } catch (err) {
+      alert(err.message || 'Failed to create flashcard');
+    }
+  };
 
   // Split pane. The user's chosen ratio outlives the session because the right
   // width depends on their monitor, not on the problem.
@@ -748,6 +753,22 @@ export default function ProblemDetail({
                   </svg>
                   Force Revision
                 </button>
+                <div className="border-t border-border-muted my-1"></div>
+                {FEATURES.flashcards && (
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleOpenFlashcardModal();
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-fs-13 text-text-hover hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2 border-none bg-transparent"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5.5" width="11" height="9" rx="1.6"/>
+                      <path d="M6 5.5V4.2A1.2 1.2 0 0 1 7.2 3H17v8.5"/>
+                    </svg>
+                    Create Flashcard
+                  </button>
+                )}
                 <div className="border-t border-border-muted my-1"></div>
                 <button
                   onClick={() => {
@@ -1325,6 +1346,59 @@ export default function ProblemDetail({
         onLoadCustomLists={onLoadCustomLists}
         onRefreshProblems={onRefreshProblems}
       />
+
+      {isFlashcardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+          <div className="bg-bg-card-grad-start border border-border-btn rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-fs-18 font-bold text-text-main">
+                Create Flashcard from Problem
+              </h3>
+              <button
+                onClick={() => setIsFlashcardModalOpen(false)}
+                className="text-text-muted hover:text-text-main"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-fs-12 font-mono text-text-muted mb-1">Select Deck</label>
+                <select
+                  value={targetDeckId}
+                  onChange={(e) => setTargetDeckId(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-bg-track border border-border-btn rounded-xl text-fs-13 text-text-main focus:outline-none focus:border-accent"
+                >
+                  <option value="">(No Deck / General)</option>
+                  {flashcardDecks.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-3 bg-bg-track/60 rounded-xl border border-border-btn/60 text-fs-12">
+                <div className="text-text-muted mb-1 font-mono">PREVIEW CARD:</div>
+                <div className="font-semibold text-text-main">{problem.title}</div>
+                <div className="text-text-muted text-fs-11 font-mono mt-1">
+                  Tag: {problem.topic} · Type: problem
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3">
+                <Button variant="secondary" onClick={() => setIsFlashcardModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFlashcardFromProblem}>
+                  Add to Flashcard Deck
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

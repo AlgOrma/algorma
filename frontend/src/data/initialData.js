@@ -7,15 +7,30 @@ export const INITIAL_PROBLEMS = [];
 
 export const INITIAL_CARDS = [];
 
+// Id for the "(General / Unassigned)" bucket — flashcards with no deck. The API
+// accepts it wherever a deck id goes (filter, create, update), so it is a real
+// wire value rather than a UI-only sentinel each caller has to translate:
+// see UNASSIGNED_DECK_ID in backend/app/services/flashcards.py.
+export const UNASSIGNED_DECK = '__unassigned__';
+
+// Does `card` sit in `deckId`? null/undefined means "any deck". Keeping the
+// UNASSIGNED_DECK special case here means a caller can't forget it and quietly
+// filter everything out.
+export const cardInDeck = (card, deckId) => {
+  if (deckId == null) return true;
+  if (deckId === UNASSIGNED_DECK) return !card.deckId;
+  return card.deckId === deckId;
+};
+
 export const DIFF_MAP = {
   Easy: { c: 'var(--color-accent-green-hover)', bg: 'var(--color-badge-easy-bg)', bd: 'var(--color-badge-easy-border)', l: 'EASY' },
   Medium: { c: 'var(--color-accent-orange)', bg: 'var(--color-badge-medium-bg)', bd: 'var(--color-badge-medium-border)', l: 'MED' },
-  Hard: { c: 'var(--color-accent-red-hover)', bg: 'var(--color-badge-hard-bg)', bd: 'var(--color-badge-hard-border)', l: 'HARD' }
+  Hard: { c: 'var(--color-accent-red-text)', bg: 'var(--color-badge-hard-bg)', bd: 'var(--color-badge-hard-border)', l: 'HARD' }
 };
 
 export const STATUS_MAP = {
   'Done': { c: 'var(--color-accent-green-hover)', l: '● Done' },
-  'Solving': { c: 'var(--color-accent-blue)', l: '◐ Solving' },
+  'Solving': { c: 'var(--color-accent-text)', l: '◐ Solving' },
   'Not started': { c: 'var(--color-text-muted)', l: '○ Not started' }
 };
 

@@ -4,15 +4,13 @@
   --font-sans: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'Geist Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
   
-  /* Dynamic accent colors from state. App sets --theme-accent/--theme-secondary
-     on <html> (document.documentElement) — they must live at the root, because
-     these derived tokens are computed at :root and descendants inherit the
-     resolved color, not the var() expression. */
+  /* Dynamic accent colors from state */
   --color-accent: var(--theme-accent, #0070F3);
   --color-accent-secondary: var(--theme-secondary, #0051CB);
-  /* Readable lift of the accent for small text on dark surfaces (the raw
-     accent fails AA contrast below ~18px, violet especially). */
+  /* Readable accent for small text on dark cards — the raw accent fails
+     contrast at small sizes (violet especially), so text uses this lift. */
   --color-accent-text: color-mix(in srgb, var(--color-accent) 70%, #ffffff);
+  --color-accent-red-text: #ff6b6b;
 
   /* Background Colors */
   --color-bg-overlay: rgba(0, 0, 0, 0.8);
@@ -55,7 +53,6 @@
   --color-accent-green-hover: #059669;
   --color-accent-red: #EE0000;
   --color-accent-red-hover: #CC0000;
-  --color-accent-red-text: #ff6b6b;
   --color-accent-blue: #0070F3;
   --color-accent-orange: #F5A623;
 
@@ -156,11 +153,11 @@ html, body {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #38342d;
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #444444;
+  background: #44403a;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -175,6 +172,50 @@ button {
   font-family: inherit;
   outline: none;
   border: none;
+}
+
+/* Visible keyboard focus everywhere. Unlayered, so it wins over the button
+   reset above and utility `outline-none` classes. Uses the lifted accent —
+   the raw violet accent fails 3:1 on black. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-text);
+  outline-offset: 2px;
+}
+
+/* The search box container already glows on focus-within; no inner ring. */
+.lc-search input:focus-visible {
+  outline: none;
+}
+
+/* Styled native checkboxes (real inputs, keyboard-operable). White glyph:
+   a dark glyph fails 3:1 on the violet accent fill. */
+.pb-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  flex: none;
+}
+.pb-checkbox:hover {
+  border-color: var(--color-text-main);
+}
+.pb-checkbox:checked,
+.pb-checkbox:indeterminate {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.pb-checkbox:checked {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 10.5l3.5 3.5L15 7' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.pb-checkbox:indeterminate {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cline x1='5' y1='10' x2='15' y2='10' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
 /* Custom interactive animation for spoilers */
@@ -232,7 +273,8 @@ button {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .lc-search:focus-within {
-  border-color: var(--color-accent);
+  /* Lifted accent: the raw violet accent fails 3:1 on black */
+  border-color: var(--color-accent-text);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
@@ -263,12 +305,11 @@ button {
   outline: none;
 }
 
-.btn-3d:active:not(:disabled) {
+.btn-3d:active {
   transform: translateY(3px) !important;
   border-bottom-width: 1px !important;
 }
 
-/* A key that can't be pressed shouldn't look or feel pressable. */
 .btn-3d:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -351,13 +392,9 @@ button {
   background-color: var(--color-bg-element-hover) !important;
   border-color: var(--color-border-accent) !important;
 }
-.btn-card-3d:active:not(:disabled) {
+.btn-card-3d:active {
   transform: translateY(3px) !important;
   border-bottom-width: 1px !important;
-}
-.btn-card-3d:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 /* Compact version of 3D button */
@@ -367,7 +404,7 @@ button {
   border-radius: 8px !important;
   border-bottom-width: 3px !important;
 }
-.btn-3d-sm:active:not(:disabled) {
+.btn-3d-sm:active {
   transform: translateY(2px) !important;
   border-bottom-width: 1px !important;
 }
@@ -389,23 +426,6 @@ button {
 
 .animate-scale-up {
   animation: scaleUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Collapsible panels (e.g. the create-list form) ease open downward. */
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-down {
-  animation: slideDown 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-fade-in,
-  .animate-scale-up,
-  .animate-slide-down {
-    animation: none;
-  }
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
@@ -447,7 +467,15 @@ select:hover {
 }
 
 select:focus {
-  border-color: var(--color-accent) !important;
+  /* Lifted accent: the raw violet accent fails 3:1 on black */
+  border-color: var(--color-accent-text) !important;
+}
+
+/* A filter select holding a non-default value: visibly "powered on".
+   !important because the base select rules above lock these properties. */
+select.filter-active {
+  border-color: var(--color-accent-text) !important;
+  color: var(--color-text-main) !important;
 }
 
 select:active {
@@ -484,161 +512,6 @@ select:active {
   border-bottom: 4px solid var(--color-border-main) !important;
   border-radius: 8px !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important;
-}
-
-/* ── Problem statement typography ───────────────────────────────────────
-   Statements arrive as raw LeetCode HTML — <p>, <pre>, <ul>, <code>, <sup>,
-   <strong class="example"> — with no classes we control. These rules give that
-   markup a real problem page's reading typography inside AlgOrma's world.
-
-   The load-bearing rule is `pre-wrap` on <pre>: LeetCode ships its worked
-   examples in preformatted blocks, and an unwrapped `[0,1,0,3,12,...]` was
-   pushing the whole pane sideways. Long lines now fold; only genuinely
-   unbreakable content scrolls, and only inside its own block. */
-.leetcode-statement {
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--color-text-code);
-  overflow-wrap: break-word;
-}
-
-.leetcode-statement > :first-child { margin-top: 0; }
-.leetcode-statement > :last-child { margin-bottom: 0; }
-
-.leetcode-statement p { margin: 0 0 14px; }
-
-.leetcode-statement strong,
-.leetcode-statement b {
-  color: var(--color-text-main);
-  font-weight: 700;
-}
-
-/* "Example 1:", "Example 2:" — the statement's own section headings. */
-.leetcode-statement strong.example {
-  display: inline-block;
-  font-size: 14.5px;
-  padding-top: 4px;
-}
-
-.leetcode-statement code {
-  font-family: var(--font-mono);
-  font-size: 0.86em;
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
-  padding: 2px 5px;
-  color: var(--color-text-code);
-}
-
-.leetcode-statement pre {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.7;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-muted);
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin: 0 0 14px;
-  max-width: 100%;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  overflow-x: auto;
-}
-
-/* Inside an example block the chip styling would fight the block itself. */
-.leetcode-statement pre code {
-  background: none;
-  padding: 0;
-  font-size: inherit;
-}
-
-.leetcode-statement ul,
-.leetcode-statement ol {
-  margin: 0 0 14px;
-  padding-left: 22px;
-}
-.leetcode-statement ul { list-style: disc; }
-.leetcode-statement ol { list-style: decimal; }
-.leetcode-statement li { margin: 5px 0; }
-.leetcode-statement li::marker { color: var(--color-text-muted); }
-
-/* Constraints lean on exponents: 10<sup>4</sup>, 2<sup>31</sup>. */
-.leetcode-statement sup,
-.leetcode-statement sub {
-  font-size: 0.7em;
-  line-height: 0;
-}
-.leetcode-statement sup { vertical-align: super; }
-.leetcode-statement sub { vertical-align: sub; }
-
-.leetcode-statement a {
-  color: var(--color-accent-text);
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-.leetcode-statement a:hover { border-bottom-color: var(--color-accent); }
-
-/* Statement diagrams are line art drawn for a light page — on true black they
-   would disappear, so they get a pale plate to sit on. */
-.leetcode-statement img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 4px 0 14px;
-  padding: 6px;
-  background: #f4f4f5;
-  border-radius: 6px;
-}
-
-.leetcode-statement hr {
-  border: none;
-  border-top: 1px solid var(--color-border-muted);
-  margin: 18px 0;
-}
-
-.leetcode-statement table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 14px;
-  font-size: 13px;
-}
-.leetcode-statement th,
-.leetcode-statement td {
-  border: 1px solid var(--color-border-muted);
-  padding: 7px 10px;
-  text-align: left;
-}
-.leetcode-statement th {
-  background: var(--color-bg-card);
-  color: var(--color-text-main);
-  font-weight: 700;
-}
-
-/* Editorial articles are markdown we render ourselves (formatMarkdown already
-   carries utility classes) — these only guard the same overflow case. */
-.leetcode-solution pre {
-  max-width: 100%;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  overflow-x: auto;
-}
-.leetcode-solution img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* ── Autosave indicator ─────────────────────────────────────────────────
-   A slow breath on the dot while a write is in flight — the only motion in
-   the workspace header, so "saving" reads without stealing attention. */
-@keyframes save-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.save-pulse {
-  animation: save-pulse 1.1s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .save-pulse { animation: none; }
 }
 
 

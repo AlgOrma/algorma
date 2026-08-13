@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../../api';
 import Button from './Button';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
 function CustomCheckbox({ checked, indeterminate }) {
   return (
@@ -177,6 +178,10 @@ export default function CustomListsModal({
     onClose();
   }, [onClose, onLoadCustomLists, onRefreshProblems]);
 
+  // Trap focus inside the dialog; restore it to the invoker on close.
+  const dialogRef = useRef(null);
+  useFocusTrap(dialogRef, isOpen);
+
   const handleToggle = useCallback(async (listId, isChecked) => {
     // Clear any previous error
     setErrorMessage('');
@@ -265,6 +270,10 @@ export default function CustomListsModal({
       onClick={handleClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add to list"
         className="w-full max-w-[360px] bg-bg-main border border-border-main rounded-xl shadow-modal flex flex-col text-left overflow-hidden animate-scale-up"
         onClick={(e) => e.stopPropagation()}
       >
@@ -279,13 +288,14 @@ export default function CustomListsModal({
                 <button
                   type="button"
                   onClick={() => setShowCreateInline(true)}
-                  className="bg-transparent border-none text-accent-text hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors px-1 py-0.5"
+                  className="bg-transparent border-none text-accent hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors px-1 py-0.5"
                 >
                   + NEW
                 </button>
               )}
               <button
                 onClick={handleClose}
+                aria-label="Close"
                 className="bg-transparent border-none text-text-muted text-fs-14 cursor-pointer leading-none hover:text-white transition-colors"
               >
                 ✕
@@ -337,7 +347,7 @@ export default function CustomListsModal({
 
         {/* Inline Error Banner */}
         {errorMessage && (
-          <div className="px-5 py-2 bg-badge-hard-bg border-b border-badge-hard-border text-accent-red-text text-fs-11 font-mono flex items-center gap-2">
+          <div role="alert" className="px-5 py-2 bg-red-500/10 border-b border-red-500/20 text-red-400 text-fs-11 font-mono flex items-center gap-2">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <circle cx="10" cy="10" r="8" />
               <line x1="10" y1="6.5" x2="10" y2="10.5" />
@@ -363,7 +373,7 @@ export default function CustomListsModal({
                 <button
                   type="button"
                   onClick={() => setShowCreateInline(true)}
-                  className="bg-transparent border-none text-accent-text hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors"
+                  className="bg-transparent border-none text-accent hover:text-white font-mono text-[10px] font-bold tracking-wider cursor-pointer transition-colors"
                 >
                   + CREATE ONE
                 </button>
@@ -375,10 +385,13 @@ export default function CustomListsModal({
               const isIndeterminate = memberships[list.id]?.indeterminate || false;
 
               return (
-                <div
+                <button
                   key={list.id}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={isIndeterminate ? 'mixed' : isChecked}
                   onClick={() => handleToggle(list.id, !isChecked)}
-                  className={`group/row flex items-center gap-3 px-3 py-2.5 select-none rounded-lg cursor-pointer transition-colors duration-100 ${
+                  className={`group/row flex items-center gap-3 px-3 py-2.5 select-none rounded-lg cursor-pointer transition-colors duration-100 w-full text-left ${
                     isChecked
                       ? 'bg-accent/8 hover:bg-accent/12'
                       : 'hover:bg-white/4'
@@ -391,7 +404,7 @@ export default function CustomListsModal({
                   <span className="flex-1 truncate text-fs-13 text-text-hover font-medium">
                     {list.name}
                   </span>
-                </div>
+                </button>
               );
             })
           )}

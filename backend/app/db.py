@@ -60,6 +60,29 @@ def init_db() -> None:
             """))
             conn.commit()
 
+        if inspector.has_table("flashcard"):
+            card_columns = [c["name"] for c in inspector.get_columns("flashcard")]
+            if "deck_id" not in card_columns:
+                conn.execute(text("ALTER TABLE flashcard ADD COLUMN deck_id VARCHAR"))
+                conn.commit()
+            # The model declares Field(..., index=True) on deck_id, so fresh
+            # databases get ix_flashcard_deck_id from create_all. Recreate it
+            # here too, or migrated databases silently diverge (deck-filtered
+            # queries full-scan).
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_flashcard_deck_id ON flashcard (deck_id)"
+            ))
+            conn.commit()
+
+        if inspector.has_table("reviewlog"):
+            # Same story for ReviewLog.flashcard_id (index=True on the model):
+            # deleting a card detaches its logs by this column.
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_reviewlog_flashcard_id "
+                "ON reviewlog (flashcard_id)"
+            ))
+            conn.commit()
+
     # 2. Migrate existing flat approaches / solutions to problem_approach table
     with Session(engine) as session:
         from .models import Problem, ProblemApproach

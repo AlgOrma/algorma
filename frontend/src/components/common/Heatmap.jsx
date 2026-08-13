@@ -1,8 +1,10 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Legend opacities (match the "less … more" swatches on the dashboard).
+// Level 1 sits well above the empty cell so "some activity" is visibly
+// different from "none".
 const EMPTY_OPACITY = 0.06;
-const LEVEL_OPACITIES = [0.1, 0.34, 0.58, 0.88];
+const LEVEL_OPACITIES = [0.18, 0.34, 0.58, 0.88];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const toDate = (iso) => new Date(`${iso}T00:00:00Z`);
@@ -70,7 +72,9 @@ const HeatmapGrid = memo(function HeatmapGrid({ grid, monthLabels, onShowTip, on
   );
 });
 
-export default function Heatmap({ colorBase = '111, 191, 146', activity = null, weeks = 52 }) {
+// Default matches --color-accent-green-hover (#059669) so cells render the
+// same color family as the dashboard's "less … more" legend swatches.
+export default function Heatmap({ colorBase = '5, 150, 105', activity = null, weeks = 52 }) {
   const scrollRef = useRef(null);
   const [tip, setTip] = useState(null);
 
@@ -142,12 +146,32 @@ export default function Heatmap({ colorBase = '111, 191, 146', activity = null, 
   // updates.
   const showTip = useCallback((e, cell) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setTip({ cell, x: rect.left + rect.width / 2, y: rect.top });
+    // Flip below the cell when there's no room above (short windows).
+    const below = rect.top < 64;
+    setTip({ cell, x: rect.left + rect.width / 2, y: below ? rect.bottom : rect.top, below });
   }, []);
   const hideTip = useCallback(() => setTip(null), []);
 
+  const totalActivities = activity
+    ? (activity.totalSolves || 0) + (activity.totalReviews || 0)
+    : null;
+  const busiestDay = activity
+    ? Math.max(0, ...Object.values(activity.days || {}).map(
+        ({ reviews = 0, solves = 0 }) => reviews + solves
+      ))
+    : 0;
+
   return (
-    <div ref={scrollRef} className="overflow-x-auto custom-scrollbar">
+    <div
+      ref={scrollRef}
+      className="overflow-x-auto custom-scrollbar"
+      role="img"
+      aria-label={
+        totalActivities != null
+          ? `Practice activity for the past year: ${totalActivities} solves and reviews${busiestDay > 0 ? `, busiest day ${busiestDay}` : ''}`
+          : 'Practice activity for the past year'
+      }
+    >
       {/* Fluid columns (flex-1) so the whole year fits the card without
           scrolling; the min-width only kicks in on very narrow screens. */}
       <HeatmapGrid
@@ -159,8 +183,8 @@ export default function Heatmap({ colorBase = '111, 191, 146', activity = null, 
 
       {tip && (
         <div
-          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-full bg-bg-card border border-border-main rounded-md px-2.5 py-1.5 text-left shadow-lg"
-          style={{ left: tip.x, top: tip.y - 7 }}
+          className={`fixed z-50 pointer-events-none -translate-x-1/2 ${tip.below ? '' : '-translate-y-full'} bg-bg-card border border-border-main rounded-md px-2.5 py-1.5 text-left shadow-lg`}
+          style={{ left: tip.x, top: tip.below ? tip.y + 7 : tip.y - 7 }}
         >
           <div className="text-fs-12 text-text-main whitespace-nowrap">
             {tooltipText(tip.cell)}

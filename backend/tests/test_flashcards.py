@@ -1,8 +1,9 @@
-"""Flashcards router: listing (due filter) and the review/grade flow.
+"""Flashcards router: listing (due filter), due-count, and the review/grade flow.
 
-The router is feature-flagged off by default (settings.enable_flashcards), so
-it is not mounted on the app — the router functions are called directly with
-the session/user fixtures instead of going through the HTTP client.
+The router functions are called directly with the session/user fixtures rather
+than through the HTTP client, so the suite does not depend on whether
+``settings.enable_flashcards`` mounted the router on the app at import time —
+that flag reads backend/.env, which differs per machine.
 """
 
 from datetime import datetime, timedelta
@@ -12,7 +13,11 @@ from fastapi import HTTPException
 from sqlmodel import select
 
 from app.models import Flashcard, ReviewLog, Revision, User
-from app.routers.flashcards import list_flashcards, review_flashcard
+from app.routers.flashcards import (
+    flashcard_due_count,
+    list_flashcards,
+    review_flashcard,
+)
 from app.schemas import GradeIn
 from app.utils import utcnow
 
@@ -57,17 +62,28 @@ def test_list_returns_cards_oldest_first_with_fresh_srs_defaults(session, user):
     assert row["type"] == "concept"
     assert row["tag"] == "arrays"
     assert row["back"] == "A."
-    # Never reviewed: no revision row, so serializer falls back to defaults.
-    assert row["due"] is False
+    # Never reviewed: no revision row, so serializer marks due=True (new card ready for study).
+    assert row["due"] is True
     assert row["reviewCount"] == 0
     assert row["easeFactor"] == 2.5
     assert row["intervalDays"] == 0
     assert row["srsStability"] is None
     assert row["lastReviewedAt"] is None
     assert row["dueAt"] is None
-    # First-review previews still offered for the grade buttons.
-    assert row["nextIntervals"]["Again"] == 0
-    assert row["nextIntervals"]["Good"] >= 1
+    # The browse list skips the FSRS previews nothing on it reads.
+    assert row["nextIntervals"] is None
+
+
+def test_grade_previews_are_opt_in_via_intervals(session, user):
+    make_card(session, user, front="q")
+
+    off = list_flashcards(user=user, session=session)[0]
+    on = list_flashcards(intervals=True, user=user, session=session)[0]
+
+    assert off["nextIntervals"] is None
+    # First-review previews still offered for the study screen's grade buttons.
+    assert on["nextIntervals"]["Again"] == 0
+    assert on["nextIntervals"]["Good"] >= 1
 
 
 def test_due_filter_keeps_only_overdue_and_due_today(session, user):
@@ -75,7 +91,7 @@ def test_due_filter_keeps_only_overdue_and_due_today(session, user):
     overdue = make_card(session, user, front="overdue")
     today = make_card(session, user, front="today")
     future = make_card(session, user, front="future")
-    fresh = make_card(session, user, front="fresh")  # no revision at all
+    _fresh = make_card(session, user, front="fresh")  # no revision at all
 
     def seed_revision(card, due_at, last_reviewed_at):
         session.add(
@@ -100,9 +116,9 @@ def test_due_filter_keeps_only_overdue_and_due_today(session, user):
     due_rows = list_flashcards(due=True, user=user, session=session)
 
     assert {r["front"] for r in all_rows} == {"overdue", "today", "future", "fresh"}
-    assert [r["front"] for r in due_rows] == ["overdue", "today"]
+    # Oldest-first ordering is preserved through the due filter.
+    assert [r["front"] for r in due_rows] == ["overdue", "today", "fresh"]
     assert all(r["due"] is True for r in due_rows)
-    assert fresh.id not in {r["id"] for r in due_rows}
 
 
 def test_list_excludes_other_users_cards(session, user):
@@ -114,6 +130,59 @@ def test_list_excludes_other_users_cards(session, user):
 
     assert [r["id"] for r in rows] == [mine.id]
     assert rows[0]["front"] == "mine"
+
+
+def test_due_count_endpoint_counts_only_due_cards(session, user):
+    make_card(session, user, front="fresh")  # never reviewed -> due
+    make_card(session, user, front="overdue")
+    future = make_card(session, user, front="future")
+    session.add(
+        Revision(
+            user_id=user.id,
+            flashcard_id=future.id,
+            review_count=1,
+            last_reviewed_at=utcnow(),
+            due_at=utcnow() + timedelta(days=7),
+            stability=5.0,
+            difficulty=5.0,
+        )
+    )
+    session.commit()
+
+    assert flashcard_due_count(user=user, session=session) == {"count": 2}
+
+
+def test_due_count_matches_the_serializer_row_by_row(session, user):
+    """The SQL count and flashcard_is_due must not drift apart."""
+    now = utcnow()
+    offsets = [timedelta(days=-3), timedelta(hours=1), timedelta(hours=23), timedelta(days=9)]
+    for i, offset in enumerate(offsets):
+        card = make_card(session, user, front=f"c{i}")
+        session.add(
+            Revision(
+                user_id=user.id,
+                flashcard_id=card.id,
+                review_count=1,
+                last_reviewed_at=now,
+                due_at=now + offset,
+                stability=5.0,
+                difficulty=5.0,
+            )
+        )
+    make_card(session, user, front="never-reviewed")
+    session.commit()
+
+    from_rows = sum(1 for r in list_flashcards(user=user, session=session) if r["due"])
+
+    assert flashcard_due_count(user=user, session=session) == {"count": from_rows}
+
+
+def test_due_count_excludes_other_users_cards(session, user):
+    other = make_other_user(session)
+    make_card(session, user, front="mine")
+    make_card(session, other, front="theirs")
+
+    assert flashcard_due_count(user=user, session=session) == {"count": 1}
 
 
 # --- review / grade flow ---

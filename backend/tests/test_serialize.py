@@ -197,6 +197,7 @@ def test_problem_full_shape_with_revision_patterns_and_leetcode(session, user, t
         "difficulty": "Easy",
         "status": "Done",
         "due": False,
+        "overdue": False,
         "statement": "Find two numbers that add to target.",
         "exIn": "[2,7,11,15], 9",
         "exOut": "[0,1]",
@@ -529,11 +530,13 @@ def test_flashcard_without_revision_exact_defaults():
     )
     assert serialize_flashcard(card, None, NOW) == {
         "id": "f1",
+        "deckId": None,
+        "deckName": None,
         "type": "concept",
         "tag": "arrays",
         "front": "What is a heap?",
         "back": "A tree-based priority structure.",
-        "due": False,
+        "due": True,
         "easeFactor": 2.5,
         "intervalDays": 0,
         "repetitions": 0,
@@ -575,6 +578,8 @@ def test_flashcard_with_overdue_revision(session, user):
 
     assert serialize_flashcard(card, rev, NOW) == {
         "id": "f2",
+        "deckId": None,
+        "deckName": None,
         "type": "problem",
         "tag": "dp",
         "front": "Climbing stairs?",

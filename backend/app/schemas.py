@@ -1,5 +1,21 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 from pydantic.alias_generators import to_camel
+
+
+def _require_text(v: str | None, label: str) -> str | None:
+    """Strip a text field and reject blank values.
+
+    ``None`` passes through untouched: on a PATCH model it means "field omitted"
+    (or explicitly null), which the services read as "leave this alone". Calling
+    ``.strip()`` on it would raise AttributeError, which pydantic does *not*
+    convert into a 422 — it would surface as a 500.
+    """
+    if v is None:
+        return None
+    text = v.strip()
+    if not text:
+        raise ValueError(f"{label} cannot be blank")
+    return text
 
 
 class CamelModel(BaseModel):
@@ -140,4 +156,51 @@ class CustomListUpdate(CamelModel):
 class CustomListProblemsUpdate(CamelModel):
     problem_ids: list[str] = []
 
+
+class DeckCreate(CamelModel):
+    name: str
+    description: str | None = None
+    color: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: str | None) -> str | None:
+        return _require_text(v, "Deck name")
+
+
+class DeckUpdate(CamelModel):
+    name: str | None = None
+    description: str | None = None
+    color: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: str | None) -> str | None:
+        return _require_text(v, "Deck name")
+
+
+class FlashcardCreate(CamelModel):
+    front: str
+    back: str
+    deck_id: str | None = None
+    type: str = "concept"
+    tag: str = "General"
+
+    @field_validator("front", "back")
+    @classmethod
+    def text_not_blank(cls, v: str | None, info: ValidationInfo) -> str | None:
+        return _require_text(v, f"Flashcard {info.field_name}")
+
+
+class FlashcardUpdate(CamelModel):
+    front: str | None = None
+    back: str | None = None
+    deck_id: str | None = None
+    type: str | None = None
+    tag: str | None = None
+
+    @field_validator("front", "back")
+    @classmethod
+    def text_not_blank(cls, v: str | None, info: ValidationInfo) -> str | None:
+        return _require_text(v, f"Flashcard {info.field_name}")
 
