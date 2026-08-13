@@ -251,17 +251,6 @@ export default function Sidebar({
             </span>
             <span className="text-fs-12 text-text-muted">{streakDays === 1 ? 'day' : 'days'}</span>
           </div>
-          <div className="flex gap-sp-4 mt-2.5 items-center">
-            {/* Last seven days of the streak: lit bars = real streak days. */}
-            {Array.from({ length: 7 }, (_, i) => (
-              <div
-                key={i}
-                className={`w-sp-7 h-sp-14 rounded-sm ${
-                  i >= 7 - Math.min(streakDays ?? 0, 7) ? 'bg-accent' : 'bg-bg-dot-empty'
-                }`}
-              />
-            ))}
-          </div>
         </div>
       )}
 
