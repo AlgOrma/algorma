@@ -22,12 +22,12 @@ const CollapseIcon = ({ flipped = false }) => (
 export default function Sidebar({
   activeScreen,
   onNavigate,
-  problemsCount = 142,
+  problemsCount = 0,
   customListsCount = 0,
-  templatesCount = 24,
-  reviseCount = 5,
-  flashcardsCount = 6,
-  streakDays = 12,
+  templatesCount = 0,
+  reviseCount = 0,
+  flashcardsCount = 0,
+  streakDays = null,
   user = null,
   onEditProfile,
   collapsed = false,
@@ -161,18 +161,21 @@ export default function Sidebar({
       <div className={`flex flex-col gap-1.25 ${collapsed ? 'px-2.5' : 'px-3.5'}`}>
         {navItems.filter((item) => !item.hidden).map((item) => {
           const isActive = activeScreen === item.id || (item.id === 'problems' && activeScreen === 'detail');
-          const color = isActive ? 'var(--color-text-main)' : 'var(--color-text-muted)';
+          // Active nav is "powered on" — accent-colored per DESIGN.md's nav spec.
+          const color = isActive ? 'var(--color-accent-text)' : 'var(--color-text-muted)';
 
           return (
-            <div
+            <a
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              href={`/${item.id}`}
+              onClick={(e) => { e.preventDefault(); onNavigate(item.id); }}
+              aria-current={isActive ? 'page' : undefined}
               title={collapsed ? item.label : undefined}
               className={`flex items-center py-2.5 rounded-card-btn text-fs-14 font-medium cursor-pointer transition-all duration-150 border overflow-hidden ${
                 collapsed ? 'justify-center px-0' : 'gap-sp-11 px-sp-11'
               } ${
                 isActive
-                  ? 'bg-white/10 border-white/5 text-white'
+                  ? 'bg-white/10 border-white/5 text-accent-text'
                   : 'bg-transparent border-transparent text-text-muted hover:text-white hover:bg-white/5'
               }`}
             >
@@ -187,7 +190,7 @@ export default function Sidebar({
                   )}
                 </>
               )}
-            </div>
+            </a>
           );
         })}
       </div>
@@ -195,42 +198,47 @@ export default function Sidebar({
       {/* Bottom group: profile card + streak widget */}
       <div className={`mt-auto flex flex-col gap-sp-10 ${collapsed ? 'px-2.5 items-center' : 'px-3.5'}`}>
 
-      {/* Profile card — opens the edit-profile screen */}
-      <div
+      {/* Profile card — opens the edit-profile screen. Ring instead of border:
+          the global button reset strips border utilities on <button>. */}
+      <button
+        type="button"
         onClick={onEditProfile}
         title={collapsed ? `${user?.name || 'Your profile'} — edit profile` : 'Edit profile'}
-        className={`flex items-center rounded-card-sm bg-bg-card border border-border-card cursor-pointer transition-colors hover:border-border-btn-hover overflow-hidden ${
+        className={`flex items-center rounded-card-sm bg-bg-card ring-1 ring-border-card cursor-pointer transition-shadow hover:ring-border-btn-hover text-left overflow-hidden ${
           collapsed ? 'p-1.5 justify-center' : 'gap-sp-10 px-2.5 py-sp-9 w-full'
         }`}
       >
-        <div className="w-[30px] h-[30px] flex-none rounded-md bg-accent flex items-center justify-center font-bold text-fs-13 text-white">
+        <span className="w-[30px] h-[30px] flex-none rounded-md bg-accent flex items-center justify-center font-bold text-fs-13 text-white">
           {userInitial}
-        </div>
+        </span>
         {!collapsed && (
           <>
-            <div className="min-w-0 flex-1">
-              <div className="text-fs-13 font-semibold text-text-main whitespace-nowrap overflow-hidden text-ellipsis">
+            <span className="min-w-0 flex-1 block">
+              <span className="block text-fs-13 font-semibold text-text-main whitespace-nowrap overflow-hidden text-ellipsis">
                 {user?.name || 'Your profile'}
-              </div>
-              <div className="font-mono text-fs-10 text-text-muted mt-sp-1">
+              </span>
+              <span className="block font-mono text-fs-10 text-text-muted mt-sp-1">
                 goal · {user?.dailyGoal ?? 10}/day
-              </div>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--color-border-accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              </span>
+            </span>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12.5 4.5l3 3" />
               <path d="M4 16.5l-.7.2.2-.7L13 6.5l.5-.5 3 3-.5.5-8.5 8.5z" />
             </svg>
           </>
         )}
-      </div>
+      </button>
 
-      {/* Current Streak Widget — the rail has no room for it. */}
+      {/* Current Streak Widget — server stats; em dash while loading/offline.
+          Collapsed to a bare number: the rail has no room for the full card. */}
       {collapsed ? (
         <div
-          title={`Current streak · ${streakDays} ${streakDays === 1 ? 'day' : 'days'}`}
+          title={streakDays === null
+            ? 'Current streak unavailable'
+            : `Current streak · ${streakDays} ${streakDays === 1 ? 'day' : 'days'}`}
           className="w-full py-1.5 rounded-card-sm bg-bg-card border border-border-card font-mono text-fs-12 font-semibold text-text-main text-center"
         >
-          {streakDays}
+          {streakDays ?? '—'}
         </div>
       ) : (
         <div className="p-3.5 rounded-card-sm bg-bg-card border border-border-card">
@@ -239,7 +247,7 @@ export default function Sidebar({
           </div>
           <div className="flex items-baseline gap-1.5 mt-sp-5">
             <span className="font-mono text-fs-23 font-semibold text-text-main">
-              {streakDays}
+              {streakDays ?? '—'}
             </span>
             <span className="text-fs-12 text-text-muted">{streakDays === 1 ? 'day' : 'days'}</span>
           </div>
@@ -249,7 +257,7 @@ export default function Sidebar({
               <div
                 key={i}
                 className={`w-sp-7 h-sp-14 rounded-sm ${
-                  i >= 7 - Math.min(streakDays, 7) ? 'bg-accent' : 'bg-bg-dot-empty'
+                  i >= 7 - Math.min(streakDays ?? 0, 7) ? 'bg-accent' : 'bg-bg-dot-empty'
                 }`}
               />
             ))}
