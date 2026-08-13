@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Checklist from '../components/common/Checklist';
@@ -8,8 +8,16 @@ import CustomListsModal from '../components/common/CustomListsModal';
 import * as api from '../api';
 import { FEATURES } from '../features';
 import { formatMarkdown } from '../components/common/formatMarkdown';
+import useLocalStorage from '../hooks/useLocalStorage';
+import useDismissOnOutside from '../hooks/useDismissOnOutside';
+
 
 const LANGUAGES = ['Python', 'JavaScript', 'Java', 'C++', 'Go', 'Rust', 'TypeScript'];
+
+// Split-pane bounds, as a percentage of the workspace width.
+const SPLIT_MIN = 26;
+const SPLIT_MAX = 72;
+const SPLIT_DEFAULT = 46;
 
 export default function ProblemDetail({
   problem,
@@ -46,7 +54,8 @@ export default function ProblemDetail({
 
   // Dropdown menu state and ref
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+  const menuRef = useDismissOnOutside(isMenuOpen, closeMenu);
 
   // Flashcard modal state
   const [isFlashcardModalOpen, setIsFlashcardModalOpen] = useState(false);
@@ -86,18 +95,45 @@ export default function ProblemDetail({
     }
   };
 
-  // Close dropdown on click outside
+  // Split pane. The user's chosen ratio outlives the session because the right
+  // width depends on their monitor, not on the problem.
+  const [splitPct, setSplitPct] = useLocalStorage('dsa_detail_split_pct', SPLIT_DEFAULT);
+  const [isResizing, setIsResizing] = useState(false);
+  const splitContainerRef = useRef(null);
+
+  // Drag the seam between the statement and the editor.
+  const handleResizeStart = (e) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setIsResizing(true);
+  };
+
+  const handleResizeMove = (e) => {
+    if (!isResizing || !splitContainerRef.current) return;
+    const rect = splitContainerRef.current.getBoundingClientRect();
+    if (!rect.width) return;
+    const pct = ((e.clientX - rect.left) / rect.width) * 100;
+    setSplitPct(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, Math.round(pct * 10) / 10)));
+  };
+
+  // Release is watched on the window, not the handle: if pointer capture is
+  // lost or the button comes up off the element, the handle must still drop
+  // out of its dragging state rather than staying lit.
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
+    if (!isResizing) return undefined;
+    const stop = () => setIsResizing(false);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+    window.addEventListener('blur', stop);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      window.removeEventListener('blur', stop);
     };
-  }, []);
+  }, [isResizing]);
+
+  const nudgeSplit = (delta) =>
+    setSplitPct((p) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, p + delta)));
 
   // Load problem details into local states
   useEffect(() => {
@@ -445,7 +481,10 @@ export default function ProblemDetail({
       </div>
 
       {/* Split Pane Container */}
-      <div className="flex-1 w-full flex overflow-hidden min-h-0 relative">
+      <div
+        ref={splitContainerRef}
+        className={`flex-1 w-full flex overflow-hidden min-h-0 relative ${isResizing ? 'cursor-col-resize' : ''}`}
+      >
         
         {/* Toast Notification */}
         {toastMessage && (
@@ -458,7 +497,10 @@ export default function ProblemDetail({
         )}
 
         {/* LEFT PANE (Problem Details) */}
-        <div className="w-[45%] h-full border-r border-border-main flex flex-col bg-[#080808] min-w-[350px]">
+        <div
+          style={{ flexBasis: `${splitPct}%` }}
+          className="h-full flex-none grow-0 shrink flex flex-col bg-[#080808] min-w-[300px]"
+        >
           {/* Tab bar */}
           <div className="flex bg-[#000] border-b border-border-muted shrink-0 text-fs-11 font-mono tracking-wider text-text-muted">
             <button
@@ -780,6 +822,37 @@ export default function ProblemDetail({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Drag the seam to give either side more room. Double-click resets;
+            arrow keys nudge it once focused. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the problem panel"
+          aria-valuenow={Math.round(splitPct)}
+          aria-valuemin={SPLIT_MIN}
+          aria-valuemax={SPLIT_MAX}
+          tabIndex={0}
+          onPointerDown={handleResizeStart}
+          onPointerMove={handleResizeMove}
+          onDoubleClick={() => setSplitPct(SPLIT_DEFAULT)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); nudgeSplit(-2); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); nudgeSplit(2); }
+          }}
+          title="Drag to resize · double-click to reset"
+          className={`group relative w-[7px] shrink-0 cursor-col-resize touch-none flex items-center justify-center outline-none ${
+            isResizing ? 'bg-accent/12' : 'hover:bg-accent/8 focus-visible:bg-accent/12'
+          }`}
+        >
+          <span
+            className={`w-px h-full transition-colors duration-150 ${
+              isResizing
+                ? 'bg-accent'
+                : 'bg-border-main group-hover:bg-accent/60 group-focus-visible:bg-accent'
+            }`}
+          />
         </div>
 
         {/* RIGHT PANE (Code Playground) */}

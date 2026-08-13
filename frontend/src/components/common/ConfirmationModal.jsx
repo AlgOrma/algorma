@@ -35,7 +35,7 @@ export default function ConfirmationModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-[#080808] border-t border-border-subtle flex justify-end gap-3">
+        <div className="px-6 py-4 bg-bg-card border-t border-border-subtle flex justify-end gap-3">
           <Button variant="ghost" onClick={onCancel} size="sm">
             {cancelLabel}
           </Button>
